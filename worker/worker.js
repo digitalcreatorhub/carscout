@@ -274,6 +274,19 @@ const SS_LABELS = [
   ['mileage', /^(nobraukums|пробег|mileage)$/], ['color', /^(kr[aā]sa|цвет|colou?r)$/], ['body', /^(virsb[uū]ves tips|тип кузова|body type)$/],
   ['vin', /^(vin|vin kods|vin код)$/]
 ];
+/* The ad text sits in #msg_div_msg together with the photo gallery (nested divs), so we cannot stop at the first </div>.
+   Take everything up to the options table (or the footer markers) instead. */
+function ssDescription(html) {
+  const m = /id=["']msg_div_msg["'][^>]*>/i.exec(html);
+  if (!m) return '';
+  const start = m.index + m[0].length;
+  let end = start + 30000;
+  [/<table[^>]*class=["'][^"']*options_list/i, /class=["']ads_opt_name["']/i, /id=["']msg_div_msg_end/i, /class=["'](?:msg_footer|ads_contacts|d1)["']/i, /id=["']contacts_table/i].forEach(function (re) {
+    const sub = html.slice(start, end); const x = re.exec(sub);
+    if (x && x.index > 40) end = start + x.index;
+  });
+  return strip(html.slice(start, end)).slice(0, 8000);
+}
 function parseSsListing(html, url) {
   const L = {};
   const re = /<td[^>]*class="ads_opt_name"[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*class="ads_opt"[^>]*>([\s\S]*?)<\/td>/gi;
@@ -285,14 +298,13 @@ function parseSsListing(html, url) {
   }
   const pm = html.match(/class="ads_price"[^>]*>([\s\S]*?)<\/(?:td|span|div)>/i);
   const price = pm ? toNum(strip(pm[1])) : null;
-  const descM = html.match(/id="msg_div_msg"[^>]*>([\s\S]*?)<\/div>/i);
-  const desc = descM ? strip(descM[1]) : '';
+  const desc = ssDescription(html);
   const eng = parseEngine(L.engine || '');
   const m2 = url.match(/\/msg\/[a-z]{2}\/transport\/cars\/([^/]+)\/([^/]+)\//);
   const listing = {
     make: L.make || null, model: L.model || null, year: parseYear(L.year), mileage_km: L.mileage ? parseKm(L.mileage) : null,
     asking_price: price, fuel: eng.fuel || normFuel(L.engine) || null, engine_l: eng.engine_l || null, gearbox: normGear(L.gearbox), color: L.color || null,
-    body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 1500)
+    body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 8000)
   };
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model;
   return { listing: listing, hints: { ss_path: m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };
