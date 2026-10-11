@@ -489,6 +489,11 @@ async function hComps(env, q) {
     let items = [];
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseAs24List(p.text, 'https://www.autoscout24.com/lst/')); });
     items = dedupe(items);
+    if (/\/lst\//.test(pages[0].url || '') === false || (pages[0].url || '').toLowerCase().indexOf('/lst/' + mk) === -1) return json(env, { ok: false, source: 'as24de', error: 'not_found', message: 'AutoScout24 redirected away from this make/model.', searchUrl: search });
+    if (year && items.length >= 10) {
+      const inY = items.filter(function (i) { return i.year == null || Math.abs(i.year - year) <= 1; }).length;
+      if (inY / items.length < 0.5) return json(env, { ok: false, source: 'as24de', error: 'filters_ignored', message: 'AutoScout24 did not apply the model/year filters.', searchUrl: search });
+    }
     if (usedTrim) items.forEach(function (i) { i.trimMatch = usedTrim; });
     return json(env, { ok: items.length > 0, source: 'as24de', region: 'DE', label: 'AutoScout24 (DE)', searchUrl: search, trimFilter: usedTrim || null, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
   }

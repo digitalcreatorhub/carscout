@@ -909,6 +909,7 @@ function normApi(u){u=String(u||'').trim().replace(/\/+$/,''); if(!u) return '';
 function errText(j){
   var e=j&&j.error;
   if(e==='blocked') return L('сайт не отдал страницу серверу','the site refused the server');
+  if(e==='filters_ignored') return L('сайт проигнорировал фильтры модели и года, результаты не годятся','the site ignored the model and year filters, the results are not usable');
   if(e==='not_found') return L('не найдено','not found');
   if(e==='parse_failed') return L('страница загрузилась, но объявления не распознаны','page loaded but ads were not recognised');
   if(e==='network') return L('сервер недоступен. Обновите страницу (Ctrl+F5), отключите блокировщик рекламы для этого сайта или проверьте интернет','server unreachable. Reload the page (Ctrl+F5), turn off ad blockers for this site or check the internet connection');
@@ -1107,7 +1108,13 @@ function compute(car,results,f,notes){
       var pr=pickRelevant((j.items||[]).map(function(i){return Object.assign({src:r.label,region:r.region},i)}),car);
       row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote;
       row.stats=compStats(pr.items.map(function(i){return {price:i.price,km:i.km}}),{km:car.km});
-      row.fair=fairOf(row.stats); totalUsed+=row.n; all=all.concat(pr.items);
+      row.fair=fairOf(row.stats);
+      if(row.fair&&row.n>=3&&car.price>0&&(row.fair.mid<car.price*0.45||row.fair.mid>car.price*2.2)){
+        var ratio=row.fair.mid>car.price?row.fair.mid/car.price:car.price/row.fair.mid;
+        row.ok=false; row.suspect=true; row.fair=null; row.stats=null; row.items=[]; row.n=0;
+        row.err=L('Результат выглядит ошибочным и не учитывается: найденные цены отличаются от вашей в '+ratio.toFixed(1).replace('.',',')+' раза (возможно, сайт показал другую модель или версию). Нажмите «Открыть» и проверьте вручную.','The result looks wrong and is ignored: the prices found differ from yours by a factor of '+ratio.toFixed(1)+' (the site may have shown another model or version). Press “Open” and check manually.');
+      }
+      totalUsed+=row.n; all=all.concat(row.items);
     }
     regions.push(row);
   });
