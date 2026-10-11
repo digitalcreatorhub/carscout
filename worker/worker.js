@@ -113,10 +113,10 @@ function as24Model(mk, md) {
   if (mk === 'bmw') { const m = md.match(/^(\d{3})[a-z]*$/); if (m) return m[1]; }
   return md;
 }
-var MAKE_BOUNDED={'MG':1,'NIO':1,'Ora':1,'BYD':1,'GWM':1,'DS':1,'Lynk & Co':1,'Haval':1,'Omoda':1,'Jaecoo':1,'Lotus':1,'Chery':1,'Geely':1,'Zeekr':1,'XPeng':1,'Leapmotor':1,'Dongfeng':1,'Voyah':1,'Maxus':1,'Great Wall':1};
+var MAKE_BOUNDED={'GW':1,'MG':1,'NIO':1,'Ora':1,'BYD':1,'GWM':1,'DS':1,'Lynk & Co':1,'Haval':1,'Omoda':1,'Jaecoo':1,'Lotus':1,'Chery':1,'Geely':1,'Zeekr':1,'XPeng':1,'Leapmotor':1,'Dongfeng':1,'Voyah':1,'Maxus':1,'Great Wall':1};
 function normMakeName(mk){
   if(/^vw$/i.test(mk)) return 'Volkswagen'; if(/^citroen$/i.test(mk)) return 'Citroën'; if(/^skoda$/i.test(mk)) return 'Škoda'; if(/^mercedes$/i.test(mk)) return 'Mercedes-Benz';
-  if(/^(great wall|ora)$/i.test(mk)) return 'GWM'; if(/^xpeng$/i.test(mk)) return 'XPeng'; return mk;
+  if(/^(great wall|gw|ora)$/i.test(mk)) return 'GWM'; if(/^xpeng$/i.test(mk)) return 'XPeng'; return mk;
 }
 function findMake(t){
   var lt=String(t||'').toLowerCase(), best=null;
@@ -124,7 +124,7 @@ function findMake(t){
     var l=mk.toLowerCase(), i=-1;
     if(MAKE_BOUNDED[mk]){ var m=new RegExp('(^|[^a-z0-9])'+l.replace(/[.*+?^${}()|[\]\\&]/g,'\\$&')+'(?![a-z0-9])').exec(lt); if(m) i=m.index+m[1].length; }
     else i=lt.indexOf(l);
-    if(i>-1&&(!best||mk.length>best.mk.length)) best={mk:mk,i:i};
+    if(i>-1&&(!best||i<best.i||(i===best.i&&mk.length>best.mk.length))) best={mk:mk,i:i};
   });
   return best;
 }
@@ -319,7 +319,7 @@ function walkListings(node, base, out, depth) {
 /* ---------------- site parsers ---------------- */
 const SS_LABELS = [
   ['make', /^(marka|марка|make)$/], ['model', /^(modelis|модель|model)$/], ['year', /^(izlaiduma gads|год выпуска|year)$/],
-  ['engine', /^(dzin[eē]js|двигатель|engine)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission)$/],
+  ['engine', /^(dzin[eē]js|dzin[eē]ja tips|двигатель|тип двигателя|engine|engine type)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission)$/],
   ['mileage', /^(nobraukums|пробег|mileage)$/], ['color', /^(kr[aā]sa|цвет|colou?r)$/], ['body', /^(virsb[uū]ves tips|тип кузова|body type)$/],
   ['vin', /^(vin|vin kods|vin код)$/]
 ];
@@ -353,12 +353,15 @@ function parseSsListing(html, url) {
   const listing = {
     make: L.make || null, model: L.model || null, year: parseYear(L.year), mileage_km: L.mileage ? parseKm(L.mileage) : null,
     asking_price: price, fuel: eng.fuel || normFuel(L.engine) || fuelEarliest(desc.slice(0, 1200)) || null, engine_l: eng.engine_l || null, gearbox: normGear(L.gearbox), color: L.color || null,
-    body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 8000),
+    model_raw: L.model || null, body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 8000),
     lpg: hasLpg(L.engine || '') || hasLpg(desc.slice(0, 3000))
   };
-  const OTHER_MAKE = /^(other|others|citas?|citi|cita marka|другая|другие|прочие|прочее|иная|—|-)$/i;
+  const OTHER_MAKE = /^(other|others|cit[sai]s?|citas? marka|citas markas|citi|другая|другие|прочие|прочее|иная|—|-)$/i;
   if (!listing.make || OTHER_MAKE.test(listing.make)) {
-    const g = guessMakeModel([listing.model, desc.slice(0, 500)].join(' '));
+    const pageTitle = strip((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '');
+    let g = guessMakeModel(listing.model || '');
+    if (!g.make) g = guessMakeModel(pageTitle);
+    if (!g.make) g = guessMakeModel(desc.slice(0, 500));
     if (g.make) { listing.make = g.make; listing.model = g.model || listing.model; } else listing.make = null;
   }
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model;
