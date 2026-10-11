@@ -1157,6 +1157,7 @@ async function run(){
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
+    car.allText=[car.title,car.desc,f.text,ocrText].join(' ');
     /* petrol + gas (LPG): compared as petrol, but shown and flagged separately */
     if(f.fuel){ car.lpg=(f.fuel==='lpg'); }
     else car.lpg=!!(car.lpg||car.fuel==='lpg'||((!car.fuel||car.fuel==='petrol')&&hasLpg([car.title,(car.desc||'').slice(0,3000),f.text,ocrText].join(' '))));
@@ -1363,7 +1364,6 @@ function secVerdict(v){
   if(tn&&tn.mode==='same') mk+='<li>'+esc(L('Сравнение только с той же комплектацией ('+mine+'): '+tn.n+' объявл.','Compared only with the same trim ('+mine+'): '+tn.n+' ads'))+'</li>';
   else if(tn&&tn.mode==='few') mk+='<li>'+esc(L('Комплектация '+mine+': точных аналогов мало ('+tn.n+'), сравнение идёт с более широкой выборкой и может быть неточным.','Trim '+mine+': few exact matches ('+tn.n+'), so the comparison uses a wider sample and may be less accurate.'))+'</li>';
   else if(tn&&tn.mode==='plain') mk+='<li>'+esc(L('Версии с «спортивными» пакетами (R-Line, AMG и т. п.) из сравнения исключены.','Versions with sport packages (R-Line, AMG etc.) were excluded from the comparison.'))+'</li>';
-  if(v.car.lpg) mk+='<li>'+esc(L('Газовое оборудование (LPG): сравнение идёт с бензиновыми аналогами. Проверьте, что установка оформлена в техпаспорте, когда истекает срок баллона и когда последний раз обслуживали ГБО: это влияет на цену.','Gas equipment (LPG): the comparison uses petrol cars. Check that the installation is registered in the vehicle papers, when the cylinder expires and when the system was last serviced: it affects the price.'))+'</li>';
   var tips='';
   if(v.fair&&v.car.price>0){
     var P=v.car.price, F=v.fair, txt;
@@ -1383,7 +1383,7 @@ function secVerdict(v){
   return '<section class="sec" id="sec-verdict"><div class="vhead"><h3 class="sh">'+esc(L('Вердикт по цене','Price verdict'))+'</h3><span class="pill '+(v.conf==='high'?'high':v.conf==='medium'?'medium':'low')+'">'+esc(L('Достоверность: ','Confidence: ')+conf)+'</span></div>'+
     '<div class="vmain"><div class="vplate '+k+'"><span class="vscore">'+(v.score!=null?v.score.toFixed(1).replace('.',','):'–')+'<small>/10</small></span><span class="vk">'+esc(nm)+'</span><span class="vlv">'+esc(LV_TERM[k])+'</span>'+
     (v.ver.delta!=null?'<span class="vd">'+esc(pct(v.ver.delta))+' '+esc(L('к рынку','vs market'))+'</span>':'')+'</div>'+
-    '<div class="vtext"><ul class="dots">'+mk+tips+'</ul></div></div>'+
+    '<div class="vtext"><ul class="dots">'+mk+'</ul></div></div>'+
     '<div class="sumbox"><p>'+esc(s[0])+'</p><p class="lv"><span class="lvtag">LV</span>'+esc(s[1])+'</p></div>'+ruler(v)+
     '<p class="hint" style="margin-top:8px">'+esc(L('Это цены предложений на момент проверки. Оценка: 10 значит сильно ниже рынка без признаков подвоха, 0 значит сильно выше рынка.','These are asking prices at the time of the check. Score: 10 means well below the market with no warning signs, 0 means well above it.'))+'</p></section>';
 }
@@ -1445,6 +1445,7 @@ function secCalc(v){
     '<p class="cdiff" id="k-diff" style="margin-top:12px"></p><p class="hint" id="k-warn"></p><p class="hint">'+esc(L('Доставка 400–700 € типична для дороги из Германии, это допущение. Сборы и налог зависят от машины: возьмите их из калькуляторов на csdd.lv. Пустое поле считается нулём, поэтому итог по Германии может быть занижен.','Transport of €400–700 is typical for Germany to Latvia and is an assumption. Fees and tax depend on the car: take them from the calculators on csdd.lv. An empty field counts as zero, so the Germany total may be understated.'))+'</p></section>';
 }
 function updateCalc(){
+  updateWhat();
   var g=function(id){var el=document.getElementById(id); return el?(parseInt((el.value||'').replace(/[^\d]/g,''),10)||0):0};
   if(!document.getElementById('k-lv')) return;
   var lv=g('k-lv'), de=g('k-de'), tot=de+g('k-tr')+g('k-rg')+g('k-tx');
@@ -1458,7 +1459,7 @@ function secSources(v){
   return '<section class="sec" id="sec-src"><h3 class="sh">'+esc(L('Источники','Sources'))+'</h3><ul class="res" style="margin-top:10px">'+v.regions.map(function(r){
     var u=r.url&&safeUrl(r.url);
     return '<li><b>'+esc(r.label)+'</b><span>'+esc(r.ok?(L('прочитано объявлений: ','ads read: ')+r.total):(r.err||''))+'</span>'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть поиск','Open search'))+'</a>':'')+'</li>';
-  }).join('')+'</ul><p class="mini" style="margin-top:8px">'+esc(L('Проверено: ','Checked: ')+v.at.toLocaleString(S.lang==='ru'?'ru-RU':'en-GB'))+'</p></section>';
+  }).join('')+'</ul><p class="mini" style="margin-top:8px">'+esc(L('Проверено: ','Checked: ')+v.at.toLocaleString(S.lang==='ru'?'ru-RU':'en-GB'))+'</p><div class="btns" style="margin-top:12px"><button class="btn sm" type="button" data-act="report">'+esc(L('Сообщить о неточности','Report an inaccuracy'))+'</button></div><p class="hint" style="margin-top:6px">'+esc(L('Копирует отчёт о проверке: вставьте его в чат, и я разберу, что пошло не так.','Copies a report of this check: paste it into the chat to find out what went wrong.'))+'</p></section>';
 }
 function secSearchLinks(v){
   var c=v.car, q=encodeURIComponent([c.make,c.model,c.year].filter(Boolean).join(' '));
@@ -1469,13 +1470,157 @@ function secSearchLinks(v){
 function secNoApi(){
   return '<div class="banner"><b>'+esc(L('Сервер не подключён','Server not connected'))+'</b><span>'+esc(L('Реальные цены с сайтов можно получить только через ваш бесплатный сервер (Cloudflare Worker). Нажмите «Сервер» вверху и вставьте его адрес. Пока доступны разбор скриншота, текста и VIN.','Real prices from the sites need your free server (a Cloudflare Worker). Press “Server” at the top and paste its address. Meanwhile, screenshot, text and VIN reading work.'))+'</span></div>';
 }
+/* ---------- bargaining plan, risks/pluses, checklists, seller message, history links, bug report ---------- */
+function r100(n){ return Math.round(n/100)*100; }
+function planOf(v){
+  var P=v.car.price, F=v.fair; if(!(P>0)||!F) return null;
+  var offer, max=Math.min(P,r100(F.mid*1.03)), below=P<F.low;
+  if(below){ offer=r100(P*0.97); max=P; }
+  else if(P>F.mid) offer=Math.max(F.low,r100(F.mid*0.96));
+  else offer=Math.max(F.low,r100(P*0.96));
+  offer=Math.min(offer,max,P);
+  return {ask:P,offer:offer,max:max,mid:F.mid,below:below};
+}
+function secPlan(v){
+  var p=planOf(v); if(!p) return '';
+  var card=function(label,val,sub){ return '<div class="cbox"><h4>'+esc(label)+'</h4><div class="ctotal"><b>'+esc(eur(val))+'</b></div>'+(sub?'<p class="mini">'+esc(sub)+'</p>':'')+'</div>'; };
+  var note=p.below?L('Цена уже ниже рынка: торг почти не нужен, главное проверить историю и состояние.','The price is already below the market: little to negotiate, check the history and condition instead.')
+    :p.ask<=p.max?L('Цена в пределах рынка: можно просить небольшую скидку.','The price is within the market: you can ask for a small discount.')
+    :L('Цена выше рынка: есть запас для торга.','The price is above the market: there is room to negotiate.');
+  return '<section class="sec" id="sec-plan"><h3 class="sh">'+esc(L('План торга','Negotiation plan'))+'</h3><div class="calc" style="margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">'+
+    card(L('В объявлении','Asking'),p.ask,L('Справедливая цена по рынку: ','Market fair price: ')+eur(p.mid))+
+    card(L('Предложите','Offer'),p.offer,L('С чего начать разговор','Where to start'))+
+    card(L('Максимум','Maximum'),p.max,L('Выше платить невыгодно','Paying more is not worth it'))+'</div>'+
+    '<p class="hint" style="margin-top:10px">'+esc(note)+'</p>'+
+    '<div class="crow" style="margin-top:12px"><label for="k-what">'+esc(L('Если продавец согласится на цену, €','If the seller agrees to a price, €'))+'</label><input class="in num" id="k-what" type="text" inputmode="numeric" placeholder="'+esc(String(p.offer))+'"></div>'+
+    '<p class="cdiff" id="k-what-out" style="margin-top:8px"></p></section>';
+}
+function updateWhat(){
+  var el=document.getElementById('k-what'), out=document.getElementById('k-what-out'); if(!el||!out||!S.view) return;
+  var w=parseInt((el.value||'').replace(/[^\d]/g,''),10), v=S.view, P=v.car.price, F=v.fair;
+  if(!w){ out.textContent=''; return; }
+  var parts=[];
+  if(P>0){ var d=P-w; parts.push(d>0?L('Дешевле объявления на ','Below the ad by ')+eur(d)+' ('+(d/P*100).toFixed(1).replace('.',',')+'%)':d<0?L('Дороже объявления на ','Above the ad by ')+eur(-d):L('Как в объявлении','Same as the ad')); }
+  if(F){ var vd=verdictOf(w,F.mid); parts.push(L('к рынку: ','vs market: ')+pct(vd.delta)+' — '+VNAME[vd.key][S.lang==='ru'?0:1]); }
+  out.textContent=parts.join(' · ');
+}
+function flagsOf(v){
+  var c=v.car, risks=[], pros=[], now=new Date().getFullYear(), age=c.year?now-c.year:null, tx=String(c.allText||'');
+  var has=function(re){ return re.test(tx); }, add=function(a,ru,en){ a.push(L(ru,en)); };
+  /* mileage */
+  if(v.medKm!=null&&c.km!=null){ var dk=(c.km-v.medKm)/Math.max(1,v.medKm)*100;
+    if(dk>15) add(risks,'Пробег выше медианы аналогов на '+Math.round(dk)+'%','Mileage is '+Math.round(dk)+'% above the comparables median');
+    else if(dk<-15) add(pros,'Пробег ниже медианы аналогов на '+Math.round(-dk)+'%','Mileage is '+Math.round(-dk)+'% below the comparables median'); }
+  if(age>=2&&c.km!=null){ var py=c.km/age;
+    if(py>25000) add(risks,'Много для своего года: около '+Math.round(py/1000)+' тыс. км в год','High for its age: about '+Math.round(py/1000)+' thousand km per year');
+    else if(age>=5&&py<8000) add(pros,'Небольшой пробег для возраста (около '+Math.round(py/1000)+' тыс. км в год); подтвердите историей техосмотров','Low mileage for its age (about '+Math.round(py/1000)+' thousand km per year); confirm with the inspection history'); }
+  /* price */
+  if(v.ver&&v.ver.delta!=null&&v.fair){
+    if(v.ver.key==='high'||v.ver.key==='overpriced') add(risks,'Цена выше рынка на '+Math.round(v.ver.delta)+'%, есть запас для торга','The price is '+Math.round(v.ver.delta)+'% above the market, there is room to negotiate');
+    else if(v.ver.key==='too_cheap') add(risks,'Цена сильно ниже рынка: проверьте историю, пробег и документы','The price is far below the market: check the history, mileage and papers');
+    else if(v.ver.key==='good') add(pros,'Цена ниже рынка на '+Math.round(-v.ver.delta)+'%','The price is '+Math.round(-v.ver.delta)+'% below the market'); }
+  /* age, fuel, gearbox (general checks, not claims about this car) */
+  if(age!=null&&age>=12) add(risks,'Возраст '+age+' лет: проверьте кузов на коррозию, подвеску и резиновые детали','Age '+age+' years: check the body for rust, the suspension and rubber parts');
+  if(c.lpg) add(risks,'Газовое оборудование: проверьте оформление в документах, срок баллона и работу ГБО','Gas equipment: check the registration, the cylinder expiry and the system');
+  if(c.fuel==='diesel'&&((c.km||0)>180000||(age||0)>=9)) add(risks,'Дизель с большим пробегом или возрастом: проверьте сажевый фильтр, EGR и форсунки','Diesel with high mileage or age: check the particulate filter, EGR and injectors');
+  if(c.gear==='automatic'&&(c.km||0)>150000) add(risks,'Автомат с большим пробегом: узнайте, когда меняли масло в коробке','Automatic with high mileage: ask when the gearbox oil was changed');
+  /* VIN */
+  var d=decodeVin(c.vin||'');
+  if(d.complete){ add(pros,'VIN указан в объявлении','The VIN is stated in the listing');
+    if(c.year&&d.years&&d.years.length){ if(d.years.indexOf(c.year)>-1||d.years.indexOf(c.year-1)>-1) add(pros,'Год по VIN совпадает с годом в объявлении','The VIN model year matches the listing year'); else add(risks,'Год по VIN ('+d.years.join(' / ')+') не совпадает с годом в объявлении','The VIN model year ('+d.years.join(' / ')+') does not match the listing year'); } }
+  else add(risks,'VIN не указан: попросите фото таблички и сверьте с документами','No VIN: ask for a photo of the plate and compare it with the papers');
+  /* what the ad itself says */
+  if(has(/servisa\s+grāmat|apkalpošanas\s+grāmat|сервисн\w*\s+книж|сервисная\s+истор|service\s+(book|history|record)|scheckheft|serviss\s+vēstur/i)) add(pros,'В объявлении упомянута сервисная книга или история обслуживания','The listing mentions a service book or service history');
+  if(has(/garantij|гарантия|warranty|garantie/i)) add(pros,'В объявлении упомянута гарантия: уточните условия','The listing mentions a warranty: ask about the terms');
+  if(has(/pirmais\s+īpašnieks|1\.?\s*īpašnieks|первый\s+владелец|один\s+владелец|one\s+owner|first\s+owner|erste\s+hand/i)) add(pros,'Один владелец (по тексту объявления)','One owner (according to the listing text)');
+  var noAcc=has(/bez\s+avārij|nav\s+avārij|без\s+дтп|не\s+бит|unfallfrei|no\s+accident/i);
+  if(noAcc) add(pros,'В объявлении указано, что без аварий: проверьте осмотром','The listing says no accidents: verify by inspection');
+  else if(has(/pēc\s+avārij|после\s+(дтп|аварии)|битый|bitā|unfallwagen|beschädigt|damaged/i)) add(risks,'В тексте есть упоминание аварии или повреждений','The text mentions an accident or damage');
+  if(has(/bez\s+tehnisk|без\s+(то|техосмотра)|nav\s+tehnisk/i)) add(risks,'Возможно, нет действующего техосмотра: уточните','There may be no valid inspection: ask');
+  return {risks:risks,pros:pros};
+}
+function secFlags(v){
+  var f=flagsOf(v), list=function(a,cls,empty){ return '<ul class="dots '+cls+'" style="margin-top:8px">'+(a.length?a.map(function(x){return '<li>'+esc(x)+'</li>'}).join(''):'<li>'+esc(empty)+'</li>')+'</ul>'; };
+  return '<section class="sec" id="sec-flags"><h3 class="sh">'+esc(L('На что смотреть','What to look at'))+'</h3><div class="calc" style="margin-top:14px">'+
+    '<div class="cbox"><h4>'+esc(L('Риски','Risks'))+'</h4>'+list(f.risks,'bad',L('По данным объявления явных рисков не найдено. Это не гарантия: осмотр обязателен.','No obvious risks in the listing data. That is not a guarantee: an inspection is a must.'))+'</div>'+
+    '<div class="cbox"><h4>'+esc(L('Плюсы','Pros'))+'</h4>'+list(f.pros,'good',L('Явных плюсов в данных объявления не найдено.','No obvious pros in the listing data.'))+'</div></div>'+
+    '<p class="hint" style="margin-top:10px">'+esc(L('Список строится из цифр сравнения и текста самого объявления, а не из догадок о конкретной машине.','The list is built from the comparison numbers and the listing text itself, not from guesses about this particular car.'))+'</p></section>';
+}
+function checksOf(v){
+  var c=v.car, now=new Date().getFullYear(), age=c.year?now-c.year:null, tx=String(c.allText||''), q=[], i=[];
+  var hasBook=/servisa\s+grāmat|apkalpošanas\s+grāmat|сервисн\w*\s+книж|service\s+(book|history)|scheckheft/i.test(tx);
+  q.push(L(hasBook?'Можно посмотреть сервисную книгу и чеки на обслуживание?':'Есть ли чеки и сервисная книга на обслуживание?',hasBook?'Can I see the service book and the service receipts?':'Are there service receipts and a service book?'));
+  q.push(L('Сколько владельцев по документам?','How many owners according to the papers?'));
+  q.push(L('Были ли аварии или ремонт кузова, что красили?','Any accidents or body repairs, what was repainted?'));
+  q.push(L('Почему продаёте?','Why are you selling?'));
+  if(c.gear==='automatic') q.push(L('Когда менялось масло в коробке?','When was the gearbox oil changed?'));
+  if((c.km||0)>100000||(age||0)>=8) q.push(L('Когда менялся ремень или цепь ГРМ?','When was the timing belt or chain changed?'));
+  if(c.fuel==='diesel') q.push(L('Менялся ли сажевый фильтр, как проходит регенерация?','Was the particulate filter replaced, how does regeneration go?'));
+  if(c.lpg) q.push(L('Кто и когда установил ГБО, есть ли документы, когда истекает срок баллона?','Who installed the gas system and when, are there papers, when does the cylinder expire?'));
+  if(c.fuel==='hybrid'||c.fuel==='electric') q.push(L('Есть ли диагностика тяговой батареи?','Is there a traction battery diagnostic report?'));
+  q.push(L('Можно ли проверить авто на сервисе?','Can the car be checked at a workshop?'));
+  i.push(L('Сверить VIN на табличке, стекле и в документах','Compare the VIN on the plate, the glass and the papers'));
+  i.push(L('Прочитать ошибки по OBD','Read the OBD fault codes'));
+  i.push(L('Сверить пробег с историей техосмотров (csdd.lv)','Compare the mileage with the inspection history (csdd.lv)'));
+  i.push(L('Осмотреть кузов на следы ремонта: зазоры, оттенок краски, толщиномер','Inspect the body for repairs: gaps, paint shade, thickness gauge'));
+  i.push(L('Проверить шины: износ и год выпуска','Check the tyres: wear and manufacture year'));
+  i.push(L('Холодный запуск: дым, посторонние шумы, течи','Cold start: smoke, odd noises, leaks'));
+  i.push(L('Тест-драйв: руль, тормоза, коробка, вибрации','Test drive: steering, brakes, gearbox, vibration'));
+  if(c.lpg) i.push(L('Проверить дату баллона и переключение бензин/газ','Check the cylinder date and the petrol/gas switching'));
+  return {q:q,i:i};
+}
+function secChecks(v){
+  var c=checksOf(v), box=function(t,a){ return '<div class="cbox"><h4>'+esc(t)+'</h4><div class="stack" style="gap:10px">'+a.map(function(x){return '<label class="chk"><input type="checkbox"><span>'+esc(x)+'</span></label>'}).join('')+'</div></div>'; };
+  return '<section class="sec" id="sec-checks"><h3 class="sh">'+esc(L('Вопросы продавцу и осмотр','Questions for the seller and inspection'))+'</h3><div class="calc" style="margin-top:14px">'+box(L('Вопросы продавцу','Questions for the seller'),c.q)+box(L('Осмотр и проверки','Inspection and checks'),c.i)+'</div></section>';
+}
+function msgFor(v,lang){
+  var c=v.car, p=planOf(v), car=[c.make,c.model,c.year].filter(Boolean).join(' '), km=c.km!=null?fmt(c.km)+' km':'';
+  var T={ru:{hi:'Здравствуйте! ',a:'Интересует ваше объявление: ',m:'Сравнил с похожими машинами на рынке: типичная цена около ',k:'. С учётом пробега ',o:' могу предложить ',z:' €. Готов приехать на осмотр в ближайшие дни. Подойдёт ли такой вариант и можно ли посмотреть сервисную историю?',n:'Цена выглядит адекватной. Хотел бы приехать на осмотр: можно ли посмотреть сервисную историю и проверить авто на сервисе?'},
+    lv:{hi:'Labdien! ',a:'Mani interesē Jūsu sludinājums: ',m:'Salīdzināju ar līdzīgiem auto tirgū: tipiska cena ap ',k:'. Ņemot vērā nobraukumu ',o:' varu piedāvāt ',z:' €. Esmu gatavs atbraukt apskatīt auto tuvākajās dienās. Vai šāds variants Jums der un vai varu apskatīt servisa vēsturi?',n:'Cena šķiet adekvāta. Vēlētos atbraukt apskatīt auto: vai varu apskatīt servisa vēsturi un pārbaudīt auto servisā?'},
+    en:{hi:'Hello! ',a:'I am interested in your listing: ',m:'I compared it with similar cars on the market: the typical price is around ',k:'. Considering the mileage of ',o:' I can offer ',z:' €. I can come to see the car in the next few days. Would that work, and can I see the service history?',n:'The price looks fair. I would like to come and see the car: can I see the service history and have it checked at a workshop?'}}[lang]||null;
+  if(!T) return '';
+  var s=T.hi+T.a+car+'. ';
+  if(p&&p.offer<p.ask) return s+T.m+fmt(Math.round(p.mid))+' €'+(km?T.k+km:'')+','+T.o+fmt(p.offer)+T.z;
+  return s+T.n;
+}
+function secMsg(v){
+  var lang=S.lang==='ru'?'ru':'en', txt=msgFor(v,lang);
+  return '<section class="sec" id="sec-msg"><h3 class="sh">'+esc(L('Сообщение продавцу','Message to the seller'))+'</h3><div class="stack" style="margin-top:12px">'+
+    '<div class="crow" style="grid-template-columns:minmax(0,1fr) 140px"><label for="msg-lang">'+esc(L('Язык сообщения','Message language'))+'</label><select class="in" id="msg-lang"><option value="ru"'+(lang==='ru'?' selected':'')+'>Русский</option><option value="lv">Latviešu</option><option value="en"'+(lang==='en'?' selected':'')+'>English</option></select></div>'+
+    '<textarea class="in sm" id="msg-text" rows="5" style="min-height:120px">'+esc(txt)+'</textarea>'+
+    '<div class="btns"><button class="btn sm" type="button" data-act="copy-msg">'+esc(L('Копировать','Copy'))+'</button></div>'+
+    '<p class="hint">'+esc(L('Цифры в сообщении взяты из сравнения с рынком. Проверьте текст перед отправкой.','The numbers come from the market comparison. Check the text before sending.'))+'</p></div></section>';
+}
+function secHistory(v){
+  var c=v.car, d=decodeVin(c.vin||''), mk=function(label,url,tag){return '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+(tag?' <span class="mini">'+esc(tag)+'</span>':'')+'</a>'};
+  var links=[mk('csdd.lv','https://www.csdd.lv/',L('история техосмотров и пробег по номеру','inspection history and mileage by plate'))];
+  if(d.complete){ links.push(mk(L('Поиск VIN в Google','Search the VIN on Google'),'https://www.google.com/search?q='+encodeURIComponent(d.vin),L('прошлые объявления и фото','earlier ads and photos')));
+    links.push(mk('carVertical','https://www.carvertical.com/',L('платно','paid'))); links.push(mk('autoDNA','https://www.autodna.com/',L('платно','paid'))); }
+  return '<section class="sec" id="sec-history"><h3 class="sh">'+esc(L('Проверить историю','Check the history'))+'</h3><div class="links" style="margin-top:12px">'+links.join('')+'</div>'+
+    (d.complete?'<div class="btns" style="margin-top:12px"><button class="btn sm" type="button" data-act="copy-vin">'+esc(L('Копировать VIN','Copy the VIN'))+'</button></div>':'')+
+    '<p class="hint" style="margin-top:10px">'+esc(L('Приложение не читает эти сайты, а только открывает их. На csdd.lv сверьте пробег с прошлыми техосмотрами: расхождение — повод для вопросов продавцу.','The app does not read these sites, it only opens them. On csdd.lv compare the mileage with past inspections: a mismatch is a reason to question the seller.'))+'</p></section>';
+}
+function copyText(txt,okMsg){
+  var done=function(){ showStatus('ok',okMsg||L('Скопировано.','Copied.')); };
+  var fb=function(){ var t=document.createElement('textarea'); t.value=txt; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); done(); }catch(e){ showStatus('err',L('Не удалось скопировать: выделите текст вручную.','Could not copy: select the text manually.')); } document.body.removeChild(t); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done,fb); else fb();
+}
+function reportText(v){
+  var c=v.car, o=['CarScout report',new Date().toISOString(),'page: '+location.href.split('#')[0],'link: '+(c.url||'-'),
+    'car: '+JSON.stringify({make:c.make,model:c.model,year:c.year,km:c.km,price:c.price,fuel:c.fuel,lpg:!!c.lpg,gear:c.gear,vin:c.vin,trims:c.trims,trimCustom:c.trimCustom||'',title:c.title}),
+    'text: '+String(c.desc||'').replace(/\s+/g,' ').slice(0,400)];
+  (v.regions||[]).forEach(function(r){ o.push('region '+r.key+' '+r.region+': ok='+r.ok+' n='+r.n+'/'+r.total+(r.fair?' fair='+Math.round(r.fair.mid):'')+(r.suspect?' SUSPECT':'')+(r.err?' err='+r.err:'')+' '+(r.url||'')); });
+  (v.notes||[]).forEach(function(n){ o.push('note: '+n); });
+  return o.join('\n');
+}
+
 function render(){
   var v=S.view, out=$('#out'); if(!v){out.innerHTML='';return}
   var h=[];
   if(v.noApi) h.push(secNoApi());
   h.push(secFacts(v));
-  if(v.regions.length){ h.push(secVerdict(v)); h.push(secRegions(v)); h.push(secTrims(v)); h.push(secScatter(v)); h.push(secNear(v)); h.push(secCalc(v)); }
-  h.push(secVin(v));
+  if(v.regions.length){ h.push(secVerdict(v)); h.push(secPlan(v)); h.push(secFlags(v)); h.push(secRegions(v)); h.push(secTrims(v)); h.push(secScatter(v)); h.push(secNear(v)); h.push(secChecks(v)); h.push(secMsg(v)); h.push(secCalc(v)); }
+  h.push(secVin(v)); h.push(secHistory(v));
   if(v.regions.length) h.push(secSources(v));
   h.push(secSearchLinks(v));
   out.innerHTML=h.join('');
@@ -1512,10 +1657,13 @@ document.addEventListener('click',function(e){
   var a=b.getAttribute('data-act');
   if(a==='stop') stopRun();
   else if(a==='set-trim'){ var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')); }
+  else if(a==='copy-msg'){ var ta=$('#msg-text'); if(ta) copyText(ta.value,L('Сообщение скопировано.','Message copied.')); }
+  else if(a==='copy-vin'){ if(S.view&&S.view.car&&S.view.car.vin) copyText(S.view.car.vin,L('VIN скопирован.','VIN copied.')); }
+  else if(a==='report'){ if(S.view) copyText(reportText(S.view),L('Отчёт скопирован. Вставьте его в чат с Claude.','Report copied. Paste it into the chat with Claude.')); }
   else if(a==='rm-img'){ var im=S.images.splice(+b.getAttribute('data-i'),1)[0]; if(im) URL.revokeObjectURL(im.url); renderThumbs(); }
 });
 document.addEventListener('input',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); });
-document.addEventListener('change',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; });
+document.addEventListener('change',function(e){ if(e.target&&e.target.id==='msg-lang'&&S.view){ var t=$('#msg-text'); if(t) t.value=msgFor(S.view,e.target.value); } if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; });
 $('#intake').addEventListener('submit',function(e){e.preventDefault(); run();});
 $('#f-url').addEventListener('input',renderHints);
 $('#f-vin').addEventListener('input',renderVinLive);
