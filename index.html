@@ -851,7 +851,7 @@ function cleanMakeModel(make, model) {
 }
 
 /* ---------- trim / equipment (R-Line, AMG Line, M Sport ...) ---------- */
-var TRIMS=[['amg-line',/\bamg[\s\-]?line\b/i,1],['amg',/\bamg\b/i,1],['r-line',/\br[\s\-]?line\b/i,1],['m-sport',/\bm[\s\-]?sport|\bm[\s\-]?paket|\bm[\s\-]?package/i,1],['s-line',/\bs[\s\-]?line\b/i,1],
+var TRIMS=[['amg-line',/\bamg[\s\-]?line\b|амг[\s\-]?лайн/i,1],['amg',/\bamg\b|(^|[^а-яa-z])амг([^а-яa-z]|$)/i,1],['r-line',/\br[\s\-]?l[iī]n(?:e|ija|ijas)?\b|(^|[^а-я])р[\s\-]?лайн|(^|[^а-я])р[\s\-]?лин/i,1],['m-sport',/\bm[\s\-]?sport|\bm[\s\-]?paket|\bm[\s\-]?package|(^|[^а-я])м[\s\-]?спорт/i,1],['s-line',/\bs[\s\-]?l[iī]n(?:e|ija)?\b|(^|[^а-я])с[\s\-]?лайн/i,1],
   ['gti/gtd/gte',/\bgt[ide]\b/i,1],['rs',/\bRS[\s\-]?\d?\b/,1],['st-line',/\bst[\s\-]?line\b/i,1],['fr',/\bFR\b/,1],['monte carlo',/monte[\s\-]?carlo/i,1],['l&k',/laurin|\bl&k\b/i,1],['sportline',/sport[\s\-]?line\b/i,1],
   ['black edition',/black[\s\-]?edition/i,1],['avantgarde',/avantgarde/i,1],['elegance',/\belegance\b/i,0],['highline',/\bhighline\b/i,0],['comfortline',/\bcomfortline\b/i,0],['trendline',/\btrendline\b/i,0]];
 function detectTrim(text){
@@ -1124,13 +1124,14 @@ function summaryText(v){
 }
 function secFacts(v){
   var c=v.car, kv=[], add=function(k,val){ if(val!=null&&val!=='') kv.push([k,val]) };
-  add(L('Год','Year'),c.year); add(L('Пробег','Mileage'),c.km!=null?fmt(c.km)+' km':null); add(L('Топливо','Fuel'),c.fuel); add(L('Коробка','Gearbox'),c.gear); add('VIN',c.vin); add(L('Источник','Source'),c.site);
+  add(L('Год','Year'),c.year); add(L('Пробег','Mileage'),c.km!=null?fmt(c.km)+' km':null); add(L('Топливо','Fuel'),c.fuel); add(L('Коробка','Gearbox'),c.gear); add('VIN',c.vin); add(L('Комплектация','Trim'),(c.trims&&c.trims.length)?c.trims.join(', '):L('не определена','not detected')); add(L('Источник','Source'),c.site);
   var img=c.image&&safeUrl(c.image)?'<img class="pthumb" src="'+esc(safeUrl(c.image))+'" alt="" referrerpolicy="no-referrer" loading="lazy">':'';
   var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
   var link=c.url&&safeUrl(c.url)?'<a class="sbtn" href="'+esc(safeUrl(c.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление','Open the listing'))+'</a>':'';
   return '<section class="sec" id="sec-facts"><h3 class="sh">'+esc(L('Профиль автомобиля','Car profile'))+'</h3><div class="prof" style="margin-top:14px">'+img+'<div class="pmain"><h2>'+esc(title)+'</h2>'+
     (c.price!=null?'<p class="price">'+eur(c.price)+'</p>':'<p class="hint">'+esc(L('Цена не найдена: введите её вручную.','No price found: enter it manually.'))+'</p>')+link+'</div></div>'+
     (kv.length?'<dl class="kv">'+kv.map(function(x){return '<div><dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd></div>'}).join('')+'</dl>':'')+
+    ((!c.trims||!c.trims.length)&&c.year?'<div class="banner" style="margin-top:12px"><span>'+esc(L('Комплектация в тексте объявления не найдена, поэтому сравнение идёт с обычными версиями. Если у машины R-Line, AMG Line, M Sport и т. п., укажите её вручную.','The trim was not found in the listing text, so the comparison uses regular versions. If the car is an R-Line, AMG Line, M Sport etc., enter it manually.'))+'</span><div class="btns"><button class="btn sm pri" type="button" data-act="set-trim">'+esc(L('Указать комплектацию','Set the trim'))+'</button></div></div>':'')+
     (v.notes.length?'<ul class="dots" style="margin-top:12px">'+v.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join('')+'</ul>':'')+'</section>';
 }
 function ruler(v){
@@ -1288,6 +1289,7 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]'); if(!b) return;
   var a=b.getAttribute('data-act');
   if(a==='stop') stopRun();
+  else if(a==='set-trim'){ var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')); }
   else if(a==='rm-img'){ var im=S.images.splice(+b.getAttribute('data-i'),1)[0]; if(im) URL.revokeObjectURL(im.url); renderThumbs(); }
 });
 document.addEventListener('input',function(e){ var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); });
