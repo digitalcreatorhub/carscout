@@ -98,7 +98,7 @@ function cleanMakeModel(make, model) {
   MAKES.forEach(function (m) { if (mk.toLowerCase().indexOf(m.toLowerCase()) === 0 && (!best || m.length > best.length)) best = m; });
   if (best) {
     const rest = mk.slice(best.length).replace(/^[\s,\-–:]+/, '').trim();
-    if (rest && !md) md = rest.split(/\s+/)[0];
+    if (rest && !md) md = multiModel(rest) || rest.split(/\s+/)[0];
     if (/^vw$/i.test(best)) best = 'Volkswagen'; else if (/^citroen$/i.test(best)) best = 'Citroën'; else if (/^skoda$/i.test(best)) best = 'Škoda'; else if (/^mercedes$/i.test(best)) best = 'Mercedes-Benz';
     mk = best;
   }
@@ -112,6 +112,21 @@ function as24Model(mk, md) {
   if (mk === 'bmw') { const m = md.match(/^(\d{3})[a-z]*$/); if (m) return m[1]; }
   return md;
 }
+function multiModel(rest){
+  var r=String(rest||''), m, cap=function(s){ return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); };
+  if((m=r.match(/^model[\s\-]?([3sxy])(?![A-Za-z0-9])/i))) return 'Model '+m[1].toUpperCase();
+  if(/^cyber[\s\-]?truck/i.test(r)) return 'Cybertruck';
+  if((m=r.match(/^range[\s\-]?rover(?:[\s\-]+(sport|evoque|velar))?(?![A-Za-z0-9])/i))) return 'Range Rover'+(m[1]?' '+cap(m[1]):'');
+  if(/^discovery[\s\-]?sport/i.test(r)) return 'Discovery Sport';
+  if((m=r.match(/^land[\s\-]?cruiser(?:[\s\-]+(prado))?/i))) return 'Land Cruiser'+(m[1]?' Prado':'');
+  if(/^santa[\s\-]?fe/i.test(r)) return 'Santa Fe';
+  if(/^grand[\s\-]+c-?max/i.test(r)) return 'Grand C-Max';
+  if((m=r.match(/^grand[\s\-]+(cherokee|vitara|scenic|espace|modus|touran)/i))) return 'Grand '+cap(m[1]);
+  if((m=r.match(/^id[.\s\-]?([3-9])(?![0-9])/i))) return 'ID.'+m[1];
+  if((m=r.match(/^ioniq[\s\-]?([56])(?![0-9])/i))) return 'Ioniq '+m[1];
+  if(/^mustang[\s\-]+mach[\s\-]?e/i.test(r)) return 'Mustang Mach-E';
+  return null;
+}
 function guessMakeModel(title) {
   const t = String(title || '');
   let best = null;
@@ -120,6 +135,7 @@ function guessMakeModel(title) {
     if (i > -1 && (!best || mk.length > best.mk.length)) best = { mk: mk, i: i };
   });
   if (!best) return { make: null, model: null };
+  { const lt = t.toLowerCase(), lm = best.mk.toLowerCase(); let p = best.i; while (p > -1) { if (multiModel(t.slice(p + lm.length).replace(/^[\s,\-–:]+/, ''))) { best.i = p; break; } p = lt.indexOf(lm, p + 1); } }
   const rest = t.slice(best.i + best.mk.length).replace(/^[\s,\-–:]+/, '');
   const mm = rest.match(/^([A-Za-z0-9ČčŠšŽžĀāĒēĪīŪū][A-Za-z0-9ČčŠšŽžĀāĒēĪīŪū\-]*)/);
   let make = best.mk;
@@ -127,7 +143,7 @@ function guessMakeModel(title) {
   if (/^citroen$/i.test(make)) make = 'Citroën';
   if (/^skoda$/i.test(make)) make = 'Škoda';
   if (/^mercedes$/i.test(make)) make = 'Mercedes-Benz';
-  return { make: make, model: mm ? mm[1] : null };
+  return { make: make, model: multiModel(rest) || (mm ? mm[1] : null) };
 }
 
 /* ---------------- field parsers (shared logic) ---------------- */
@@ -517,6 +533,7 @@ async function hComps(env, q) {
       let mk = slugify(make); if (mk === 'mercedes-benz') mk = 'mercedes'; if (mk === 'vw') mk = 'volkswagen';
       let md = slugify(model);
       if (/^bmw$/.test(mk) && /^\d{3}[a-z]*$/.test(md)) md = md.slice(0, 3);
+      if (mk === 'toyota' && md === 'rav4') md = 'rav-4';
       if (mk === 'mercedes') { const mm2 = md.match(/^([a-z]{1,4})-?(\d{2,3})(?!\d)/); if (mm2) md = mm2[1] + mm2[2]; }
       if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
       path = '/ru/transport/cars/' + mk + '/' + md + '/';

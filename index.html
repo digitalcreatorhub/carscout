@@ -842,6 +842,21 @@ function fuelLabel(c){
   var m={petrol:L('бензин','petrol'),diesel:L('дизель','diesel'),hybrid:L('гибрид','hybrid'),electric:L('электро','electric')};
   var b=c.fuel?(m[c.fuel]||c.fuel):''; if(c.lpg) b=(b?b+' + ':'')+L('газ (LPG)','gas (LPG)'); return b||null;
 }
+function multiModel(rest){
+  var r=String(rest||''), m, cap=function(s){ return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); };
+  if((m=r.match(/^model[\s\-]?([3sxy])(?![A-Za-z0-9])/i))) return 'Model '+m[1].toUpperCase();
+  if(/^cyber[\s\-]?truck/i.test(r)) return 'Cybertruck';
+  if((m=r.match(/^range[\s\-]?rover(?:[\s\-]+(sport|evoque|velar))?(?![A-Za-z0-9])/i))) return 'Range Rover'+(m[1]?' '+cap(m[1]):'');
+  if(/^discovery[\s\-]?sport/i.test(r)) return 'Discovery Sport';
+  if((m=r.match(/^land[\s\-]?cruiser(?:[\s\-]+(prado))?/i))) return 'Land Cruiser'+(m[1]?' Prado':'');
+  if(/^santa[\s\-]?fe/i.test(r)) return 'Santa Fe';
+  if(/^grand[\s\-]+c-?max/i.test(r)) return 'Grand C-Max';
+  if((m=r.match(/^grand[\s\-]+(cherokee|vitara|scenic|espace|modus|touran)/i))) return 'Grand '+cap(m[1]);
+  if((m=r.match(/^id[.\s\-]?([3-9])(?![0-9])/i))) return 'ID.'+m[1];
+  if((m=r.match(/^ioniq[\s\-]?([56])(?![0-9])/i))) return 'Ioniq '+m[1];
+  if(/^mustang[\s\-]+mach[\s\-]?e/i.test(r)) return 'Mustang Mach-E';
+  return null;
+}
 function parseText(t){
   t=String(t||''); var o={}, m;
   m=t.match(/(?<![\d.,])(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})\s*(?:€|eur\b|euro)/i)||t.match(/(?:€|eur)\s*(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})/i)||t.match(/(?:cena|цена|price|preis)[:\s]*(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})/i);
@@ -856,9 +871,10 @@ function parseText(t){
   var g=/automat|automāt|автомат|dsg|tiptronic/i.test(t)?'automatic':(/manual|manuāl|механ|handschalt/i.test(t)?'manual':null); if(g) o.gearbox=g;
   var best=null; MAKES.forEach(function(mk){var i=t.toLowerCase().indexOf(mk.toLowerCase()); if(i>-1&&(!best||mk.length>best.mk.length)) best={mk:mk,i:i}});
   if(best){
+    (function(){ var lt=t.toLowerCase(), lm=best.mk.toLowerCase(), p=best.i; while(p>-1){ if(multiModel(t.slice(p+lm.length).replace(/^[\s,\-–:]+/,''))){ best.i=p; return; } p=lt.indexOf(lm,p+1); } })();
     var rest=t.slice(best.i+best.mk.length).replace(/^[\s,\-–:]+/,''), mm=rest.match(/^([A-Za-z0-9ČčŠšŽžĀāĒēĪīŪū][A-Za-z0-9ČčŠšŽžĀāĒēĪīŪū\-]*)/), mk=best.mk;
     if(/^vw$/i.test(mk)) mk='Volkswagen'; if(/^citroen$/i.test(mk)) mk='Citroën'; if(/^skoda$/i.test(mk)) mk='Škoda'; if(/^mercedes$/i.test(mk)) mk='Mercedes-Benz';
-    o.make=mk; if(mm&&!/^(19|20)\d\d$/.test(mm[1])) o.model=mm[1];
+    o.make=mk; var mmm=multiModel(rest); if(mmm) o.model=mmm; else if(mm&&!/^(19|20)\d\d$/.test(mm[1])) o.model=mm[1];
     if(/^mercedes/i.test(mk)){ var mc=rest.match(/^([A-Za-z]{1,3})[\s\-]?(\d{2,3})(?!\d)/); if(mc) o.model=(mc[1]+mc[2]).toUpperCase(); }
   }
   return o;
@@ -870,7 +886,7 @@ function cleanMakeModel(make, model) {
   MAKES.forEach(function(m){ if (mk.toLowerCase().indexOf(m.toLowerCase()) === 0 && (!best || m.length > best.length)) best = m; });
   if (best) {
     var rest = mk.slice(best.length).replace(/^[\s,\-–:]+/, '').trim();
-    if (rest && !md) md = rest.split(/\s+/)[0];
+    if (rest && !md) md = multiModel(rest) || rest.split(/\s+/)[0];
     if (/^vw$/i.test(best)) best = 'Volkswagen'; else if (/^citroen$/i.test(best)) best = 'Citroën'; else if (/^skoda$/i.test(best)) best = 'Škoda'; else if (/^mercedes$/i.test(best)) best = 'Mercedes-Benz';
     mk = best;
   }
@@ -913,7 +929,7 @@ var MAKE_TRIMS={
 'subaru':'Comfort|Exclusive|Sport|Premium|Executive|Trend|STI!|WRX!|Limited|Touring|Active|Base|Black Edition!|Lineartronic|Style|Special Edition|Platinum|Elegance|Dynamic|Premium Plus',
 'suzuki':'GL|GLX|GL+|Comfort|Premium|Elegance|Club|Style|Compact|Dynamic|Sport|Allgrip|Edition|Hybrid|Exclusive|Active|Nautic|X-Treme|Limited|Special Edition',
 'mitsubishi':'Invite|Inform|Intense|Instyle|Diamond|Ralliart!|Spirit|Edition|Plus|Sport|Comfort|Basic|Ultimate|Black Edition!|Invite+|Intense+|Instyle+|Dynamic|Premium|Active|Exceed|Style|Titanium',
-'tesla':'Performance!|Long Range|Standard Range|Standard Range Plus|Plaid!|Dual Motor|Long Range AWD|RWD|AWD|LR|Raven|Signature|Founders Series',
+'tesla':'SR+|Standard Range+|LR AWD|Performance!|Long Range|Standard Range|Standard Range Plus|Plaid!|Dual Motor|Long Range AWD|RWD|AWD|LR|Raven|Signature|Founders Series',
 'fiat':'Pop|Easy|Lounge|Sport|Opening Edition|Mirror|Trekking|Cross|Urban|Active|Comfort|Dynamic|Abarth!|Business|Panorama|Rockstar|S-Design|Popstar|1957 Edition|Star|Collezione|Emotion|Mylife|Racing!|Black Jack|Cult|Rock Star|S-Design Cross|Pop Plus|Easy Plus|Lounge Plus',
 'alfa romeo':'Super|Sprint|Veloce!|Ti|Lusso|Distinctive|Progression|Impression|Quadrifoglio!|QV!|Business|Edizione|Competizione!|Executive|Exclusive|Turismo|Speciale|Tributo Italiano|Giulia Super|Exclusive Plus|Collezione',
 'jeep':'Sport|Longitude|Limited!|Overland!|Trailhawk!|Rubicon!|Sahara|Summit!|Night Eagle|Upland|Opening Edition|80th Anniversary|Altitude|Laredo|Trackhawk!|SRT!|S-Limited!|Business|Dynamic|Edition|Plus|Freedom|Latitude|Black Edition!|High Altitude',
@@ -961,14 +977,15 @@ function mtHit(x,t,loose){
   return false;
 }
 
-function detectTrim(text,make,loose){
+function detectTrim(text,make,loose,full){
   var t=String(text||''), out=[]; TRIMS.forEach(function(x){ if(x[1].test(t)) out.push(x[0]); });
   var list=MT_BY_MAKE[makeKey(make)];
-  if(list){ var t2=loose?t:t.slice(0,700); list.forEach(function(x){ if(out.indexOf(x.key)<0&&mtHit(x,t2,loose)) out.push(x.key); }); }
+  if(list){ var t2=(loose||full)?t:t.slice(0,1500); list.forEach(function(x){ if(out.indexOf(x.key)<0&&mtHit(x,t2,loose)) out.push(x.key); }); }
   if(out.indexOf('amg-line')>-1) out=out.filter(function(k){return k!=='amg'});
   function tk(k){ return ' '+k.replace(/[\s\-]+/g,' ')+' '; }
   return out.filter(function(k){ var s=tk(k); return !out.some(function(o){ return o!==k&&o.length>k.length&&tk(o).indexOf(s)>-1; }); });
 }
+function mergeTrims(x,y){ var o=x.slice(); y.forEach(function(k){ if(o.indexOf(k)<0) o.push(k); }); return o.filter(function(k){ var s=' '+k.replace(/[\s\-]+/g,' ')+' '; return !o.some(function(q){ return q!==k&&q.length>k.length&&(' '+q.replace(/[\s\-]+/g,' ')+' ').indexOf(s)>-1; }); }); }
 function trimRe(s){ var t=String(s||'').trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/[\s\-]+/g,'[\\s\\-]?'); return t?new RegExp('(^|[^a-z0-9])'+t+'([^a-z0-9]|$)','i'):null; }
 function titleHasTrim(title,car){
   var mine=car.trims||[]; if(!mine.length) return false;
@@ -1158,11 +1175,12 @@ async function run(){
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
     car.allText=[car.title,car.desc,f.text,ocrText].join(' ');
+    if(!car.fuel&&/^(tesla|polestar)$/i.test(car.make||'')) car.fuel='electric';
     /* petrol + gas (LPG): compared as petrol, but shown and flagged separately */
     if(f.fuel){ car.lpg=(f.fuel==='lpg'); }
     else car.lpg=!!(car.lpg||car.fuel==='lpg'||((!car.fuel||car.fuel==='petrol')&&hasLpg([car.title,(car.desc||'').slice(0,3000),f.text,ocrText].join(' '))));
     if(car.fuel==='lpg'||(car.lpg&&!car.fuel)) car.fuel='petrol';
-    car.trims=f.trim?detectTrim(f.trim,car.make,true):detectTrim([car.title,car.desc,f.text,ocrText].join(' '),car.make);
+    car.trims=f.trim?detectTrim(f.trim,car.make,true):mergeTrims(detectTrim([car.title,car.desc].join(' '),car.make),detectTrim([f.text,ocrText].join(' '),car.make,false,true));
     car.trimCustom=''; if(f.trim&&!car.trims.length){ car.trimCustom=f.trim; car.trims=[f.trim.toLowerCase()]; }
     car.trimKnownText=!!(f.trim||car.desc||car.title||f.text||ocrText);
     car.trimFromPhoto=false;
@@ -1303,7 +1321,7 @@ function summaryText(v){
 }
 function secFacts(v){
   var c=v.car, kv=[], add=function(k,val){ if(val!=null&&val!=='') kv.push([k,val]) };
-  add(L('Год','Year'),c.year); add(L('Пробег','Mileage'),c.km!=null?fmt(c.km)+' km':null); add(L('Топливо','Fuel'),fuelLabel(c)); add(L('Коробка','Gearbox'),c.gear); add('VIN',c.vin); add(L('Комплектация','Trim'),(c.trims&&c.trims.length)?c.trims.join(', ')+(c.trimFromPhoto?L(' (по фото)',' (from photo)'):''):L('не определена','not detected')); add(L('Источник','Source'),c.site);
+  add(L('Год','Year'),c.year); add(L('Пробег','Mileage'),c.km!=null?fmt(c.km)+' km':null); add(L('Топливо','Fuel'),fuelLabel(c)); add(L('Коробка','Gearbox'),c.gear); add('VIN',c.vin); add(L('Комплектация','Trim'),(c.trims&&c.trims.length)?c.trims.map(trimDisplay).join(', ')+(c.trimFromPhoto?L(' (по фото)',' (from photo)'):''):L('не определена','not detected')); add(L('Источник','Source'),c.site);
   var img=c.image&&safeUrl(c.image)?'<img class="pthumb" src="'+esc(safeUrl(c.image))+'" alt="" referrerpolicy="no-referrer" loading="lazy">':'';
   var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
   var link=c.url&&safeUrl(c.url)?'<a class="sbtn" href="'+esc(safeUrl(c.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление','Open the listing'))+'</a>':'';
