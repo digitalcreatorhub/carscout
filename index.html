@@ -1155,8 +1155,19 @@ function secVerdict(v){
   else if(tn&&tn.mode==='plain') mk+='<li>'+esc(L('Версии с «спортивными» пакетами (R-Line, AMG и т. п.) из сравнения исключены.','Versions with sport packages (R-Line, AMG etc.) were excluded from the comparison.'))+'</li>';
   var tips='';
   if(v.fair&&v.car.price>0){
-    var tgt=Math.min(v.car.price,v.fair.mid), wa=v.fair.high;
-    tips='<li>'+esc(v.car.price>v.fair.mid?L('Начните торг с '+eur(Math.max(v.fair.low,tgt*0.97))+', не платите больше '+eur(wa)+'.','Open at '+eur(Math.max(v.fair.low,tgt*0.97))+', do not pay more than '+eur(wa)+'.'):L('Цена в рынке или ниже: торг в пределах '+eur(v.car.price*0.97)+'–'+eur(v.car.price)+'.','The price is at or below the market: negotiate within '+eur(v.car.price*0.97)+'–'+eur(v.car.price)+'.'))+'</li>';
+    var P=v.car.price, F=v.fair, txt;
+    if(P>F.high){
+      var op=Math.max(F.low,F.mid*0.97);
+      txt=L('Цена выше рынка. Предложите около '+eur(op)+', выше '+eur(F.high)+' платить не стоит: это верхняя граница рынка.','The price is above the market. Offer about '+eur(op)+'; paying more than '+eur(F.high)+' is not worth it, that is the top of the market range.');
+    }else if(P>F.mid*1.02){
+      var of=Math.max(F.low,Math.min(P*0.95,F.mid));
+      txt=L('Цена в пределах рынка, но выше середины ('+eur(F.mid)+'). Есть смысл поторговаться: предложите около '+eur(of)+'.','The price is within the market range but above the midpoint ('+eur(F.mid)+'). Worth negotiating: offer about '+eur(of)+'.');
+    }else if(P>=F.low){
+      txt=L('Цена на уровне рынка (середина '+eur(F.mid)+'). Можно попросить небольшую скидку: '+eur(P*0.97)+'–'+eur(P)+'.','The price is in line with the market (midpoint '+eur(F.mid)+'). You can ask for a small discount: '+eur(P*0.97)+'–'+eur(P)+'.');
+    }else{
+      txt=L('Цена ниже рынка (нижняя граница '+eur(F.low)+'). Торг почти не нужен, но проверьте историю, пробег и состояние: такая цена бывает из-за скрытых проблем.','The price is below the market (lower bound '+eur(F.low)+'). There is little to negotiate, but check the history, mileage and condition: such a price can hide problems.');
+    }
+    tips='<li>'+esc(txt)+'</li>';
   }
   return '<section class="sec" id="sec-verdict"><div class="vhead"><h3 class="sh">'+esc(L('Вердикт по цене','Price verdict'))+'</h3><span class="pill '+(v.conf==='high'?'high':v.conf==='medium'?'medium':'low')+'">'+esc(L('Достоверность: ','Confidence: ')+conf)+'</span></div>'+
     '<div class="vmain"><div class="vplate '+k+'"><span class="vscore">'+(v.score!=null?v.score.toFixed(1).replace('.',','):'–')+'<small>/10</small></span><span class="vk">'+esc(nm)+'</span><span class="vlv">'+esc(LV_TERM[k])+'</span>'+
