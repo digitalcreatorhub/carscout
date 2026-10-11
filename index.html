@@ -1511,7 +1511,7 @@ function secSearchLinks(v){
   var c=v.car, q=encodeURIComponent([c.make,c.model,c.year].filter(Boolean).join(' '));
   var mk=function(label,url){return '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a>'};
   return '<section class="sec" id="sec-links"><h3 class="sh">'+esc(L('Открыть поиск на сайтах','Open the searches'))+'</h3><div class="links" style="margin-top:12px">'+
-    mk('ss.com','https://www.google.com/search?q='+q+'+site%3Ass.com')+mk('autoplius.lt','https://www.google.com/search?q='+q+'+site%3Aautoplius.lt')+mk('auto24.ee','https://www.google.com/search?q='+q+'+site%3Aauto24.ee')+mk('mobile.de','https://www.google.com/search?q='+q+'+site%3Amobile.de')+mk('AutoScout24','https://www.google.com/search?q='+q+'+site%3Aautoscout24.com')+'</div></section>';
+    mk('ss.com','https://www.google.com/search?q='+q+'+site%3Ass.com')+mk('autoplius.lt','https://www.google.com/search?q='+q+'+site%3Aautoplius.lt')+mk('auto24.ee','https://www.google.com/search?q='+q+'+site%3Aauto24.ee')+mk('visam.lv','https://visam.lv/')+mk('mobile.de','https://www.google.com/search?q='+q+'+site%3Amobile.de')+mk('AutoScout24','https://www.google.com/search?q='+q+'+site%3Aautoscout24.com')+'</div></section>';
 }
 function secNoApi(){
   return '<div class="banner"><b>'+esc(L('Сервер не подключён','Server not connected'))+'</b><span>'+esc(L('Реальные цены с сайтов можно получить только через ваш бесплатный сервер (Cloudflare Worker). Нажмите «Сервер» вверху и вставьте его адрес. Пока доступны разбор скриншота, текста и VIN.','Real prices from the sites need your free server (a Cloudflare Worker). Press “Server” at the top and paste its address. Meanwhile, screenshot, text and VIN reading work.'))+'</span></div>';
@@ -1839,18 +1839,44 @@ function secShare(v){
   document.head.appendChild(st);
 })();
 
+/* loan / leasing estimate (annuity); the rate, term and fees are the user's own numbers */
+var KEY_LOAN='carscout_loan';
+function loanLoad(){ try{ return JSON.parse(LS.get(KEY_LOAN)||'{}')||{}; }catch(e){ return {}; } }
+function secLoan(v){
+  var o=loanLoad(), price=v.car.price||'', row=function(id,label,val,ph){ return '<div class="crow"><label for="'+id+'">'+esc(label)+'</label><input class="in num" id="'+id+'" type="text" inputmode="decimal" value="'+esc(val!=null?val:'')+'" placeholder="'+esc(ph||'')+'"></div>'; };
+  var banks=[['Swedbank','https://www.swedbank.lv/'],['SEB','https://www.seb.lv/'],['Citadele','https://www.citadele.lv/'],['Luminor','https://www.luminor.lv/']];
+  return '<section class="sec" id="sec-loan"><h3 class="sh">'+esc(L('Кредит или лизинг: оценка платежа','Loan or leasing: payment estimate'))+'</h3>'+
+    '<p class="hint" style="margin:12px 0">'+esc(L('Расчёт по аннуитетной схеме. Ставку, срок и комиссии впишите из предложения банка или салона: приложение их не знает. Реальный платёж может отличаться из-за страховки, комиссий и условий договора.','An annuity calculation. Enter the rate, the term and the fees from the bank or dealer offer: the app does not know them. The real payment can differ because of insurance, fees and the contract terms.'))+'</p>'+
+    '<div class="calc"><div class="cbox">'+row('l-price',L('Цена машины, €','Car price, €'),o['l-price']!=null&&o['l-price']!==''?o['l-price']:price)+row('l-down',L('Первый взнос, €','Down payment, €'),o['l-down'])+row('l-bal',L('Остаточный платёж в конце (лизинг), €','Final balloon payment (leasing), €'),o['l-bal'])+'</div>'+
+    '<div class="cbox">'+row('l-term',L('Срок, месяцев','Term, months'),o['l-term'],'60')+row('l-rate',L('Ставка, % годовых','Rate, % per year'),o['l-rate'])+row('l-fee',L('Разовая комиссия, €','One-time fee, €'),o['l-fee'])+row('l-mfee',L('Ежемесячный сбор, €','Monthly fee, €'),o['l-mfee'])+'</div></div>'+
+    '<div class="ctotal" style="margin-top:12px"><span>'+esc(L('Платёж в месяц','Monthly payment'))+'</span><b id="l-pay">–</b></div><p class="cdiff" id="l-sub" style="margin-top:6px"></p>'+
+    '<p class="hint" style="margin-top:10px">'+esc(L('Калькуляторы банков Латвии (откроются на сайте банка), а также на странице объявления ss.lv:','Latvian bank calculators (they open on the bank site), and also on the ss.lv ad page:'))+'</p>'+
+    '<div class="links" style="margin-top:8px">'+banks.map(function(b){return '<a href="'+esc(b[1])+'" target="_blank" rel="noopener noreferrer">'+esc(b[0])+'</a>'}).join('')+(v.car.url&&/ss\.(com|lv)/.test(v.car.url)&&safeUrl(v.car.url)?'<a href="'+esc(safeUrl(v.car.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Объявление на ss.lv','The ss.lv ad'))+'</a>':'')+'</div></section>';
+}
+function updateLoan(){
+  var pay=document.getElementById('l-pay'); if(!pay) return; var o={}, g=function(id){ var el=document.getElementById(id); if(el) o[id]=el.value; var s=el?String(el.value||'').replace(',','.').replace(/[^\d.]/g,''):''; return parseFloat(s)||0; };
+  var P=g('l-price'), D=g('l-down'), B=g('l-bal'), n=Math.round(g('l-term')), r=g('l-rate'), fee=g('l-fee'), mf=g('l-mfee'); LS.set(KEY_LOAN,JSON.stringify(o));
+  var sub=document.getElementById('l-sub'); var principal=P-D;
+  if(!(principal>0)||!(n>0)||n>360){ pay.textContent='–'; sub.textContent=principal>0?L('Укажите срок в месяцах.','Enter the term in months.'):L('Укажите цену и первый взнос.','Enter the price and the down payment.'); return; }
+  var i=r/100/12, m;
+  if(i>0){ var f=Math.pow(1+i,-n); m=(principal-B*f)*i/(1-f); } else m=(principal-B)/n;
+  if(!(m>0)){ pay.textContent='–'; sub.textContent=L('Проверьте остаточный платёж: он слишком большой.','Check the balloon payment: it is too large.'); return; }
+  var monthly=m+mf, total=D+m*n+B+fee+mf*n, over=total-P;
+  pay.textContent=eur(Math.round(monthly));
+  sub.textContent=L('Всего выплатите: ','Total paid: ')+eur(Math.round(total))+' · '+L('переплата: ','extra cost: ')+eur(Math.round(over))+(P>0?' ('+(over/P*100).toFixed(1).replace('.',',')+'%)':'');
+}
 function render(){
   var v=S.view, out=$('#out'); renderFavs(); if(!v){out.innerHTML='';return}
   var h=[];
   if(v.noApi) h.push(secNoApi());
   h.push(secFacts(v));
-  if(v.regions.length){ h.push(secVerdict(v)); h.push(secDealer(v)); h.push(secPlan(v)); h.push(secFlags(v)); h.push(secRegions(v)); h.push(secTrims(v)); h.push(secScatter(v)); h.push(secNear(v)); h.push(secChecks(v)); h.push(secMsg(v)); h.push(secCalc(v)); h.push(secOwn(v)); h.push(secShare(v)); }
+  if(v.regions.length){ h.push(secVerdict(v)); h.push(secDealer(v)); h.push(secPlan(v)); h.push(secFlags(v)); h.push(secRegions(v)); h.push(secTrims(v)); h.push(secScatter(v)); h.push(secNear(v)); h.push(secChecks(v)); h.push(secMsg(v)); h.push(secCalc(v)); h.push(secLoan(v)); h.push(secOwn(v)); h.push(secShare(v)); }
   if(!v.regions.length&&v.car&&(v.car.make||v.car.model)){ h.push(secFlags(v)); h.push(secChecks(v)); }
   h.push(secVin(v)); h.push(secHistory(v));
   if(v.regions.length) h.push(secSources(v));
   h.push(secSearchLinks(v));
   out.innerHTML=h.join('');
-  updateCalc(); updateOwn();
+  updateCalc(); updateOwn(); updateLoan();
 }
 
 /* ---------- language ---------- */
@@ -1895,7 +1921,7 @@ document.addEventListener('click',function(e){
   else if(a==='report'){ if(S.view) copyText(reportText(S.view),L('Отчёт скопирован. Вставьте его в чат с Claude.','Report copied. Paste it into the chat with Claude.')); }
   else if(a==='rm-img'){ var im=S.images.splice(+b.getAttribute('data-i'),1)[0]; if(im) URL.revokeObjectURL(im.url); renderThumbs(); }
 });
-document.addEventListener('input',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); if(id&&id.indexOf('o-')===0) updateOwn(); });
+document.addEventListener('input',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); if(id&&id.indexOf('o-')===0) updateOwn(); if(id&&id.indexOf('l-')===0&&id!=='l-pay'&&id!=='l-sub') updateLoan(); });
 document.addEventListener('change',function(e){ if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-fsel')!=null){ var fl=favLoad(), ix=+e.target.getAttribute('data-fsel'); if(fl[ix]){ fl[ix].sel=e.target.checked; if(fl.filter(function(x){return x.sel}).length>3){ fl[ix].sel=false; showStatus('info',L('Сравнивать можно до 3 машин.','You can compare up to 3 cars.')); } favSave(fl); renderFavs(); } return; } if(e.target&&e.target.id==='msg-lang'&&S.view){ var t=$('#msg-text'); if(t) t.value=msgFor(S.view,e.target.value); } if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; });
 $('#intake').addEventListener('submit',function(e){e.preventDefault(); run();});
 $('#f-url').addEventListener('input',renderHints);
