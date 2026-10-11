@@ -973,6 +973,7 @@ async function run(){
   var t0=Date.now(), stage=L('Читаю объявление','Reading the listing');
   var timer=setInterval(function(){showStatus('busy',stage+' · '+Math.round((Date.now()-t0)/1000)+' c',true)},500);
   showStatus('busy',stage,true);
+  var linkMsg='';
   try{
     /* 1. screenshots */
     var ocrText='';
@@ -994,7 +995,11 @@ async function run(){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
         mergeCar(car,carL); car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||'';
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
-      } else notes.push(L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.'));
+      } else {
+        notes.push(L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.'));
+        linkMsg=L('Сайт '+(hint.host||'')+' не отдаёт страницу серверу (защита от роботов). Откройте объявление в своём браузере, нажмите Ctrl+A, затем Ctrl+C и вставьте скопированное в поле «Текст объявления» ниже (на телефоне: выделить всё, копировать). Либо загрузите скриншот. Затем нажмите «Проверить автомобиль» ещё раз.','The site '+(hint.host||'')+' does not give the page to the server (bot protection). Open the listing in your own browser, press Ctrl+A then Ctrl+C and paste it into the “Listing text” field below (on a phone: select all, copy). Or upload a screenshot. Then press “Check this car” again.');
+        if(!f.text&&!S.images.length){ var tf=$('#f-text'); if(tf){ tf.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){tf.focus()},400); } }
+      }
     }else if(f.url&&!S.api){ notes.push(L('Сервер не подключён, поэтому ссылка использована только как подсказка (кнопка «Сервер»).','The server is not connected, so the link is used only as a hint (the “Server” button).')); }
     /* 3. pasted text */
     if(f.text){ var pt=parseText(f.text); mergeCar(car,{make:pt.make,model:pt.model,year:pt.year,km:pt.km,price:pt.price,fuel:pt.fuel,gear:pt.gearbox,vin:pt.vin}); }
@@ -1014,7 +1019,7 @@ async function run(){
     if(!car.make||!car.model||!car.year){
       $('#manual').open=true;
       S.view={car:car,notes:notes,regions:[],needFields:true}; render();
-      showStatus('info',L('Не хватает марки, модели или года. Проверьте поля «Ввести данные вручную» и нажмите кнопку ещё раз.','Make, model or year is missing. Check the manual fields and press the button again.'));
+      showStatus('info',linkMsg||L('Не хватает марки, модели или года. Проверьте поля «Ввести данные вручную» и нажмите кнопку ещё раз.','Make, model or year is missing. Check the manual fields and press the button again.'));
       return;
     }
     if(!S.api){
