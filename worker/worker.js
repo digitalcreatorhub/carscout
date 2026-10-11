@@ -92,6 +92,20 @@ function meta(html, prop) {
 function slugify(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
+function cleanMakeModel(make, model) {
+  let mk = String(make || '').trim(), md = String(model || '').trim();
+  let best = null;
+  MAKES.forEach(function (m) { if (mk.toLowerCase().indexOf(m.toLowerCase()) === 0 && (!best || m.length > best.length)) best = m; });
+  if (best) {
+    const rest = mk.slice(best.length).replace(/^[\s,\-–:]+/, '').trim();
+    if (rest && !md) md = rest.split(/\s+/)[0];
+    if (/^vw$/i.test(best)) best = 'Volkswagen'; else if (/^citroen$/i.test(best)) best = 'Citroën'; else if (/^skoda$/i.test(best)) best = 'Škoda'; else if (/^mercedes$/i.test(best)) best = 'Mercedes-Benz';
+    mk = best;
+  }
+  const re = new RegExp('^' + mk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i');
+  if (md && mk) md = md.replace(re, '');
+  return { make: mk || null, model: md || null };
+}
 function as24Model(mk, md) {
   // AutoScout24 names Mercedes models like "e-350", "c-220", "gle-350"; most other makes keep the plain model name.
   if (mk === 'mercedes-benz') { const m = md.match(/^([a-z]{1,4})-?(\d{2,3})(?:-?[a-z]+)?$/); if (m) return m[1] + '-' + m[2]; }
@@ -264,6 +278,7 @@ function parseSsListing(html, url) {
     asking_price: price, fuel: eng.fuel || normFuel(L.engine) || null, engine_l: eng.engine_l || null, gearbox: normGear(L.gearbox), color: L.color || null,
     body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 1500)
   };
+  const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model;
   return { listing: listing, hints: { ss_path: m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };
 }
 function parseSsList(html, base) {
@@ -390,7 +405,8 @@ async function hListing(env, q) {
 
 async function hComps(env, q) {
   const source = q.get('source');
-  const make = q.get('make') || '', model = q.get('model') || '';
+  const cm = cleanMakeModel(q.get('make') || '', q.get('model') || '');
+  const make = cm.make || '', model = cm.model || '';
   const year = parseInt(q.get('year') || '', 10) || null;
   if (source === 'ss') {
     let path = q.get('ssPath');
@@ -455,7 +471,10 @@ async function hDebug(env, q) {
     ok: true, status: p.status, finalUrl: p.url, bytes: p.text.length, blocked: blockedBy(p),
     hasNextData: !!nextData(p.text), jsonLdTypes: jsonLd(p.text).map(function (o) { return o['@type']; }).filter(Boolean).slice(0, 10),
     ssRows: (p.text.match(/<tr[^>]+id="tr_\d+"/gi) || []).length, as24Articles: (p.text.match(/<article\b[^>]*data-guid/gi) || []).length,
-    parsedItems: parseGenericList(p.text, p.url).length, textStart: strip(p.text).slice(0, 800)
+    parsedItems: parseGenericList(p.text, p.url).length, sample: parseGenericList(p.text, p.url).slice(0, 4),
+    firstArticle: ((p.text.match(/<article\b[^>]*>/i) || [''])[0]).slice(0, 700),
+    mileageSnippets: (p.text.match(/.{0,60}mileage.{0,90}/gi) || []).slice(0, 6),
+    textStart: strip(p.text).slice(0, 500)
   });
 }
 

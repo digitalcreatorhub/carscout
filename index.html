@@ -834,6 +834,21 @@ function parseText(t){
   return o;
 }
 
+function cleanMakeModel(make, model) {
+  var mk = String(make || '').trim(), md = String(model || '').trim();
+  var best = null;
+  MAKES.forEach(function(m){ if (mk.toLowerCase().indexOf(m.toLowerCase()) === 0 && (!best || m.length > best.length)) best = m; });
+  if (best) {
+    var rest = mk.slice(best.length).replace(/^[\s,\-–:]+/, '').trim();
+    if (rest && !md) md = rest.split(/\s+/)[0];
+    if (/^vw$/i.test(best)) best = 'Volkswagen'; else if (/^citroen$/i.test(best)) best = 'Citroën'; else if (/^skoda$/i.test(best)) best = 'Škoda'; else if (/^mercedes$/i.test(best)) best = 'Mercedes-Benz';
+    mk = best;
+  }
+  var re = new RegExp('^' + mk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i');
+  if (md && mk) md = md.replace(re, '');
+  return { make: mk || null, model: md || null };
+}
+
 /* ---------- OCR (runs in the browser, nothing is uploaded) ---------- */
 var ocrLoad=null;
 function loadTesseract(){
@@ -976,9 +991,10 @@ async function run(){
     Object.keys(man).forEach(function(k){ if(man[k]!=null&&man[k]!=='') car[k]=man[k]; });
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
+    var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
     var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1) car.year=vd.years[0];
     /* fill the form so the user can fix it */
-    setField('#f-make',car.make); setField('#f-model',car.model); setField('#f-year',car.year); setField('#f-km',car.km); setField('#f-price',car.price); if(car.fuel&&!$('#f-fuel').value) $('#f-fuel').value=car.fuel; setField('#f-vin',car.vin);
+    $('#f-make').value=car.make||''; $('#f-model').value=car.model||''; setField('#f-year',car.year); setField('#f-km',car.km); setField('#f-price',car.price); if(car.fuel&&!$('#f-fuel').value) $('#f-fuel').value=car.fuel; setField('#f-vin',car.vin);
     renderVinLive();
     if(!car.make||!car.model||!car.year){
       $('#manual').open=true;
