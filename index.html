@@ -837,6 +837,12 @@ function fuelEarliest(s){
   if((best.k==='lpg'&&hasP)||(best.k==='petrol'&&hasL)) return 'petrol';
   return best.k;
 }
+function isEvCar(c){
+  if(!c) return false; if(c.fuel==='electric') return true;
+  var mk=String(c.make||''), md=String(c.model||'').trim();
+  if(/^(tesla|polestar)$/i.test(mk)) return true;
+  return /^(Model[\s\-]?[3SXY]|Cybertruck|ID\.\d|ID\.?\s?Buzz|Ioniq[\s\-]?[56]|e[\s\-]?tron(\sGT)?|Q4\se[\s\-]?tron|Taycan|iX\d?|i[3-7]|EV[3-9]|Leaf|Zoe|Mustang Mach[\s\-]?E|bZ4X|Enyaq|Born|Mokka[\s\-]?e|Corsa[\s\-]?e|e[\s\-]?Golf|e[\s\-]?Niro|e[\s\-]?208|e[\s\-]?2008|Spring)$/i.test(md);
+}
 function hasLpg(s){ return /\blpg\b|(^|[^а-яёa-z])газ(?![а-яё])|газов|(^|[^а-яё])гбо(?![а-яё])|gāz|\bhbo\b|пропан/i.test(String(s||'')); }
 function fuelLabel(c){
   var m={petrol:L('бензин','petrol'),diesel:L('дизель','diesel'),hybrid:L('гибрид','hybrid'),electric:L('электро','electric')};
@@ -1176,7 +1182,7 @@ async function run(){
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
     car.allText=[car.title,car.desc,f.text,ocrText].join(' ');
-    if(!car.fuel&&/^(tesla|polestar)$/i.test(car.make||'')) car.fuel='electric';
+    if(!f.fuel&&isEvCar(car)) car.fuel='electric';
     /* petrol + gas (LPG): compared as petrol, but shown and flagged separately */
     if(f.fuel){ car.lpg=(f.fuel==='lpg'); }
     else car.lpg=!!(car.lpg||car.fuel==='lpg'||((!car.fuel||car.fuel==='petrol')&&hasLpg([car.title,(car.desc||'').slice(0,3000),f.text,ocrText].join(' '))));
@@ -1539,7 +1545,7 @@ function flagsOf(v){
     else if(v.ver.key==='too_cheap') add(risks,'Цена сильно ниже рынка: проверьте историю, пробег и документы','The price is far below the market: check the history, mileage and papers');
     else if(v.ver.key==='good') add(pros,'Цена ниже рынка на '+Math.round(-v.ver.delta)+'%','The price is '+Math.round(-v.ver.delta)+'% below the market'); }
   /* age, fuel, gearbox (general checks, not claims about this car) */
-  var ev=c.fuel==='electric';
+  var ev=isEvCar(c);
   if(ev){
     add(risks,'Электромобиль: главный фактор цены и риска — состояние тяговой батареи. Попросите отчёт о состоянии батареи и реальный запас хода при полной зарядке','Electric car: the key factor for price and risk is the traction battery. Ask for a battery health report and the real range at a full charge');
     if(age!=null&&age>=7) add(risks,'Возраст '+age+' лет: гарантия на батарею у многих производителей около 8 лет, уточните остаток по сроку и пробегу','Age '+age+' years: many makers give about 8 years of battery warranty, ask what remains by age and mileage');
@@ -1577,7 +1583,7 @@ function secFlags(v){
     '<p class="hint" style="margin-top:10px">'+esc(L('Список строится из цифр сравнения и текста самого объявления, а не из догадок о конкретной машине.','The list is built from the comparison numbers and the listing text itself, not from guesses about this particular car.'))+'</p></section>';
 }
 function checksOf(v){
-  var c=v.car, now=new Date().getFullYear(), age=c.year?now-c.year:null, tx=String(c.allText||''), q=[], i=[], ev=c.fuel==='electric', tesla=/^tesla$/i.test(c.make||'');
+  var c=v.car, now=new Date().getFullYear(), age=c.year?now-c.year:null, tx=String(c.allText||''), q=[], i=[], ev=isEvCar(c), tesla=/^tesla$/i.test(c.make||'');
   var hasBook=/servisa\s+grāmat|apkalpošanas\s+grāmat|сервисн\w*\s+книж|service\s+(book|history)|scheckheft/i.test(tx);
   q.push(L(hasBook?'Можно посмотреть сервисную книгу и чеки на обслуживание?':'Есть ли чеки и сервисная книга на обслуживание?',hasBook?'Can I see the service book and the service receipts?':'Are there service receipts and a service book?'));
   q.push(L('Сколько владельцев по документам?','How many owners according to the papers?'));
@@ -1628,7 +1634,7 @@ function msgFor(v,lang){
     lv:{hi:'Labdien! ',a:'Mani interesē Jūsu sludinājums: ',m:'Salīdzināju ar līdzīgiem auto tirgū: tipiska cena ap ',k:'. Ņemot vērā nobraukumu ',o:' varu piedāvāt ',z:' €. Esmu gatavs atbraukt apskatīt auto tuvākajās dienās. Vai šāds variants Jums der un vai varu apskatīt servisa vēsturi?',n:'Cena šķiet adekvāta. Vēlētos atbraukt apskatīt auto: vai varu apskatīt servisa vēsturi un pārbaudīt auto servisā?'},
     en:{hi:'Hello! ',a:'I am interested in your listing: ',m:'I compared it with similar cars on the market: the typical price is around ',k:'. Considering the mileage of ',o:' I can offer ',z:' €. I can come to see the car in the next few days. Would that work, and can I see the service history?',n:'The price looks fair. I would like to come and see the car: can I see the service history and have it checked at a workshop?'}}[lang]||null;
   if(!T) return '';
-  var s=T.hi+T.a+car+'. ', ev=c.fuel==='electric', EVX={ru:' Также прошу показать данные о состоянии батареи.',lv:' Lūdzu, parādiet arī informāciju par baterijas stāvokli.',en:' Please also share the battery health data.'}[lang]||'';
+  var s=T.hi+T.a+car+'. ', ev=isEvCar(c), EVX={ru:' Также прошу показать данные о состоянии батареи.',lv:' Lūdzu, parādiet arī informāciju par baterijas stāvokli.',en:' Please also share the battery health data.'}[lang]||'';
   if(p&&p.offer<p.ask) return s+T.m+fmt(Math.round(p.mid))+' €'+(km?T.k+km:'')+','+T.o+fmt(p.offer)+T.z+(ev?EVX:'');
   return s+T.n+(ev?EVX:'');
 }
@@ -1669,6 +1675,7 @@ function render(){
   if(v.noApi) h.push(secNoApi());
   h.push(secFacts(v));
   if(v.regions.length){ h.push(secVerdict(v)); h.push(secPlan(v)); h.push(secFlags(v)); h.push(secRegions(v)); h.push(secTrims(v)); h.push(secScatter(v)); h.push(secNear(v)); h.push(secChecks(v)); h.push(secMsg(v)); h.push(secCalc(v)); }
+  if(!v.regions.length&&v.car&&(v.car.make||v.car.model)){ h.push(secFlags(v)); h.push(secChecks(v)); }
   h.push(secVin(v)); h.push(secHistory(v));
   if(v.regions.length) h.push(secSources(v));
   h.push(secSearchLinks(v));
