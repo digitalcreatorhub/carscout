@@ -452,6 +452,7 @@ async function hComps(env, q) {
       let mk = slugify(make); if (mk === 'mercedes-benz') mk = 'mercedes'; if (mk === 'vw') mk = 'volkswagen';
       let md = slugify(model);
       if (/^bmw$/.test(mk) && /^\d{3}[a-z]*$/.test(md)) md = md.slice(0, 3);
+      if (mk === 'mercedes') { const mm2 = md.match(/^([a-z]{1,4})-?(\d{2,3})(?!\d)/); if (mm2) md = mm2[1] + mm2[2]; }
       if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
       path = '/ru/transport/cars/' + mk + '/' + md + '/';
     }
