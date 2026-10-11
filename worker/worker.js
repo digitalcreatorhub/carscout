@@ -146,6 +146,28 @@ function parseEngine(v) {
   else if (m && !f) o.fuel = 'petrol';
   return o;
 }
+/* The fuel is taken from the FIRST fuel word in a short text (title/description), never from a whole page:
+   a page can mention other fuels in menus and ads. Petrol + LPG together is a petrol car converted to gas. */
+function fuelEarliest(s) {
+  s = String(s || '');
+  const pats = [
+    ['diesel', /diesel|dīzeļ|dizel|дизел|\b(?:tdi|cdi|hdi|dci|cdti|crdi|tdci|bluetec|d-?4d)\b/i],
+    ['hybrid', /hybrid|hibrīd|гибрид/i],
+    ['electric', /electric|elektro|elektr[ioī]|электр/i],
+    ['petrol', /petrol|benz|бензин|gasoline|\b(?:tsi|tfsi|fsi|gdi|vvt-?i|mpi)\b/i],
+    ['lpg', /\blpg\b|gāze|gaze|газ/i]
+  ];
+  let best = null, hasPetrol = false, hasLpg = false;
+  pats.forEach(function (p) {
+    const m = p[1].exec(s); if (!m) return;
+    if (p[0] === 'petrol') hasPetrol = true; if (p[0] === 'lpg') hasLpg = true;
+    if (!best || m.index < best.i) best = { k: p[0], i: m.index };
+  });
+  if (!best) return null;
+  if (best.k === 'lpg' && hasPetrol) return 'petrol';
+  if (best.k === 'petrol' && hasLpg) return 'petrol';
+  return best.k;
+}
 function normFuel(s) {
   s = String(s || '').toLowerCase();
   if (/diesel|dīzeļ|дизел|\bd\b/.test(s)) return 'diesel';
@@ -195,7 +217,7 @@ function parseText(text) {
   const Y = t.match(/(?:gads|год выпуска|year|baujahr|erstzulassung|first registration|registreerimine|aasta|izlaiduma)[^0-9]{0,20}(?:\d{1,2}[\/.\-])?(19[89]\d|20[0-3]\d)/i) || t.match(/\b(19[89]\d|20[0-2]\d)\b/);
   if (Y) out.year = parseInt(Y[1], 10);
   const v = vinIn(t); if (v) out.vin = v;
-  const f = normFuel(t); if (f) out.fuel = f;
+  const f = fuelEarliest(t.slice(0, 3000)); if (f) out.fuel = f;
   const g = normGear(t); if (g) out.gearbox = g;
   return out;
 }
@@ -303,7 +325,7 @@ function parseSsListing(html, url) {
   const m2 = url.match(/\/msg\/[a-z]{2}\/transport\/cars\/([^/]+)\/([^/]+)\//);
   const listing = {
     make: L.make || null, model: L.model || null, year: parseYear(L.year), mileage_km: L.mileage ? parseKm(L.mileage) : null,
-    asking_price: price, fuel: eng.fuel || normFuel(L.engine) || null, engine_l: eng.engine_l || null, gearbox: normGear(L.gearbox), color: L.color || null,
+    asking_price: price, fuel: eng.fuel || normFuel(L.engine) || fuelEarliest(desc.slice(0, 1200)) || null, engine_l: eng.engine_l || null, gearbox: normGear(L.gearbox), color: L.color || null,
     body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 8000)
   };
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model;
@@ -413,7 +435,7 @@ function parseGenericListing(html, url) {
   if (L.mileage_km == null) L.mileage_km = tx.km != null ? tx.km : null;
   if (L.year == null) L.year = tx.year || null;
   if (!L.vin) L.vin = tx.vin || null;
-  if (!L.fuel) L.fuel = tx.fuel || null;
+  if (!L.fuel) L.fuel = fuelEarliest(strip(title) + ' ' + (meta(html, 'og:description') || '')) || tx.fuel || null;
   if (!L.gearbox) L.gearbox = tx.gearbox || null;
   L.description = (meta(html, 'og:description') || '').slice(0, 600);
   return { listing: L, image: image ? absUrl(image, url) : null, title: strip(title || '') };
@@ -474,7 +496,7 @@ async function hListing(env, q) {
     res = parseSsListing(p.text, p.url); parser = 'ss';
     const g = parseGenericListing(p.text, p.url);
     res.image = g.image; res.title = g.title;
-    Object.keys(g.listing).forEach(function (k) { if (res.listing[k] == null || res.listing[k] === '') res.listing[k] = g.listing[k]; });
+    Object.keys(g.listing).forEach(function (k) { if (k === 'fuel') return; if (res.listing[k] == null || res.listing[k] === '') res.listing[k] = g.listing[k]; });
   } else { res = parseGenericListing(p.text, p.url); parser = 'generic'; res.hints = {}; }
   const L = res.listing;
   const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;

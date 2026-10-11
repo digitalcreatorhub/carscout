@@ -829,6 +829,15 @@ function toNum(s){
   var n=parseFloat(s.replace(',','.')); return isFinite(n)?n:null;
 }
 function normFuel(s){s=String(s||'').toLowerCase(); if(/diesel|dīzeļ|дизел/.test(s)) return 'diesel'; if(/hybrid|hibrīd|гибрид/.test(s)) return 'hybrid'; if(/electr|elektr|электр/.test(s)) return 'electric'; if(/lpg|gāze|газ/.test(s)) return 'lpg'; if(/petrol|benz|бензин|gasoline/.test(s)) return 'petrol'; return null}
+function fuelEarliest(s){
+  s=String(s||'');
+  var pats=[['diesel',/diesel|dīzeļ|dizel|дизел|\b(?:tdi|cdi|hdi|dci|cdti|crdi|tdci|bluetec|d-?4d)\b/i],['hybrid',/hybrid|hibrīd|гибрид/i],['electric',/electric|elektro|elektr[ioī]|электр/i],['petrol',/petrol|benz|бензин|gasoline|\b(?:tsi|tfsi|fsi|gdi|vvt-?i|mpi)\b/i],['lpg',/\blpg\b|gāze|gaze|газ/i]];
+  var best=null, hasP=false, hasL=false;
+  pats.forEach(function(p){ var m=p[1].exec(s); if(!m) return; if(p[0]==='petrol') hasP=true; if(p[0]==='lpg') hasL=true; if(!best||m.index<best.i) best={k:p[0],i:m.index}; });
+  if(!best) return null;
+  if((best.k==='lpg'&&hasP)||(best.k==='petrol'&&hasL)) return 'petrol';
+  return best.k;
+}
 function parseText(t){
   t=String(t||''); var o={}, m;
   m=t.match(/(?<![\d.,])(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})\s*(?:€|eur\b|euro)/i)||t.match(/(?:€|eur)\s*(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})/i)||t.match(/(?:cena|цена|price|preis)[:\s]*(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})/i);
@@ -839,7 +848,7 @@ function parseText(t){
   if(m) o.year=parseInt(m[1],10);
   var re=/\b([A-HJ-NPR-Z0-9]{17})\b/g, v, up=t.toUpperCase();
   while((v=re.exec(up))){ if((v[1].match(/\d/g)||[]).length>=5&&(v[1].match(/[A-Z]/g)||[]).length>=4){ o.vin=v[1]; break; } }
-  var f=normFuel(t); if(f) o.fuel=f;
+  var f=fuelEarliest(t.slice(0,3000)); if(f) o.fuel=f;
   var g=/automat|automāt|автомат|dsg|tiptronic/i.test(t)?'automatic':(/manual|manuāl|механ|handschalt/i.test(t)?'manual':null); if(g) o.gearbox=g;
   var best=null; MAKES.forEach(function(mk){var i=t.toLowerCase().indexOf(mk.toLowerCase()); if(i>-1&&(!best||mk.length>best.mk.length)) best={mk:mk,i:i}});
   if(best){
@@ -951,10 +960,19 @@ function errText(j){
 
 /* ---------- form ---------- */
 function intOnly(id){var v=($(id).value||'').replace(/[^\d]/g,''); return v?parseInt(v,10):null}
+/* Fields the app filled in itself are marked data-auto and ignored on the next run (they are re-derived), so values of a previous car
+   never leak into a new check. Anything the person types or edits is kept as theirs. */
+function fv(sel){ var el=$(sel); return (el&&el.dataset.auto!=='1')?String(el.value||'').trim():''; }
+function fvInt(sel){ var v=fv(sel).replace(/[^\d]/g,''); return v?parseInt(v,10):null; }
+function autoSet(sel,v){
+  var el=$(sel); if(!el) return;
+  if(el.value&&el.dataset.auto!=='1') return;
+  el.value=(v==null?'':v); el.dataset.auto=el.value?'1':'';
+}
 function readForm(){
-  var y=intOnly('#f-year');
-  return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:$('#f-vin').value.trim(),make:$('#f-make').value.trim(),model:$('#f-model').value.trim(),trim:($('#f-trim')?$('#f-trim').value.trim():''),photos:!$('#f-photos')||$('#f-photos').checked,
-    year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:intOnly('#f-km'),price:intOnly('#f-price'),fuel:$('#f-fuel').value,market:$('#f-market').value,
+  var y=fvInt('#f-year');
+  return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:fv('#f-vin'),make:fv('#f-make'),model:fv('#f-model'),trim:fv('#f-trim'),photos:!$('#f-photos')||$('#f-photos').checked,
+    year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:fvInt('#f-km'),price:fvInt('#f-price'),fuel:fv('#f-fuel'),market:$('#f-market').value,
     extra:$('#f-extra').value.split(/\s+/).map(function(s){return s.trim()}).filter(function(s){return /^https?:\/\//i.test(s)}).slice(0,4)};
 }
 function setField(id,v){var el=$(id); if(el&&v!=null&&v!==''&&!el.value) el.value=v}
@@ -1068,10 +1086,10 @@ async function run(){
         if(vinHit&&!car.vin) notes.push(L('На фото виден возможный VIN: '+vinHit.vin+' (проверьте вручную).','A possible VIN is visible on a photo: '+vinHit.vin+' (please check manually).'));
       }catch(e){ notes.push(L('Фото не удалось прочитать (нужен интернет для загрузки распознавания).','Photos could not be read (internet needed to load text recognition).')); }
     }
-    if($('#f-trim')&&!$('#f-trim').value) $('#f-trim').value=car.trims.join(', ');
+    autoSet('#f-trim',(car.trims||[]).join(', '));
     var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1) car.year=vd.years[0];
     /* fill the form so the user can fix it */
-    $('#f-make').value=car.make||''; $('#f-model').value=car.model||''; setField('#f-year',car.year); setField('#f-km',car.km); setField('#f-price',car.price); if(car.fuel&&!$('#f-fuel').value) $('#f-fuel').value=car.fuel; setField('#f-vin',car.vin);
+    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.fuel); autoSet('#f-vin',car.vin);
     renderVinLive();
     if(!car.make||!car.model||!car.year){
       $('#manual').open=true;
@@ -1404,7 +1422,8 @@ document.addEventListener('click',function(e){
   else if(a==='set-trim'){ var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')); }
   else if(a==='rm-img'){ var im=S.images.splice(+b.getAttribute('data-i'),1)[0]; if(im) URL.revokeObjectURL(im.url); renderThumbs(); }
 });
-document.addEventListener('input',function(e){ var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); });
+document.addEventListener('input',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); });
+document.addEventListener('change',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; });
 $('#intake').addEventListener('submit',function(e){e.preventDefault(); run();});
 $('#f-url').addEventListener('input',renderHints);
 $('#f-vin').addEventListener('input',renderVinLive);
