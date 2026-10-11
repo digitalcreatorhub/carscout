@@ -1,0 +1,8 @@
+# Cloudflare reads this file when the repository is connected (Workers & Pages > Create > Import a repository).
+name = "carscout"
+main = "worker/worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Only your own page may call this server from a browser.
+ALLOW_ORIGIN = "https://digitalcreatorhub.github.io"
