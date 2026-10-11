@@ -228,14 +228,30 @@ function itemFromObj(o, base) {
   let km = pick(o, ['tracking', 'mileage']);
   if (km == null) km = pick(o, ['vehicle', 'mileageInKm']);
   if (km == null) km = o.mileageInKm != null ? o.mileageInKm : (o.mileage != null ? o.mileage : pick(o, ['mileageFromOdometer', 'value']));
+  if (km != null && typeof km === 'object') km = km.value != null ? km.value : null;
   km = km == null ? null : parseKm(String(km));
+  let vdFuel = null, vdYear = null;
+  if (Array.isArray(o.vehicleDetails)) {
+    // AutoScout24 card details: [{iconName:'mileage_road', data:'154,752 km'}, {iconName:'calendar', data:'06/2018'}, ...]
+    o.vehicleDetails.forEach(function (d) {
+      if (!d || typeof d !== 'object') return;
+      const n = String(d.iconName || d.icon || d.name || '').toLowerCase(), v = d.data != null ? d.data : d.value;
+      if (/mileage|road|odometer|speedometer/.test(n) && (km == null || km === 0)) km = parseKm(String(v));
+      else if (/calendar|registration/.test(n) && vdYear == null) vdYear = parseYear(String(v));
+      else if (/gas|fuel/.test(n) && !vdFuel) vdFuel = normFuel(String(v));
+    });
+  }
+  if (km == null || km === 0) {
+    let mm; try { mm = JSON.stringify(o).match(/"(?:mileage\w*|mileageInKm|odometer\w*)"\s*:\s*"?([\d.,\s]{3,12})/i); } catch (e) { mm = null; }
+    if (mm) { const k2 = parseKm(mm[1]); if (k2 != null && k2 > 0) km = k2; }
+  }
   let year = pick(o, ['tracking', 'firstRegistration']);
   if (year == null) year = pick(o, ['vehicle', 'firstRegistrationDate']);
   if (year == null) year = o.firstRegistration || o.productionDate || o.vehicleModelDate || o.dateVehicleFirstRegistered || o.year;
-  year = parseYear(year);
+  year = parseYear(year) || vdYear;
   const href = o.url || o.href || pick(o, ['link', 'url']);
   const title = [pick(o, ['vehicle', 'make']) || o.make, pick(o, ['vehicle', 'model']) || o.model, pick(o, ['vehicle', 'modelVersionInput']) || o.name].filter(Boolean).join(' ');
-  return { price: Math.round(price), km: km, year: year, url: href ? absUrl(href, base) : null, title: strip(title || ''), fuel: normFuel(pick(o, ['vehicle', 'fuelType']) || o.fuelType || '') };
+  return { price: Math.round(price), km: km, year: year, url: href ? absUrl(href, base) : null, title: strip(title || ''), fuel: normFuel(pick(o, ['vehicle', 'fuelType']) || o.fuelType || '') || vdFuel };
 }
 function walkListings(node, base, out, depth) {
   if (!node || depth > 14) return;
