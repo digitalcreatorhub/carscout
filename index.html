@@ -386,6 +386,7 @@ details.imp{border-radius:16px;background:rgba(255,255,255,.03)}
 }
 
 /* ===== live additions ===== */
+[hidden]{display:none!important}
 .cfg{display:flex;flex-direction:column;gap:10px}
 .srcs{display:flex;flex-direction:column;gap:6px}
 .src{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:13.5px;padding:8px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}
@@ -416,7 +417,7 @@ textarea.in.sm{min-height:64px;font-size:13.5px}
       <span class="sub"><span data-ru="Живые цены · Рига · Балтия · ЕС" data-en="Live prices · Riga · Baltics · EU"></span></span>
     </div>
     <div class="btns" style="flex-wrap:nowrap;align-items:center">
-      <button class="btn sm" type="button" id="btn-cfg" aria-expanded="false" aria-controls="cfg"><span data-ru="Сервер" data-en="Server"></span> <span id="cfg-dot" aria-hidden="true">●</span></button>
+      <button class="btn sm" type="button" id="btn-cfg" aria-expanded="false" aria-controls="cfg" aria-label="Server settings" title="Server"><span id="cfg-dot">●</span></button>
       <div class="seg" role="group" aria-label="Language">
         <button type="button" id="lang-ru" aria-pressed="true">RU</button>
         <button type="button" id="lang-en" aria-pressed="false">EN</button>
@@ -870,7 +871,7 @@ function errText(j){
   if(e==='blocked') return L('сайт не отдал страницу серверу','the site refused the server');
   if(e==='not_found') return L('не найдено','not found');
   if(e==='parse_failed') return L('страница загрузилась, но объявления не распознаны','page loaded but ads were not recognised');
-  if(e==='network') return L('сервер недоступен: проверьте адрес','server unreachable: check the address');
+  if(e==='network') return L('сервер недоступен. Обновите страницу (Ctrl+F5), отключите блокировщик рекламы для этого сайта или проверьте интернет','server unreachable. Reload the page (Ctrl+F5), turn off ad blockers for this site or check the internet connection');
   if(e==='no_api') return L('сервер не подключён','server not connected');
   if(e==='need_model') return L('нужны марка и модель','make and model needed');
   return (j&&j.message)||L('ошибка','error');
@@ -941,6 +942,7 @@ async function run(){
   var hint=f.url?parseLink(f.url):null;
   if(!f.url&&!f.text&&!S.images.length&&!f.price&&!(f.make&&f.model)&&!f.vin){ showStatus('err',L('Добавьте ссылку, скриншот, текст объявления или марку и модель.','Add a link, a screenshot, the listing text, or a make and model.')); return; }
   S.busy=true; S.ctl=new AbortController(); S.srcRows={}; renderSrcs(); $('#btn-go').disabled=true;
+  if(S.api&&S.apiOk===false){ showStatus('busy',L('Подключаюсь к серверу…','Connecting to the server…'),false); await connect(); }
   var t0=Date.now(), stage=L('Читаю объявление','Reading the listing');
   var timer=setInterval(function(){showStatus('busy',stage+' · '+Math.round((Date.now()-t0)/1000)+' c',true)},500);
   showStatus('busy',stage,true);
@@ -1220,10 +1222,19 @@ function applyLang(){
   renderHints(); renderVinLive(); renderSrcs(); render();
 }
 function apiDot(state){ var d=$('#cfg-dot'); d.style.color=state==='ok'?'var(--good)':state==='bad'?'var(--bad)':'var(--muted)'; }
+async function connect(){
+  var stored=normApi(LS.get(KEY_API)), def=normApi(API_DEFAULT), cands=[];
+  if(def) cands.push(def); if(stored&&stored!==def) cands.push(stored);
+  for(var i=0;i<cands.length;i++){
+    S.api=cands[i]; var j=await api('/',{},9000);
+    if(j&&j.ok){ apiDot('ok'); $('#f-api').value=S.api; if(stored!==S.api) LS.set(KEY_API,S.api); S.apiOk=true; return true; }
+  }
+  S.api=cands[0]||''; S.apiOk=false; apiDot(cands.length?'bad':'none'); return false;
+}
 async function testApi(){
   var msg=$('#cfg-msg'); msg.textContent=L('Проверяю…','Testing…');
   var j=await api('/',{},12000);
-  if(j&&j.ok){ msg.textContent=L('Сервер работает: версия ','Server is working: version ')+(j.version||'?'); apiDot('ok'); }
+  if(j&&j.ok){ msg.textContent=L('Сервер работает: версия ','Server is working: version ')+(j.version||'?'); apiDot('ok'); S.apiOk=true; }
   else { msg.textContent=L('Не удалось подключиться: ','Could not connect: ')+errText(j); apiDot('bad'); }
 }
 
@@ -1258,9 +1269,9 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
 /* ---------- boot ---------- */
 (function init(){
   var l=LS.get(KEY_LANG); S.lang=(l==='en'||l==='ru')?l:((navigator.language||'').toLowerCase().indexOf('ru')===0?'ru':'en');
-  S.api=normApi(LS.get(KEY_API)||API_DEFAULT); $('#f-api').value=S.api;
-  applyLang();
-  if(S.api){ apiDot('none'); api('/',{},8000).then(function(j){apiDot(j&&j.ok?'ok':'bad')}); } else { apiDot('none'); $('#cfg').hidden=false; $('#btn-cfg').setAttribute('aria-expanded','true'); }
+  S.api=normApi(LS.get(KEY_API)||API_DEFAULT); $('#f-api').value=S.api; S.apiOk=null;
+  applyLang(); apiDot('none');
+  if(S.api||API_DEFAULT){ connect(); } else { $('#cfg').hidden=false; $('#btn-cfg').setAttribute('aria-expanded','true'); }
   window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant};
 })();
 })();
