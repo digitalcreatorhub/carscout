@@ -168,6 +168,7 @@ function fuelEarliest(s) {
   if (best.k === 'petrol' && hasLpg) return 'petrol';
   return best.k;
 }
+function hasLpg(s) { return /\blpg\b|(^|[^а-яёa-z])газ(?![а-яё])|газов|(^|[^а-яё])гбо(?![а-яё])|gāz|\bhbo\b|пропан/i.test(String(s || '')); }
 function normFuel(s) {
   s = String(s || '').toLowerCase();
   if (/diesel|dīzeļ|дизел|\bd\b/.test(s)) return 'diesel';
@@ -326,7 +327,8 @@ function parseSsListing(html, url) {
   const listing = {
     make: L.make || null, model: L.model || null, year: parseYear(L.year), mileage_km: L.mileage ? parseKm(L.mileage) : null,
     asking_price: price, fuel: eng.fuel || normFuel(L.engine) || fuelEarliest(desc.slice(0, 1200)) || null, engine_l: eng.engine_l || null, gearbox: normGear(L.gearbox), color: L.color || null,
-    body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 8000)
+    body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 8000),
+    lpg: hasLpg(L.engine || '') || hasLpg(desc.slice(0, 3000))
   };
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model;
   return { listing: listing, hints: { ss_path: m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };

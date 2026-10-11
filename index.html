@@ -499,7 +499,7 @@ textarea.in.sm{min-height:64px;font-size:13.5px}
           <div class="fld"><label for="f-trim" data-ru="Комплектация (R-Line, AMG Line, M Sport…)" data-en="Trim (R-Line, AMG Line, M Sport…)"></label><input class="in" id="f-trim" type="text" placeholder="R-Line"></div>
           <div class="row2">
             <div class="fld"><label for="f-fuel" data-ru="Топливо" data-en="Fuel"></label>
-              <select class="in" id="f-fuel"><option value=""></option><option value="petrol">Petrol / Бензин</option><option value="diesel">Diesel / Дизель</option><option value="hybrid">Hybrid / Гибрид</option><option value="electric">Electric / Электро</option><option value="lpg">LPG</option></select></div>
+              <select class="in" id="f-fuel"><option value=""></option><option value="petrol">Petrol / Бензин</option><option value="diesel">Diesel / Дизель</option><option value="hybrid">Hybrid / Гибрид</option><option value="electric">Electric / Электро</option><option value="lpg">Petrol + LPG / Бензин + газ</option></select></div>
             <div class="fld"><label for="f-market" data-ru="Сравнивать с рынком" data-en="Compare with market"></label>
               <select class="in" id="f-market"><option value="LV">Latvia</option><option value="DE">Germany</option><option value="LT">Lithuania</option><option value="EE">Estonia</option></select></div>
           </div>
@@ -837,6 +837,11 @@ function fuelEarliest(s){
   if((best.k==='lpg'&&hasP)||(best.k==='petrol'&&hasL)) return 'petrol';
   return best.k;
 }
+function hasLpg(s){ return /\blpg\b|(^|[^а-яёa-z])газ(?![а-яё])|газов|(^|[^а-яё])гбо(?![а-яё])|gāz|\bhbo\b|пропан/i.test(String(s||'')); }
+function fuelLabel(c){
+  var m={petrol:L('бензин','petrol'),diesel:L('дизель','diesel'),hybrid:L('гибрид','hybrid'),electric:L('электро','electric')};
+  var b=c.fuel?(m[c.fuel]||c.fuel):''; if(c.lpg) b=(b?b+' + ':'')+L('газ (LPG)','gas (LPG)'); return b||null;
+}
 function parseText(t){
   t=String(t||''); var o={}, m;
   m=t.match(/(?<![\d.,])(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})\s*(?:€|eur\b|euro)/i)||t.match(/(?:€|eur)\s*(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})/i)||t.match(/(?:cena|цена|price|preis)[:\s]*(\d{1,3}(?:[ ., ]\d{3})+|\d{3,6})/i);
@@ -1136,7 +1141,7 @@ async function run(){
       var lj=await api('/api/listing',{url:f.url});
       if(lj&&lj.listing&&(lj.ok||lj.listing.asking_price||lj.listing.make)){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
-        mergeCar(car,carL); car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.images=lj.images||[];
+        mergeCar(car,carL); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.images=lj.images||[];
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
       } else {
         notes.push(L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.'));
@@ -1152,6 +1157,10 @@ async function run(){
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
+    /* petrol + gas (LPG): compared as petrol, but shown and flagged separately */
+    if(f.fuel){ car.lpg=(f.fuel==='lpg'); }
+    else car.lpg=!!(car.lpg||car.fuel==='lpg'||((!car.fuel||car.fuel==='petrol')&&hasLpg([car.title,(car.desc||'').slice(0,3000),f.text,ocrText].join(' '))));
+    if(car.fuel==='lpg'||(car.lpg&&!car.fuel)) car.fuel='petrol';
     car.trims=f.trim?detectTrim(f.trim,car.make,true):detectTrim([car.title,car.desc,f.text,ocrText].join(' '),car.make);
     car.trimCustom=''; if(f.trim&&!car.trims.length){ car.trimCustom=f.trim; car.trims=[f.trim.toLowerCase()]; }
     car.trimKnownText=!!(f.trim||car.desc||car.title||f.text||ocrText);
@@ -1169,7 +1178,7 @@ async function run(){
     autoSet('#f-trim',(car.trims||[]).map(trimDisplay).join(', '));
     var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1) car.year=vd.years[0];
     /* fill the form so the user can fix it */
-    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.fuel); autoSet('#f-vin',car.vin);
+    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin);
     renderVinLive();
     if(!car.make||!car.model||!car.year){
       $('#manual').open=true;
@@ -1223,7 +1232,7 @@ function pickRelevant(items,car){
     sel=rows.filter(function(i){return !car.year||i.year==null||Math.abs(i.year-car.year)<=tol});
     if(sel.length>=8) break;
   }
-  if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||i.fuel===car.fuel}); if(same.length>=5) sel=same; }
+  if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===car.fuel}); if(same.length>=5) sel=same; }
   var med=median(sel.map(function(i){return i.price})); if(med) sel=sel.filter(function(i){return i.price>=med*0.4&&i.price<=med*2.5});
   var pre=sel, trimNote=null, mine=car.trims||[];
   if(mine.length){
@@ -1253,8 +1262,10 @@ function compute(car,results,f,notes){
       row.fair=fairOf(row.stats);
       if(row.fair&&row.n>=3&&car.price>0&&(row.fair.mid<car.price*0.45||row.fair.mid>car.price*2.2)){
         var ratio=row.fair.mid>car.price?row.fair.mid/car.price:car.price/row.fair.mid;
+        var smp=row.items.slice(0,3).map(function(i){return (i.title?String(i.title).slice(0,40)+' ':'')+(i.year?i.year+' ':'')+eur(i.price)}).join('; ');
+        var seenN=row.n, seenMid=row.fair.mid;
         row.ok=false; row.suspect=true; row.fair=null; row.stats=null; row.items=[]; row.n=0;
-        row.err=L('Результат выглядит ошибочным и не учитывается: найденные цены отличаются от вашей в '+ratio.toFixed(1).replace('.',',')+' раза (возможно, сайт показал другую модель или версию). Нажмите «Открыть» и проверьте вручную.','The result looks wrong and is ignored: the prices found differ from yours by a factor of '+ratio.toFixed(1)+' (the site may have shown another model or version). Press “Open” and check manually.');
+        row.err=L('Не учитывается: сайт нашёл '+seenN+' объявл. с типичной ценой '+eur(seenMid)+', это в '+ratio.toFixed(1).replace('.',',')+' раза '+(seenMid>car.price?'выше':'ниже')+' вашей (возможно, показана другая модель, версия или другое топливо). Примеры: '+smp+'. Нажмите «Открыть» и проверьте вручную.','Ignored: the site found '+seenN+' ads with a typical price of '+eur(seenMid)+', '+ratio.toFixed(1)+'× '+(seenMid>car.price?'above':'below')+' yours (it may be another model, version or fuel). Examples: '+smp+'. Press “Open” and check manually.');
       }
       totalUsed+=row.n; all=all.concat(row.items);
     }
@@ -1291,7 +1302,7 @@ function summaryText(v){
 }
 function secFacts(v){
   var c=v.car, kv=[], add=function(k,val){ if(val!=null&&val!=='') kv.push([k,val]) };
-  add(L('Год','Year'),c.year); add(L('Пробег','Mileage'),c.km!=null?fmt(c.km)+' km':null); add(L('Топливо','Fuel'),c.fuel); add(L('Коробка','Gearbox'),c.gear); add('VIN',c.vin); add(L('Комплектация','Trim'),(c.trims&&c.trims.length)?c.trims.join(', ')+(c.trimFromPhoto?L(' (по фото)',' (from photo)'):''):L('не определена','not detected')); add(L('Источник','Source'),c.site);
+  add(L('Год','Year'),c.year); add(L('Пробег','Mileage'),c.km!=null?fmt(c.km)+' km':null); add(L('Топливо','Fuel'),fuelLabel(c)); add(L('Коробка','Gearbox'),c.gear); add('VIN',c.vin); add(L('Комплектация','Trim'),(c.trims&&c.trims.length)?c.trims.join(', ')+(c.trimFromPhoto?L(' (по фото)',' (from photo)'):''):L('не определена','not detected')); add(L('Источник','Source'),c.site);
   var img=c.image&&safeUrl(c.image)?'<img class="pthumb" src="'+esc(safeUrl(c.image))+'" alt="" referrerpolicy="no-referrer" loading="lazy">':'';
   var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
   var link=c.url&&safeUrl(c.url)?'<a class="sbtn" href="'+esc(safeUrl(c.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление','Open the listing'))+'</a>':'';
@@ -1352,6 +1363,7 @@ function secVerdict(v){
   if(tn&&tn.mode==='same') mk+='<li>'+esc(L('Сравнение только с той же комплектацией ('+mine+'): '+tn.n+' объявл.','Compared only with the same trim ('+mine+'): '+tn.n+' ads'))+'</li>';
   else if(tn&&tn.mode==='few') mk+='<li>'+esc(L('Комплектация '+mine+': точных аналогов мало ('+tn.n+'), сравнение идёт с более широкой выборкой и может быть неточным.','Trim '+mine+': few exact matches ('+tn.n+'), so the comparison uses a wider sample and may be less accurate.'))+'</li>';
   else if(tn&&tn.mode==='plain') mk+='<li>'+esc(L('Версии с «спортивными» пакетами (R-Line, AMG и т. п.) из сравнения исключены.','Versions with sport packages (R-Line, AMG etc.) were excluded from the comparison.'))+'</li>';
+  if(v.car.lpg) mk+='<li>'+esc(L('Газовое оборудование (LPG): сравнение идёт с бензиновыми аналогами. Проверьте, что установка оформлена в техпаспорте, когда истекает срок баллона и когда последний раз обслуживали ГБО: это влияет на цену.','Gas equipment (LPG): the comparison uses petrol cars. Check that the installation is registered in the vehicle papers, when the cylinder expires and when the system was last serviced: it affects the price.'))+'</li>';
   var tips='';
   if(v.fair&&v.car.price>0){
     var P=v.car.price, F=v.fair, txt;
