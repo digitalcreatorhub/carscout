@@ -92,6 +92,12 @@ function meta(html, prop) {
 function slugify(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
+function as24Model(mk, md) {
+  // AutoScout24 names Mercedes models like "e-350", "c-220", "gle-350"; most other makes keep the plain model name.
+  if (mk === 'mercedes-benz') { const m = md.match(/^([a-z]{1,4})-?(\d{2,3})(?:-?[a-z]+)?$/); if (m) return m[1] + '-' + m[2]; }
+  if (mk === 'bmw') { const m = md.match(/^(\d{3})[a-z]*$/); if (m) return m[1]; }
+  return md;
+}
 function guessMakeModel(title) {
   const t = String(title || '');
   let best = null;
@@ -291,7 +297,7 @@ function parseAs24List(html, base) {
     const price = toNum(g('price'));
     if (!(price >= 300)) continue;
     items.push({ price: Math.round(price), km: g('mileage') != null ? parseKm(g('mileage')) : null, year: parseYear(g('first-registration')), url: g('guid') ? base.replace(/\/lst.*$/, '') + '/offers/' + g('guid') : null,
-      title: [g('make'), g('model')].filter(Boolean).join(' '), fuel: normFuel(g('fuel-type')) });
+      title: [g('make'), g('model')].filter(Boolean).join(' '), fuel: ({ b: 'petrol', d: 'diesel', e: 'electric', l: 'lpg' })[String(g('fuel-type') || '').toLowerCase()] || normFuel(g('fuel-type')) });
   }
   if (items.length) return items;
   const nd = nextData(html);
@@ -409,9 +415,10 @@ async function hComps(env, q) {
   }
   if (source === 'as24de') {
     let mk = slugify(make); if (mk === 'mercedes') mk = 'mercedes-benz'; if (mk === 'vw') mk = 'volkswagen';
-    const md = slugify(model);
+    const md = as24Model(mk, slugify(model));
     if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
-    const f = year ? '&fregfrom=' + (year - 1) + '&fregto=' + (year + 1) : '';
+    const fuelCode = { diesel: 'D', petrol: 'B', electric: 'E', lpg: 'L' }[q.get('fuel')] || '';
+    const f = (fuelCode ? '&fuel=' + fuelCode : '') + (year ? '&fregfrom=' + (year - 1) + '&fregto=' + (year + 1) : '');
     const mkUrl = function (p) { return 'https://www.autoscout24.com/lst/' + mk + '/' + md + '?atype=C&cy=D&damaged_listing=exclude&desc=0' + f + '&sort=standard&ustate=N%2CU&page=' + p; };
     const pages = await Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrl(n), 900).catch(function (e) { return { status: 0, text: '', url: mkUrl(n) }; }); }));
     const b = blockedBy(pages[0]);

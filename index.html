@@ -994,7 +994,7 @@ async function run(){
     /* 6. comparables */
     stage=L('Собираю реальные объявления','Collecting real listings');
     var jobs=[];
-    var base={make:car.make,model:car.model,year:car.year};
+    var base={make:car.make,model:car.model,year:car.year,fuel:car.fuel||''};
     setSrc('ss','ss.com (LV)','run',L('загружаю…','loading…'));
     jobs.push(api('/api/comps',Object.assign({source:'ss',ssPath:car.hints&&car.hints.ss_path||''},base),55000).then(function(j){return {key:'ss',region:'LV',label:'ss.com',j:j}}));
     setSrc('as24de','AutoScout24 (DE)','run',L('загружаю…','loading…'));
