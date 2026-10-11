@@ -798,8 +798,7 @@ function normalizeResult(raw){
 }
 
 </script>
-<script>
-/* CarScout Live: page logic. Needs the pure logic block (decodeVin, parseLink, compStats, primaryFair, verdictOf, priceScore, niceTicks). */
+<script>/* CarScout Live: page logic. Needs the pure logic block (decodeVin, parseLink, compStats, primaryFair, verdictOf, priceScore, niceTicks). */
 (function(){
 'use strict';
 /* Set your Cloudflare Worker address here once (or use the "Server" button on the page). */
@@ -880,19 +879,100 @@ function cleanMakeModel(make, model) {
 var TRIMS=[['amg-line',/\bamg[\s\-]?line\b|амг[\s\-]?лайн/i,1],['amg',/\bamg\b|(^|[^а-яa-z])амг([^а-яa-z]|$)/i,1],['r-line',/\br[\s\-]?l[iī]n(?:e|ija|ijas)?\b|(^|[^а-я])р[\s\-]?лайн|(^|[^а-я])р[\s\-]?лин/i,1],['m-sport',/\bm[\s\-]?sport|\bm[\s\-]?paket|\bm[\s\-]?package|(^|[^а-я])м[\s\-]?спорт/i,1],['s-line',/\bs[\s\-]?l[iī]n(?:e|ija)?\b|(^|[^а-я])с[\s\-]?лайн/i,1],
   ['gti/gtd/gte',/\bgt[ide]\b/i,1],['rs',/\bRS[\s\-]?\d?\b/,1],['st-line',/\bst[\s\-]?line\b/i,1],['fr',/\bFR\b/,1],['monte carlo',/monte[\s\-]?carlo/i,1],['l&k',/laurin|\bl&k\b/i,1],['sportline',/sport[\s\-]?line\b/i,1],
   ['black edition',/black[\s\-]?edition/i,1],['executive',/\bex(?:e)?cutive\b/i,1],['prestige',/\bprestige\b/i,1],['luxury',/\bluxury\b(?![\s\-]?line)/i,0],['premium',/\bpremium\b/i,0],['special edition',/special[\s\-]?edition|sonderedition|sondermodell|ar[\s\-]?special[\s\-]?edition/i,1],['se',/(^|[^A-Za-z0-9])SE([^A-Za-z0-9]|$)/,1],['vorsprung',/vorsprung/i,1],['competition',/\bcompetition\b/i,1],['r-design',/\br[\s\-]?design/i,1],['inscription',/inscription/i,1],['gr sport',/\bgr[\s\-]?sport/i,1],['opc line',/\bopc[\s\-]?line/i,1],['luxury line',/luxury[\s\-]?line/i,0],['modern line',/modern[\s\-]?line/i,0],['avantgarde',/avantgarde/i,1],['elegance',/\belegance\b/i,0],['highline',/\bhighline\b/i,0],['comfortline',/\bcomfortline\b/i,0],['trendline',/\btrendline\b/i,0]];
-function detectTrim(text){
+/* ---------- per-make trim catalogue ('Name', trailing '!' = sporty/top trim; capitalised in the ad text) ---------- */
+var MAKE_TRIMS={
+'toyota':'Active|Active Plus|Active Drive|Sol|Sol Plus|Style|Style Plus|Style Selection|Comfort|Dynamic|Dynamic Force|Dynamic Plus|Lounge|Business|Live|Terra|Luna|Icon|Trend|Selection|Excel|Adventure|Invincible!|GR!|Premiere Edition!|Hybrid Active|Hybrid Dynamic|Hybrid Style|Elegant|Edition|VX!|GX|Comfort Plus|Style Business|x-play|x-cite|x-clusiv|x-trend|x-press|x-wave|Cool|Sport|Business Edition|Executive Plus|Trend Plus|Lounge Plus|Style Comfort',
+'volkswagen':'Trendline|Comfortline|Highline|Life|Style|Elegance|Business|United|Move|Join|Cross|Sport|Match|Team|Edition|Sound|Beats|Atmosphere|Basis|Maraton|Alltrack!|Cup!|Black Style|Black Edition!|Exclusive|Perfectline|Advance',
+'audi':'Sport|Design|Advanced|Basis|Business|Ambition|Ambiente|Attraction|Black Line!|Edition One|Launch Edition|Sport Selection|Design Selection|Technik|Technology|Edition|Exclusive|S Tronic|Black Edition!|Quattro Sport!|SE Technik|S Edition!|Comfort|Pro Line|Pro Line S|Sport Edition!',
+'bmw':'Sport|Sport Line!|xLine|Urban Line|Advantage|Individual!|M Performance!|M Sport Pro!|Shadow Line|Pure Excellence|Design Pure Excellence|Edition Exclusive|Edition Sport|Exclusive|Business|Basis|Comfort|Design|Pure|Executive|M Competition!|M Technic!|M Paket!|Msport!|Innovation',
+'mercedes':'Exclusive|Progressive|Urban|Classic|Designo!|Premium Plus|Style|Sport|Edition|Edition 1!|Business|Night Edition!|Avantgarde|Elegance|BlueEFFICIENCY|Brabus!|Maybach!|Final Edition',
+'skoda':'Active|Ambition|Style|Scout!|Classic|Joy|Drive|Clever|Tour|Ambiente|Selection|Cool Edition|Fresh|Atelier|Soleil|Edition|Business|Sportline|Black Edition!|Laurin & Klement!|RS!|Monte Carlo!|Elegance|Dynamic|Greentech|Design|Plus|Premium',
+'seat':'Reference|Reference Plus|Style|Style Plus|Style Advanced|Xcellence!|Xperience|Connect|FR Line!|Copa|Cupra!|Sport|Edition|Business|Fresh|Hola|Comfort|Stylance|Sportcoupe|Black Edition!|SE|Ecomotive',
+'cupra':'V|VZ!|VZ1!|VZ2!|VZ3!|Competition!|Dark Forest!|Edition|e-Hybrid|Tribe',
+'opel':'Enjoy|Cosmo|Elective|Innovation|Excellence|Selective|Essentia|GS Line!|GS!|Ultimate!|OPC!|Business Edition|Business Elegance|Color Edition|Design & Tech|Edition|Active|Drive|Dynamic|Sport|Sport+|Turbo|Comfort|Elegance|Cosmo Pack|Selection|Rocks-e|Black Edition!|Business|Style|Sportive|Tourer Edition|120 Years',
+'ford':'Trend|Titanium|Titanium X|Titanium Vignale|Ambiente|Ghia|ST!|Vignale!|Active|Business|Sport|Zetec|Zetec S|Trend Sport|Limited|Edition|Connected|Style|Cool & Connect|Wildtrak!|Platinum|Raptor!|Carver|Black Edition!|Trend X|Trend Edition|RS!|Duratec|Econetic|Lx|Ghia X|Eco Titanium|Black Pack',
+'volvo':'Kinetic|Momentum|Summum|Momentum Pro|Business Pro|Business|Polestar!|Core|Plus|Pro|Ultimate!|Cross Country!|Dynamic|Advanced|Classic|Edition|R-Design Pro!|Inscription Expression!|Linea|Ocean Race!|Drive-E|Dark|Bright|Plus Dark|Plus Bright|Ultimate Dark!',
+'peugeot':'Access|Active|Allure|Allure Pack|Active Pack|Allure Business|GT!|GT Line!|GTi!|Style|Roland Garros!|Feline|Crossway|Business Line|Premium|Black Pack|Active Business|Tech Edition|Sport|Urban|Confort|Trendy|Envy|Executive|Edition|Signature|Pure Tech|Active Plus|Allure Plus|GT Pack!|Allure Premium',
+'citroen':'Attraction|Feel|Shine|Live|Feel Pack|Shine Pack|Exclusive|Collection|Seduction|Millenium|C-Series|Origins|Tendance|Confort|Business|VTR|VTS!|Rip Curl!|Sport Chic!|Feel Edition|Shine Pack|Selection|Elegance|Airdream|Plus|Essentiel|Edition|Cross|Rip Curl Edition|Cactus',
+'renault':'Expression|Dynamique|Intens|Initiale Paris!|Zen|Life|Limited|Business|Bose|Privilege|Authentique|Extreme|Techno|Evolution|Iconic|Equilibre|R.S. Line!|RS Line!|Alpine!|Edition One|GT Line!|GT!|Energy|Cool|Black Edition!|S-Edition!|Dynamique S|Dynamique Nav|Night&Day|Business Edition|Exception|Collection|Zen Plus|Intens Plus|Techno Esprit|Esprit Alpine!',
+'dacia':'Access|Essential|Comfort|Laureate|Ambiance|Arctic|Stepway|Expression|Journey|Extreme|Prestige|Open|Celebration|Eco-G',
+'honda':'Comfort|Elegance|Executive|Lifestyle|Sport|Type R!|Type S!|Type-R!|Trend|Advance|Advance Style|Innova|Si!|Dynamic|Executive Plus|Elegance Plus|Comfort Plus|Style|Exclusive|Prestige|Sport Plus|Vtec|I-Vtec',
+'mazda':'Center-Line|Centre-Line|Exclusive-Line|Sports-Line|Takumi!|Revolution!|Revolution Top!|Attraction|Challenge|Emotion|Vision|Optimum|Prime-Line|Homura!|Kizoku|Newground|Comfort|Plus|Dynamic|Sport|Takumi Plus!|Signature!|Skycruise|Skyactiv|Exclusive|Business|Hakona|Nagisa|Select|Edition 100|Sportsline',
+'hyundai':'Classic|Comfort|Style|Dynamic|Passion|Trend|Inspire|Pure|Prime|N Line!|N-Line!|N!|Signature|Platinum|Tecno|Smart|Family|Intro|Executive|Panoramic|Go!|Blue|Premium|Business|Edition|Life|Fresh|Select|Trend Plus|Style Plus|Techno|Limited',
+'kia':'Attract|Edition 7|EX|Spirit|Platinum|Business|Active|Comfort|Drive|Silver|Gold|Prestige|Premium|Luxury|GT-Line!|GT Line!|GT!|Concept|Eco Dynamics|X-Line|Urban|Vision|Sense|First Edition!|Fusion|Magic|Evolution|Dynamic|Tech|Titan|Style|Ice|Mild Hybrid|Black Edition!|Platinum Edition|Pulse|Spirit Plus|Business Plus|Titanium|Executive|Dynamic Plus|EX Plus',
+'nissan':'Visia|Acenta|N-Connecta|Tekna!|N-Design!|Acenta Plus|Visia Plus|Tekna Plus!|Connecta|Black Edition!|Premium|SE|SV|SL|Platinum|N-Sport!|Nismo!|N-Tec|Shiro|Business Edition|Optima|Comfort|Sport|Tekna Sport!|Ambition|Elegance|Pure|Dynamic|Style|Edition|Acenta Premium|Visia Comfort|Wine Edition|Midnight Edition!',
+'lexus':'F Sport!|F-Sport!|Luxury|Executive|Business|Comfort|President|Premium|Elegance|Ultimate|Black Line!|Impression|Executive Line|Business Line|Premium Line|Sport Line!|Takumi|Edition|Landmark|Special Edition',
+'land rover':'SE|HSE!|HSE Dynamic!|S|SE Dynamic|Dynamic|Dynamic SE|Dynamic HSE!|Autobiography!|Vogue!|Pure|Prestige|Sport|R-Dynamic!|First Edition!|Black Pack|Landmark|Westminster|Adventure|Urban|Heritage|HST!|SVR!|Edition|Tech|Metropolitan|Xs|Xs Edition|Premium',
+'porsche':'S|GTS!|Turbo!|Turbo S!|GT3!|GT4!|Carrera!|Carrera S!|4S!|E-Hybrid|Platinum Edition!|Black Edition!|Sport Design|Style Edition|Edition|Sport Classic!|Targa',
+'mini':'One|Cooper|Cooper S!|John Cooper Works!|JCW!|Chili!|Salt|Pepper|Camden|Soho|Hampton|Mayfair|Park Lane|Bayswater|Paddy Hopkirk!|Classic|Sport|Trim|Exclusive|Resolute|Seven|Cooper SE|Untamed|Favoured|Iconic|Shoreditch|Rooster',
+'subaru':'Comfort|Exclusive|Sport|Premium|Executive|Trend|STI!|WRX!|Limited|Touring|Active|Base|Black Edition!|Lineartronic|Style|Special Edition|Platinum|Elegance|Dynamic|Premium Plus',
+'suzuki':'GL|GLX|GL+|Comfort|Premium|Elegance|Club|Style|Compact|Dynamic|Sport|Allgrip|Edition|Hybrid|Exclusive|Active|Nautic|X-Treme|Limited|Special Edition',
+'mitsubishi':'Invite|Inform|Intense|Instyle|Diamond|Ralliart!|Spirit|Edition|Plus|Sport|Comfort|Basic|Ultimate|Black Edition!|Invite+|Intense+|Instyle+|Dynamic|Premium|Active|Exceed|Style|Titanium',
+'tesla':'Performance!|Long Range|Standard Range|Standard Range Plus|Plaid!|Dual Motor|Long Range AWD|RWD|AWD|LR|Raven|Signature|Founders Series',
+'fiat':'Pop|Easy|Lounge|Sport|Opening Edition|Mirror|Trekking|Cross|Urban|Active|Comfort|Dynamic|Abarth!|Business|Panorama|Rockstar|S-Design|Popstar|1957 Edition|Star|Collezione|Emotion|Mylife|Racing!|Black Jack|Cult|Rock Star|S-Design Cross|Pop Plus|Easy Plus|Lounge Plus',
+'alfa romeo':'Super|Sprint|Veloce!|Ti|Lusso|Distinctive|Progression|Impression|Quadrifoglio!|QV!|Business|Edizione|Competizione!|Executive|Exclusive|Turismo|Speciale|Tributo Italiano|Giulia Super|Exclusive Plus|Collezione',
+'jeep':'Sport|Longitude|Limited!|Overland!|Trailhawk!|Rubicon!|Sahara|Summit!|Night Eagle|Upland|Opening Edition|80th Anniversary|Altitude|Laredo|Trackhawk!|SRT!|S-Limited!|Business|Dynamic|Edition|Plus|Freedom|Latitude|Black Edition!|High Altitude',
+'infiniti':'Pure|Premium|Premium Tech|Sport|Sport Tech|Luxe|Executive|S Premium|Black Edition!|Sport Premium|Design|Edition',
+'chevrolet':'LS|LT|LTZ|Z71!|RS!|SS!|Premier!|High Country!|Activ|Midnight|ZR2!|Plus|Base|Edition|Black Edition!|Sport|Classic|LT Plus',
+'jaguar':'Pure|Prestige|Portfolio!|R-Sport!|R-Dynamic!|SE|S|First Edition!|Landmark|Chequered Flag!|SVR!|Luxury|Premium Luxury|Edition|Sport|Dynamic',
+'saab':'Linear|Vector|Aero!|Griffin|Sport|Edition|Arc',
+'smart':'Pure|Passion|Prime|Proxy|Brabus!|Edition|Pulse|Youngster|Cdi|Greenflash|Passion Plus',
+'maserati':'GranSport!|GranLusso|Modena!|Trofeo!|Sport|S Q4|GT|Edition|Base',
+'lancia':'Argento|Oro|Platino|Gold|Silver|Platinum|Elefantino|Diva|Momo Design',
+'cadillac':'Luxury|Premium Luxury|Sport!|Platinum|Base|V-Sport!|Premium|Black Wing!',
+'lada':'Classic|Comfort|Luxe|Norma|Standard|Black Edition!|Luxury|Cross|Style',
+'ssangyong':'Quartz|Sapphire|Crystal|Premium|Sport|Comfort|Elegance|Style|Edition',
+'genesis':'Luxury|Sport|Advanced|Prestige|Premium|Business|Edition',
+'mg':'Comfort|Excite|Exclusive|Luxury|Trophy|Edition|Core|Style|Sport|Premium|Standard Range|Long Range|SE|Cross',
+'byd':'Comfort|Design|Boost|Active|Premium|Luxury|Executive|Edition|Top|Dynamic'
+};
+var MT_BY_MAKE={}, MT_FLAG={}, MT_NAME={};
+(function(){
+  var seen={}; TRIMS.forEach(function(x){ seen[x[0]]=1; });
+  var BAN={'s':1,'v':1,'n':1,'edition':1,'base':1,'plus':1,'trim':1,'hybrid':1,'go!':1,'blue':1,'open':1,'ice':1,'tech':1,'star':1,'dark':1,'bright':1,'awd':1,'rwd':1,'lr':1,'raven':1,'cdi':1,'vtec':1,'i vtec':1,'eco g':1,'turbo':0,'cross':1,'cool':1,'intro':1,'smart':1,'skyactiv':1,'lineartronic':1,'greentech':1,'ecomotive':1,'duratec':1,'econetic':1,'airdream':1,'drive e':1,'mild hybrid':1,'e hybrid':1,'pure tech':1,'sportcoupe':1,'quattro sport':1,'s tronic':1,'120 years':1,'2020':1};
+  function esc(s){ return s.replace(/[.*+?^${}()|[\]\\&]/g,'\\$&'); }
+  Object.keys(MAKE_TRIMS).forEach(function(mk){
+    var arr=[]; if(!MAKE_TRIMS[mk]) return;
+    MAKE_TRIMS[mk].split('|').forEach(function(raw){
+      var flag=/!$/.test(raw)?1:0, name=raw.replace(/!$/,''), key=name.toLowerCase().replace(/[\s\-]+/g,' ');
+      if(!name||seen[name.toLowerCase()]||seen[key]||BAN[key]===1) return;
+      if(key==='sport'&&!/^(audi|bmw|volkswagen|mercedes)$/.test(mk)) return;
+      var src=name.split(/[\s\-]+/).map(esc).join('[\\s\\-]?'), strict=/^[A-Z0-9]/.test(name);
+      arr.push({key:key,name:name,re:new RegExp('(^|[^A-Za-z0-9Ѐ-ӿ])('+src+')(?![A-Za-z0-9Ѐ-ӿ])','ig'),strict:strict});
+      MT_FLAG[key]=flag; MT_NAME[key]=name;
+    });
+    MT_BY_MAKE[mk]=arr;
+  });
+})();
+function makeKey(make){
+  var m=String(make||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+  if(!m) return ''; if(/^(vw|volkswagen)/.test(m)) return 'volkswagen';
+  if(/^land[\s\-]?rover/.test(m)) return 'land rover'; if(/^alfa/.test(m)) return 'alfa romeo';
+  return m.split(/[\s\-]+/)[0];
+}
+function mtHit(x,t,loose){
+  x.re.lastIndex=0; var m;
+  while((m=x.re.exec(t))){ if(loose||!x.strict||/^[A-Z0-9]/.test(m[2])) return true; if(m.index===x.re.lastIndex) x.re.lastIndex++; }
+  return false;
+}
+
+function detectTrim(text,make,loose){
   var t=String(text||''), out=[]; TRIMS.forEach(function(x){ if(x[1].test(t)) out.push(x[0]); });
+  var list=MT_BY_MAKE[makeKey(make)];
+  if(list){ var t2=loose?t:t.slice(0,700); list.forEach(function(x){ if(out.indexOf(x.key)<0&&mtHit(x,t2,loose)) out.push(x.key); }); }
   if(out.indexOf('amg-line')>-1) out=out.filter(function(k){return k!=='amg'});
-  return out;
+  function tk(k){ return ' '+k.replace(/[\s\-]+/g,' ')+' '; }
+  return out.filter(function(k){ var s=tk(k); return !out.some(function(o){ return o!==k&&o.length>k.length&&tk(o).indexOf(s)>-1; }); });
 }
 function trimRe(s){ var t=String(s||'').trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/[\s\-]+/g,'[\\s\\-]?'); return t?new RegExp('(^|[^a-z0-9])'+t+'([^a-z0-9]|$)','i'):null; }
 function titleHasTrim(title,car){
   var mine=car.trims||[]; if(!mine.length) return false;
-  if(detectTrim(title).some(function(k){return mine.indexOf(k)>-1})) return true;
+  if(detectTrim(title,car.make).some(function(k){return mine.indexOf(k)>-1})) return true;
   if(car.trimCustom){ var re=trimRe(car.trimCustom); return !!(re&&re.test(String(title||''))); }
   return false;
 }
-function trimPremium(list){ return list.some(function(k){ return TRIMS.some(function(x){return x[0]===k&&x[2]}); }); }
+function trimPremium(list){ return list.some(function(k){ return MT_FLAG[k]===1||TRIMS.some(function(x){return x[0]===k&&x[2]}); }); }
+function trimDisplay(k){ return MT_NAME[k]||k; }
 
 /* ---------- OCR (runs in the browser, nothing is uploaded) ---------- */
 var ocrLoad=null;
@@ -1072,7 +1152,7 @@ async function run(){
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
-    car.trims=f.trim?detectTrim(f.trim):detectTrim([car.title,car.desc,f.text,ocrText].join(' '));
+    car.trims=f.trim?detectTrim(f.trim,car.make,true):detectTrim([car.title,car.desc,f.text,ocrText].join(' '),car.make);
     car.trimCustom=''; if(f.trim&&!car.trims.length){ car.trimCustom=f.trim; car.trims=[f.trim.toLowerCase()]; }
     car.trimKnownText=!!(f.trim||car.desc||car.title||f.text||ocrText);
     car.trimFromPhoto=false;
@@ -1086,7 +1166,7 @@ async function run(){
         if(vinHit&&!car.vin) notes.push(L('На фото виден возможный VIN: '+vinHit.vin+' (проверьте вручную).','A possible VIN is visible on a photo: '+vinHit.vin+' (please check manually).'));
       }catch(e){ notes.push(L('Фото не удалось прочитать (нужен интернет для загрузки распознавания).','Photos could not be read (internet needed to load text recognition).')); }
     }
-    autoSet('#f-trim',(car.trims||[]).join(', '));
+    autoSet('#f-trim',(car.trims||[]).map(trimDisplay).join(', '));
     var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1) car.year=vd.years[0];
     /* fill the form so the user can fix it */
     autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.fuel); autoSet('#f-vin',car.vin);
@@ -1107,7 +1187,7 @@ async function run(){
     var jobs=[];
     var base={make:car.make,model:car.model,year:car.year,fuel:car.fuel||''};
     var AS_TRIM={'r-line':'R-Line','amg-line':'AMG Line','m-sport':'M Sport','s-line':'S-Line','st-line':'ST-Line','sportline':'Sportline','fr':'FR','monte carlo':'Monte Carlo','black edition':'Black Edition','avantgarde':'Avantgarde','rs':'RS','executive':'Executive','prestige':'Prestige','luxury':'Luxury','premium':'Premium','se':'SE','special edition':'Special Edition','vorsprung':'Vorsprung','competition':'Competition','r-design':'R-Design','inscription':'Inscription','gr sport':'GR Sport','opc line':'OPC Line','highline':'Highline','comfortline':'Comfortline','trendline':'Trendline','elegance':'Elegance'};
-    var asTrim=''; (car.trims||[]).some(function(k){ if(AS_TRIM[k]){asTrim=AS_TRIM[k]; return true} });
+    var asTrim=''; (car.trims||[]).some(function(k){ var v=AS_TRIM[k]||MT_NAME[k]; if(v){asTrim=v; return true} });
     if(!asTrim&&car.trimCustom) asTrim=car.trimCustom;
     setSrc('ss','ss.com (LV)','run',L('загружаю…','loading…'));
     jobs.push(api('/api/comps',Object.assign({source:'ss',ssPath:car.hints&&car.hints.ss_path||''},base),55000).then(function(j){return {key:'ss',region:'LV',label:'ss.com',j:j}}));
@@ -1150,7 +1230,7 @@ function pickRelevant(items,car){
     var same=sel.filter(function(i){ return i.trimMatch||titleHasTrim(i.title,car); });
     if(same.length>=5){ sel=same; trimNote={mode:'same',n:same.length}; } else trimNote={mode:'few',n:same.length};
   } else if(car.trimKnownText&&sel.length){
-    var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title))});
+    var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title,car.make))});
     if(plain.length>=6&&plain.length<sel.length){ sel=plain; trimNote={mode:'plain',n:plain.length}; }
   }
   return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote};
@@ -1221,11 +1301,11 @@ function secFacts(v){
     ((!c.trims||!c.trims.length)&&c.year?'<div class="banner" style="margin-top:12px"><span>'+esc(L('Комплектация в тексте объявления не найдена, поэтому сравнение идёт с обычными версиями. Если у машины R-Line, AMG Line, M Sport и т. п., укажите её вручную.','The trim was not found in the listing text, so the comparison uses regular versions. If the car is an R-Line, AMG Line, M Sport etc., enter it manually.'))+'</span><div class="btns"><button class="btn sm pri" type="button" data-act="set-trim">'+esc(L('Указать комплектацию','Set the trim'))+'</button></div></div>':'')+
     (v.notes.length?'<ul class="dots" style="margin-top:12px">'+v.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join('')+'</ul>':'')+'</section>';
 }
-function trimLabel(k){ return k==='-'?L('не указана в названии','not stated in title'):k; }
+function trimLabel(k){ return k==='-'?L('не указана в названии','not stated in title'):trimDisplay(k); }
 function trimGroups(items,car){
   var g={}, order=TRIMS.map(function(x){return x[0]});
   items.forEach(function(i){
-    var d=detectTrim(i.title), key='-';
+    var d=detectTrim(i.title,car.make), key='-';
     if(d.length){ key=d.slice().sort(function(a,b){return order.indexOf(a)-order.indexOf(b)})[0]; }
     (g[key]=g[key]||[]).push(i);
   });
@@ -1268,7 +1348,7 @@ function secVerdict(v){
   var conf={high:L('высокая','high'),medium:L('средняя','medium'),low:L('низкая','low')}[v.conf];
   var mk='';
   if(v.medKm!=null&&v.car.km!=null){ var dk=(v.car.km-v.medKm)/Math.max(1,v.medKm)*100; mk='<li>'+esc(L('Пробег ','Mileage ')+(dk>0?L('выше','above'):L('ниже','below'))+L(' медианы аналогов на ',' the comparables median by ')+Math.abs(dk).toFixed(0)+'% ('+fmt(v.medKm)+' km)')+'</li>'; }
-  var tn=v.home&&v.home.trimNote, mine=(v.car.trims||[]).join(', ');
+  var tn=v.home&&v.home.trimNote, mine=(v.car.trims||[]).map(trimDisplay).join(', ');
   if(tn&&tn.mode==='same') mk+='<li>'+esc(L('Сравнение только с той же комплектацией ('+mine+'): '+tn.n+' объявл.','Compared only with the same trim ('+mine+'): '+tn.n+' ads'))+'</li>';
   else if(tn&&tn.mode==='few') mk+='<li>'+esc(L('Комплектация '+mine+': точных аналогов мало ('+tn.n+'), сравнение идёт с более широкой выборкой и может быть неточным.','Trim '+mine+': few exact matches ('+tn.n+'), so the comparison uses a wider sample and may be less accurate.'))+'</li>';
   else if(tn&&tn.mode==='plain') mk+='<li>'+esc(L('Версии с «спортивными» пакетами (R-Line, AMG и т. п.) из сравнения исключены.','Versions with sport packages (R-Line, AMG etc.) were excluded from the comparison.'))+'</li>';
@@ -1468,7 +1548,6 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
 window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant};
 })();
 })();
-
 </script>
 </body>
 </html>
