@@ -929,7 +929,7 @@ var MAKE_TRIMS={
 'subaru':'Comfort|Exclusive|Sport|Premium|Executive|Trend|STI!|WRX!|Limited|Touring|Active|Base|Black Edition!|Lineartronic|Style|Special Edition|Platinum|Elegance|Dynamic|Premium Plus',
 'suzuki':'GL|GLX|GL+|Comfort|Premium|Elegance|Club|Style|Compact|Dynamic|Sport|Allgrip|Edition|Hybrid|Exclusive|Active|Nautic|X-Treme|Limited|Special Edition',
 'mitsubishi':'Invite|Inform|Intense|Instyle|Diamond|Ralliart!|Spirit|Edition|Plus|Sport|Comfort|Basic|Ultimate|Black Edition!|Invite+|Intense+|Instyle+|Dynamic|Premium|Active|Exceed|Style|Titanium',
-'tesla':'SR+|Standard Range+|LR AWD|Performance!|Long Range|Standard Range|Standard Range Plus|Plaid!|Dual Motor|Long Range AWD|RWD|AWD|LR|Raven|Signature|Founders Series',
+'tesla':'Standard Range Plus~Standard Plus~Standard Range+~SR+~Std Plus|Standard Range|Long Range AWD~LR AWD~Long Range Dual Motor|Long Range~LR|Performance!|Plaid!|Dual Motor|Signature|Founders Series',
 'fiat':'Pop|Easy|Lounge|Sport|Opening Edition|Mirror|Trekking|Cross|Urban|Active|Comfort|Dynamic|Abarth!|Business|Panorama|Rockstar|S-Design|Popstar|1957 Edition|Star|Collezione|Emotion|Mylife|Racing!|Black Jack|Cult|Rock Star|S-Design Cross|Pop Plus|Easy Plus|Lounge Plus',
 'alfa romeo':'Super|Sprint|Veloce!|Ti|Lusso|Distinctive|Progression|Impression|Quadrifoglio!|QV!|Business|Edizione|Competizione!|Executive|Exclusive|Turismo|Speciale|Tributo Italiano|Giulia Super|Exclusive Plus|Collezione',
 'jeep':'Sport|Longitude|Limited!|Overland!|Trailhawk!|Rubicon!|Sahara|Summit!|Night Eagle|Upland|Opening Edition|80th Anniversary|Altitude|Laredo|Trackhawk!|SRT!|S-Limited!|Business|Dynamic|Edition|Plus|Freedom|Latitude|Black Edition!|High Altitude',
@@ -955,10 +955,11 @@ var MT_BY_MAKE={}, MT_FLAG={}, MT_NAME={};
   Object.keys(MAKE_TRIMS).forEach(function(mk){
     var arr=[]; if(!MAKE_TRIMS[mk]) return;
     MAKE_TRIMS[mk].split('|').forEach(function(raw){
-      var flag=/!$/.test(raw)?1:0, name=raw.replace(/!$/,''), key=name.toLowerCase().replace(/[\s\-]+/g,' ');
+      var flag=/!/.test(raw)?1:0, names=raw.replace(/!/g,'').split('~'), name=names[0], key=name.toLowerCase().replace(/[\s\-]+/g,' ');
       if(!name||seen[name.toLowerCase()]||seen[key]||BAN[key]===1) return;
       if(key==='sport'&&!/^(audi|bmw|volkswagen|mercedes)$/.test(mk)) return;
-      var src=name.split(/[\s\-]+/).map(esc).join('[\\s\\-]?'), strict=/^[A-Z0-9]/.test(name);
+      var one=function(n){ return n.split(/[\s\-]+/).map(function(t){ return /^standard$/i.test(t)?'Standar[dt]':esc(t); }).join('[\\s\\-]?'); };
+      var src=names.map(one).join('|'), strict=/^[A-Z0-9]/.test(name);
       arr.push({key:key,name:name,re:new RegExp('(^|[^A-Za-z0-9Ѐ-ӿ])('+src+')(?![A-Za-z0-9Ѐ-ӿ])','ig'),strict:strict});
       MT_FLAG[key]=flag; MT_NAME[key]=name;
     });
@@ -1547,6 +1548,12 @@ function flagsOf(v){
   if(d.complete){ add(pros,'VIN указан в объявлении','The VIN is stated in the listing');
     if(c.year&&d.years&&d.years.length){ if(d.years.indexOf(c.year)>-1||d.years.indexOf(c.year-1)>-1) add(pros,'Год по VIN совпадает с годом в объявлении','The VIN model year matches the listing year'); else add(risks,'Год по VIN ('+d.years.join(' / ')+') не совпадает с годом в объявлении','The VIN model year ('+d.years.join(' / ')+') does not match the listing year'); } }
   else add(risks,'VIN не указан: попросите фото таблички и сверьте с документами','No VIN: ask for a photo of the plate and compare it with the papers');
+  /* Tesla software options named in the ad (they change the price, so the owner must confirm them in the car menu) */
+  if(/^tesla$/i.test(c.make||'')){
+    var opts=[]; if(/full[\s\-]?self[\s\-]?driving|\bFSD\b/i.test(tx)) opts.push('Full Self-Driving'); if(/enhanced[\s\-]?autopilot|\bEAP\b/i.test(tx)) opts.push('Enhanced Autopilot'); else if(/autopilot/i.test(tx)) opts.push('Autopilot'); if(/\bsummon\b/i.test(tx)) opts.push('Summon');
+    if(opts.length) add(pros,'В объявлении упомянуты опции Tesla: '+opts.join(', ')+'. Они влияют на цену: пусть продавец покажет их в меню машины','The listing mentions Tesla options: '+opts.join(', ')+'. They affect the price: ask the seller to show them in the car menu');
+    else add(risks,'Платные программные опции (Autopilot, FSD, Summon) в объявлении не упомянуты: уточните, что установлено','Paid software options (Autopilot, FSD, Summon) are not mentioned: ask what is installed');
+  }
   /* what the ad itself says */
   if(has(/servisa\s+grāmat|apkalpošanas\s+grāmat|сервисн\w*\s+книж|сервисная\s+истор|service\s+(book|history|record)|scheckheft|serviss\s+vēstur/i)) add(pros,'В объявлении упомянута сервисная книга или история обслуживания','The listing mentions a service book or service history');
   if(has(/garantij|гарантия|warranty|garantie/i)) add(pros,'В объявлении упомянута гарантия: уточните условия','The listing mentions a warranty: ask about the terms');
@@ -1575,6 +1582,7 @@ function checksOf(v){
   if((c.km||0)>100000||(age||0)>=8) q.push(L('Когда менялся ремень или цепь ГРМ?','When was the timing belt or chain changed?'));
   if(c.fuel==='diesel') q.push(L('Менялся ли сажевый фильтр, как проходит регенерация?','Was the particulate filter replaced, how does regeneration go?'));
   if(c.lpg) q.push(L('Кто и когда установил ГБО, есть ли документы, когда истекает срок баллона?','Who installed the gas system and when, are there papers, when does the cylinder expire?'));
+  if(/^tesla$/i.test(c.make||'')) q.push(L('Какие платные пакеты ПО куплены (Autopilot, FSD, Summon) и показывает ли их меню машины?','Which paid software packages were bought (Autopilot, FSD, Summon) and does the car menu show them?'));
   if(c.fuel==='hybrid'||c.fuel==='electric') q.push(L('Есть ли диагностика тяговой батареи?','Is there a traction battery diagnostic report?'));
   q.push(L('Можно ли проверить авто на сервисе?','Can the car be checked at a workshop?'));
   i.push(L('Сверить VIN на табличке, стекле и в документах','Compare the VIN on the plate, the glass and the papers'));
