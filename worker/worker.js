@@ -419,6 +419,47 @@ function parseGenericListing(html, url) {
   return { listing: L, image: image ? absUrl(image, url) : null, title: strip(title || '') };
 }
 
+
+/* ---------------- photos ---------------- */
+const IMG_HOSTS = [
+  /(^|\.)ss\.(com|lv)$/, /(^|\.)autoscout24\.(net|com|de)$/, /(^|\.)autoplius\.lt$/, /(^|\.)dgn\.lt$/, /(^|\.)auto24\.(ee|lv|lt)$/,
+  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autovit\.ro$/
+];
+function imgAllowed(u) {
+  try { const x = new URL(u); return x.protocol === 'https:' && IMG_HOSTS.some(function (re) { return re.test(x.hostname); }); } catch (e) { return false; }
+}
+function collectImages(html, base) {
+  const out = [], seen = {};
+  function add(u) {
+    if (!u) return;
+    u = absUrl(String(u).replace(/&amp;/g, '&'), base);
+    if (!u || !imgAllowed(u)) return;
+    if (/(logo|icon|sprite|banner|avatar|flag|noimage|placeholder)/i.test(u)) return;
+    // ss.com: thumbnails (.t.jpg, .th2.jpg, .th.jpg) -> large (.800.jpg)
+    const big = u.replace(/\.(?:th2|th|t|\d{2,3})\.(jpe?g|png)(\?.*)?$/i, '.800.$1');
+    const key = big.replace(/\.\d{2,4}\.(jpe?g|png)$/i, '');
+    if (seen[key]) return; seen[key] = 1; out.push(big);
+  }
+  let m; const re = /(?:src|data-src|data-original|href|content)=["']([^"']+\.(?:jpe?g|png)(?:\?[^"']*)?)["']/gi;
+  while ((m = re.exec(html)) && out.length < 40) add(m[1]);
+  const re2 = /https?:\/\/i\.ss\.(?:com|lv)\/gallery\/[^"'\s<>)\\]+?\.(?:jpe?g|png)/gi;
+  while ((m = re2.exec(html)) && out.length < 40) add(m[0]);
+  const og = meta(html, 'og:image'); if (og) add(og);
+  return out.slice(0, 14);
+}
+async function hImg(env, q) {
+  const url = q.get('url');
+  if (!url || !imgAllowed(url)) return json(env, { ok: false, error: 'bad_url' }, 400);
+  const r = await fetch(url, { headers: { 'user-agent': UA, 'referer': new URL(url).origin + '/', 'accept': 'image/avif,image/webp,image/*,*/*;q=0.8' }, cf: { cacheTtl: 86400, cacheEverything: true } });
+  const ct = r.headers.get('content-type') || '';
+  const len = parseInt(r.headers.get('content-length') || '0', 10);
+  if (!r.ok || !/^image\//i.test(ct)) return json(env, { ok: false, error: 'not_image', status: r.status }, 502);
+  if (len > 6000000) return json(env, { ok: false, error: 'too_large' }, 413);
+  const buf = await r.arrayBuffer();
+  if (buf.byteLength > 6000000) return json(env, { ok: false, error: 'too_large' }, 413);
+  return new Response(buf, { status: 200, headers: Object.assign({ 'content-type': ct, 'cache-control': 'public, max-age=86400' }, cors(env)) });
+}
+
 /* ---------------- handlers ---------------- */
 async function hListing(env, q) {
   const url = q.get('url');
@@ -438,7 +479,7 @@ async function hListing(env, q) {
   const L = res.listing;
   const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;
   return json(env, { ok: filled >= 2, error: filled >= 2 ? null : 'parse_failed', message: filled >= 2 ? null : 'Could not read the main fields from this page.', source: host, parser: parser,
-    listing: L, image: res.image || null, title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
+    listing: L, image: res.image || null, images: collectImages(p.text, p.url), title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
 }
 
 async function hComps(env, q) {
@@ -535,11 +576,12 @@ export default {
     if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     const u = new URL(request.url);
     try {
-      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/comps', '/api/search', '/api/debug'] });
+      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/comps', '/api/search', '/api/img', '/api/debug'] });
       if (u.pathname === '/api/listing') return await hListing(env, u.searchParams);
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams);
       if (u.pathname === '/api/search') return await hSearch(env, u.searchParams);
       if (u.pathname === '/api/debug') return await hDebug(env, u.searchParams);
+      if (u.pathname === '/api/img') return await hImg(env, u.searchParams);
       return json(env, { ok: false, error: 'not_found' }, 404);
     } catch (e) {
       return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500);

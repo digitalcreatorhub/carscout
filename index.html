@@ -414,6 +414,8 @@ details.imp{border-radius:16px;background:rgba(255,255,255,.03)}
 .mini{font-size:12px;color:var(--muted)}
 textarea.in.sm{min-height:64px;font-size:13.5px}
 .ok-b{color:var(--good)}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted);cursor:pointer}
+.chk input{margin-top:3px;accent-color:var(--accent)}
 #btn-install{white-space:nowrap}
 .brand .plate{flex-shrink:0}
 @media (max-width:560px){.brand .sub{display:none} #btn-install{padding-inline:12px} .plate .pt{font-size:13px;padding:8px 9px} .plate .pt::before{display:none} .top .bar{gap:8px}}
@@ -511,6 +513,7 @@ textarea.in.sm{min-height:64px;font-size:13.5px}
         </div>
       </details>
 
+      <label class="chk"><input type="checkbox" id="f-photos" checked><span data-ru="Если комплектация не указана в тексте, прочитать фото объявления (сиденья, документы). Занимает до минуты." data-en="If the trim is not in the text, read the listing photos (seats, documents). Takes up to a minute."></span></label>
       <div class="btns">
         <button class="btn pri" id="btn-go" type="submit" data-ru="Проверить автомобиль" data-en="Check this car"></button>
         <button class="btn" id="btn-clear" type="button" data-ru="Очистить" data-en="Clear"></button>
@@ -894,6 +897,26 @@ async function ocrImages(files,onProgress){
   return out.join('\n');
 }
 
+/* Photos of the listing are read through the server's image proxy (the sites do not allow direct reading by the page). */
+var PHOTO_TRIMS=['amg-line','amg','r-line','m-sport','s-line','st-line','monte carlo','black edition','sportline','l&k','avantgarde'];
+function detectTrimPhoto(text){ return detectTrim(text).filter(function(k){return PHOTO_TRIMS.indexOf(k)>-1}); }
+async function scanPhotos(urls,onProgress,cancelled){
+  var T=await loadTesseract(), w=await T.createWorker('eng'), res=[], i;
+  try{
+    for(i=0;i<urls.length;i++){
+      if(cancelled()) break;
+      onProgress(i,urls.length);
+      var txt='';
+      try{ var r=await w.recognize(S.api+'/api/img?url='+encodeURIComponent(urls[i])); txt=(r&&r.data&&r.data.text)||''; }catch(e){ txt=''; }
+      var trims=detectTrimPhoto(txt), vm=null, up=txt.toUpperCase().replace(/[IOQ]/g,function(c){return c==='I'?'1':'0'}), vv;
+      var re=/\b([A-HJ-NPR-Z0-9]{17})\b/g; while((vv=re.exec(up))){ if((vv[1].match(/\d/g)||[]).length>=5&&(vv[1].match(/[A-Z]/g)||[]).length>=4){ vm=vv[1]; break; } }
+      res.push({i:i,trims:trims,vin:vm,len:txt.length});
+      if(trims.length) break;
+    }
+  } finally { try{ await w.terminate(); }catch(e){} }
+  return res;
+}
+
 /* ---------- API ---------- */
 async function api(path,params,ms){
   if(!S.api) return {ok:false,error:'no_api'};
@@ -922,7 +945,7 @@ function errText(j){
 function intOnly(id){var v=($(id).value||'').replace(/[^\d]/g,''); return v?parseInt(v,10):null}
 function readForm(){
   var y=intOnly('#f-year');
-  return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:$('#f-vin').value.trim(),make:$('#f-make').value.trim(),model:$('#f-model').value.trim(),trim:($('#f-trim')?$('#f-trim').value.trim():''),
+  return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:$('#f-vin').value.trim(),make:$('#f-make').value.trim(),model:$('#f-model').value.trim(),trim:($('#f-trim')?$('#f-trim').value.trim():''),photos:!$('#f-photos')||$('#f-photos').checked,
     year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:intOnly('#f-km'),price:intOnly('#f-price'),fuel:$('#f-fuel').value,market:$('#f-market').value,
     extra:$('#f-extra').value.split(/\s+/).map(function(s){return s.trim()}).filter(function(s){return /^https?:\/\//i.test(s)}).slice(0,4)};
 }
@@ -1007,7 +1030,7 @@ async function run(){
       var lj=await api('/api/listing',{url:f.url});
       if(lj&&lj.listing&&(lj.ok||lj.listing.asking_price||lj.listing.make)){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
-        mergeCar(car,carL); car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||'';
+        mergeCar(car,carL); car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.images=lj.images||[];
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
       } else {
         notes.push(L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.'));
@@ -1025,6 +1048,17 @@ async function run(){
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
     car.trims=f.trim?detectTrim(f.trim):detectTrim([car.title,car.desc,f.text,ocrText].join(' '));
     car.trimKnownText=!!(f.trim||car.desc||car.title||f.text||ocrText);
+    car.trimFromPhoto=false;
+    if(!car.trims.length&&!f.trim&&f.photos&&S.api&&car.images&&car.images.length){
+      var phs=car.images.slice(0,8);
+      try{
+        var scan=await scanPhotos(phs,function(i,n){ stage=L('Читаю фото объявления ','Reading listing photos ')+(i+1)+'/'+n+L(' (комплектация, документы)',' (trim, documents)'); },function(){return S.ctl&&S.ctl.signal.aborted});
+        var hit=scan.filter(function(x){return x.trims.length})[0], vinHit=scan.filter(function(x){return x.vin})[0];
+        if(hit){ car.trims=hit.trims; car.trimFromPhoto=true; notes.push(L('Комплектация найдена на фото №'+(hit.i+1)+': '+hit.trims.join(', ')+'. Распознавание текста на фото неточное: проверьте и при необходимости исправьте в поле «Комплектация».','Trim found on photo #'+(hit.i+1)+': '+hit.trims.join(', ')+'. Text recognition on photos is imprecise: please check it and fix the “Trim” field if needed.')); }
+        else notes.push(L('Просмотрено фото: '+scan.length+', комплектация на них не найдена.','Photos checked: '+scan.length+', no trim found on them.'));
+        if(vinHit&&!car.vin) notes.push(L('На фото виден возможный VIN: '+vinHit.vin+' (проверьте вручную).','A possible VIN is visible on a photo: '+vinHit.vin+' (please check manually).'));
+      }catch(e){ notes.push(L('Фото не удалось прочитать (нужен интернет для загрузки распознавания).','Photos could not be read (internet needed to load text recognition).')); }
+    }
     if($('#f-trim')&&!$('#f-trim').value) $('#f-trim').value=car.trims.join(', ');
     var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1) car.year=vd.years[0];
     /* fill the form so the user can fix it */
@@ -1149,7 +1183,7 @@ function summaryText(v){
 }
 function secFacts(v){
   var c=v.car, kv=[], add=function(k,val){ if(val!=null&&val!=='') kv.push([k,val]) };
-  add(L('Год','Year'),c.year); add(L('Пробег','Mileage'),c.km!=null?fmt(c.km)+' km':null); add(L('Топливо','Fuel'),c.fuel); add(L('Коробка','Gearbox'),c.gear); add('VIN',c.vin); add(L('Комплектация','Trim'),(c.trims&&c.trims.length)?c.trims.join(', '):L('не определена','not detected')); add(L('Источник','Source'),c.site);
+  add(L('Год','Year'),c.year); add(L('Пробег','Mileage'),c.km!=null?fmt(c.km)+' km':null); add(L('Топливо','Fuel'),c.fuel); add(L('Коробка','Gearbox'),c.gear); add('VIN',c.vin); add(L('Комплектация','Trim'),(c.trims&&c.trims.length)?c.trims.join(', ')+(c.trimFromPhoto?L(' (по фото)',' (from photo)'):''):L('не определена','not detected')); add(L('Источник','Source'),c.site);
   var img=c.image&&safeUrl(c.image)?'<img class="pthumb" src="'+esc(safeUrl(c.image))+'" alt="" referrerpolicy="no-referrer" loading="lazy">':'';
   var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
   var link=c.url&&safeUrl(c.url)?'<a class="sbtn" href="'+esc(safeUrl(c.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление','Open the listing'))+'</a>':'';
