@@ -532,7 +532,6 @@ textarea.in.sm{min-height:64px;font-size:13.5px}
 </main>
 
 <script>
-
 /* ---------- pure logic: no DOM ---------- */
 var YEAR_CODES='ABCDEFGHJKLMNPRSTVWXY123456789';
 var TRANS={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
@@ -599,7 +598,7 @@ var MAKE_LIST=[['alfa romeo','Alfa Romeo'],['land rover','Land Rover'],['mercede
   ['ford','Ford'],['opel','Opel'],['renault','Renault'],['peugeot','Peugeot'],['citroen','Citroën'],['honda','Honda'],['mazda','Mazda'],
   ['nissan','Nissan'],['kia','Kia'],['hyundai','Hyundai'],['seat','SEAT'],['cupra','Cupra'],['fiat','Fiat'],['tesla','Tesla'],
   ['porsche','Porsche'],['mini','MINI'],['suzuki','Suzuki'],['subaru','Subaru'],['mitsubishi','Mitsubishi'],['lexus','Lexus'],
-  ['jaguar','Jaguar'],['dacia','Dacia'],['jeep','Jeep'],['chevrolet','Chevrolet'],['saab','Saab'],['smart','Smart'],['dodge','Dodge'],
+  ['gwm','GWM'],['great wall','GWM'],['ora','GWM'],['byd','BYD'],['chery','Chery'],['geely','Geely'],['mg','MG'],['nio','NIO'],['xpeng','XPeng'],['zeekr','Zeekr'],['leapmotor','Leapmotor'],['haval','Haval'],['omoda','Omoda'],['jaecoo','Jaecoo'],['lotus','Lotus'],['jaguar','Jaguar'],['dacia','Dacia'],['jeep','Jeep'],['chevrolet','Chevrolet'],['saab','Saab'],['smart','Smart'],['dodge','Dodge'],
   ['chrysler','Chrysler'],['infiniti','Infiniti'],['ssangyong','SsangYong'],['polestar','Polestar'],['lancia','Lancia']];
 function makeDisplay(s){
   var p=plain(s).replace(/[-_]+/g,' ').trim(), i;
@@ -620,7 +619,7 @@ function parseLink(raw){
   var ci=segs.indexOf('cars');
   if(ci>-1&&/^ss\./.test(host)){
     var a=segs[ci+1], b=segs[ci+2];
-    if(a&&!/\.html?$/i.test(a)){ make=makeDisplay(a); if(b&&!/\.html?$/i.test(b)) model=b.replace(/[-_]+/g,' '); }
+    if(a&&!/\.html?$/i.test(a)&&!/^(others?|citas?|citi|prochie|drugie)$/i.test(a)){ make=makeDisplay(a); if(b&&!/\.html?$/i.test(b)) model=b.replace(/[-_]+/g,' '); }
   }
   var tokens=plain(segs.join(' ')).split(/[^a-z0-9]+/).filter(Boolean), maxY=new Date().getFullYear()+1;
   for(i=0;i<tokens.length;i++) if(/^(19[89]\d|20[0-3]\d)$/.test(tokens[i])&&+tokens[i]<=maxY){ year=+tokens[i]; break; }
@@ -796,7 +795,6 @@ function normalizeResult(raw){
     meta:{}
   };
 }
-
 </script>
 <script>/* CarScout Live: page logic. Needs the pure logic block (decodeVin, parseLink, compStats, primaryFair, verdictOf, priceScore, niceTicks). */
 (function(){
@@ -821,7 +819,7 @@ var REGION_NAME={LV:['Латвия','Latvia'],LT:['Литва','Lithuania'],EE:[
 function rname(cc){var r=REGION_NAME[cc];return r?r[S.lang==='ru'?0:1]:cc}
 
 /* ---------- text parsing (screenshots and pasted text) ---------- */
-var MAKES=['Alfa Romeo','Audi','BMW','Citroën','Citroen','Cupra','Dacia','Fiat','Ford','Honda','Hyundai','Jaguar','Jeep','Kia','Land Rover','Lexus','Mazda','Mercedes-Benz','Mercedes','MINI','Mitsubishi','Nissan','Opel','Peugeot','Porsche','Renault','SEAT','Škoda','Skoda','Subaru','Suzuki','Tesla','Toyota','Volkswagen','VW','Volvo'];
+var MAKES=['Alfa Romeo','Audi','BMW','Citroën','Citroen','Cupra','Dacia','Fiat','Ford','Honda','Hyundai','Jaguar','Jeep','Kia','Land Rover','Lexus','Mazda','Mercedes-Benz','Mercedes','MINI','Mitsubishi','Nissan','Opel','Peugeot','Porsche','Renault','SEAT','Škoda','Skoda','Subaru','Suzuki','Tesla','Toyota','Volkswagen','VW','Volvo','GWM','Great Wall','Ora','BYD','Chery','Geely','MG','Lynk & Co','NIO','XPeng','Zeekr','Leapmotor','Haval','Omoda','Jaecoo','Dongfeng','Voyah','Maxus','Lotus'];
 function toNum(s){
   s=String(s==null?'':s).replace(/[   \s]/g,'').replace(/[^\d.,]/g,''); if(!s) return null;
   if(/^\d{1,3}([.,]\d{3})+$/.test(s)) return parseInt(s.replace(/[.,]/g,''),10);
@@ -840,7 +838,9 @@ function fuelEarliest(s){
 function isEvCar(c){
   if(!c) return false; if(c.fuel==='electric') return true;
   var mk=String(c.make||''), md=String(c.model||'').trim();
-  if(/^(tesla|polestar)$/i.test(mk)) return true;
+  if(/^(tesla|polestar|nio|xpeng|zeekr|leapmotor)$/i.test(mk)) return true;
+  if(/^gwm$/i.test(mk)&&/^ora/i.test(md)) return true;
+  if(/^byd$/i.test(mk)&&/^(atto[\s\-]?3|dolphin|seal|han|seagull|yuan)/i.test(md)) return true;
   return /^(Model[\s\-]?[3SXY]|Cybertruck|ID\.\d|ID\.?\s?Buzz|Ioniq[\s\-]?[56]|e[\s\-]?tron(\sGT)?|Q4\se[\s\-]?tron|Taycan|iX\d?|i[3-7]|EV[3-9]|Leaf|Zoe|Mustang Mach[\s\-]?E|bZ4X|Enyaq|Born|Mokka[\s\-]?e|Corsa[\s\-]?e|e[\s\-]?Golf|e[\s\-]?Niro|e[\s\-]?208|e[\s\-]?2008|Spring)$/i.test(md);
 }
 function hasLpg(s){ return /\blpg\b|(^|[^а-яёa-z])газ(?![а-яё])|газов|(^|[^а-яё])гбо(?![а-яё])|gāz|\bhbo\b|пропан/i.test(String(s||'')); }
@@ -848,9 +848,25 @@ function fuelLabel(c){
   var m={petrol:L('бензин','petrol'),diesel:L('дизель','diesel'),hybrid:L('гибрид','hybrid'),electric:L('электро','electric')};
   var b=c.fuel?(m[c.fuel]||c.fuel):''; if(c.lpg) b=(b?b+' + ':'')+L('газ (LPG)','gas (LPG)'); return b||null;
 }
+var MAKE_BOUNDED={'MG':1,'NIO':1,'Ora':1,'BYD':1,'GWM':1,'DS':1,'Lynk & Co':1,'Haval':1,'Omoda':1,'Jaecoo':1,'Lotus':1,'Chery':1,'Geely':1,'Zeekr':1,'XPeng':1,'Leapmotor':1,'Dongfeng':1,'Voyah':1,'Maxus':1,'Great Wall':1};
+function normMakeName(mk){
+  if(/^vw$/i.test(mk)) return 'Volkswagen'; if(/^citroen$/i.test(mk)) return 'Citroën'; if(/^skoda$/i.test(mk)) return 'Škoda'; if(/^mercedes$/i.test(mk)) return 'Mercedes-Benz';
+  if(/^(great wall|ora)$/i.test(mk)) return 'GWM'; if(/^xpeng$/i.test(mk)) return 'XPeng'; return mk;
+}
+function findMake(t){
+  var lt=String(t||'').toLowerCase(), best=null;
+  MAKES.forEach(function(mk){
+    var l=mk.toLowerCase(), i=-1;
+    if(MAKE_BOUNDED[mk]){ var m=new RegExp('(^|[^a-z0-9])'+l.replace(/[.*+?^${}()|[\]\\&]/g,'\\$&')+'(?![a-z0-9])').exec(lt); if(m) i=m.index+m[1].length; }
+    else i=lt.indexOf(l);
+    if(i>-1&&(!best||mk.length>best.mk.length)) best={mk:mk,i:i};
+  });
+  return best;
+}
 function multiModel(rest){
   var r=String(rest||''), m, cap=function(s){ return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); };
   if((m=r.match(/^model[\s\-]?([3sxy])(?![A-Za-z0-9])/i))) return 'Model '+m[1].toUpperCase();
+  if(/^ora(?![a-z0-9])/i.test(r)) return 'Ora';
   if(/^cyber[\s\-]?truck/i.test(r)) return 'Cybertruck';
   if((m=r.match(/^range[\s\-]?rover(?:[\s\-]+(sport|evoque|velar))?(?![A-Za-z0-9])/i))) return 'Range Rover'+(m[1]?' '+cap(m[1]):'');
   if(/^discovery[\s\-]?sport/i.test(r)) return 'Discovery Sport';
@@ -875,12 +891,12 @@ function parseText(t){
   while((v=re.exec(up))){ if((v[1].match(/\d/g)||[]).length>=5&&(v[1].match(/[A-Z]/g)||[]).length>=4){ o.vin=v[1]; break; } }
   var f=fuelEarliest(t.slice(0,3000)); if(f) o.fuel=f;
   var g=/automat|automāt|автомат|dsg|tiptronic/i.test(t)?'automatic':(/manual|manuāl|механ|handschalt/i.test(t)?'manual':null); if(g) o.gearbox=g;
-  var best=null; MAKES.forEach(function(mk){var i=t.toLowerCase().indexOf(mk.toLowerCase()); if(i>-1&&(!best||mk.length>best.mk.length)) best={mk:mk,i:i}});
+  var best=findMake(t);
   if(best){
     (function(){ var lt=t.toLowerCase(), lm=best.mk.toLowerCase(), p=best.i; while(p>-1){ if(multiModel(t.slice(p+lm.length).replace(/^[\s,\-–:]+/,''))){ best.i=p; return; } p=lt.indexOf(lm,p+1); } })();
     var rest=t.slice(best.i+best.mk.length).replace(/^[\s,\-–:]+/,''), mm=rest.match(/^([A-Za-z0-9ČčŠšŽžĀāĒēĪīŪū][A-Za-z0-9ČčŠšŽžĀāĒēĪīŪū\-]*)/), mk=best.mk;
-    if(/^vw$/i.test(mk)) mk='Volkswagen'; if(/^citroen$/i.test(mk)) mk='Citroën'; if(/^skoda$/i.test(mk)) mk='Škoda'; if(/^mercedes$/i.test(mk)) mk='Mercedes-Benz';
-    o.make=mk; var mmm=multiModel(rest); if(mmm) o.model=mmm; else if(mm&&!/^(19|20)\d\d$/.test(mm[1])) o.model=mm[1];
+    mk=normMakeName(mk);
+    o.make=mk; if(best.mk==='Ora'){ rest='Ora '+rest; } var mmm=multiModel(rest); if(mmm) o.model=mmm; else if(mm&&!/^(19|20)\d\d$/.test(mm[1])) o.model=mm[1];
     if(/^mercedes/i.test(mk)){ var mc=rest.match(/^([A-Za-z]{1,3})[\s\-]?(\d{2,3})(?!\d)/); if(mc) o.model=(mc[1]+mc[2]).toUpperCase(); }
   }
   return o;
@@ -893,7 +909,8 @@ function cleanMakeModel(make, model) {
   if (best) {
     var rest = mk.slice(best.length).replace(/^[\s,\-–:]+/, '').trim();
     if (rest && !md) md = multiModel(rest) || rest.split(/\s+/)[0];
-    if (/^vw$/i.test(best)) best = 'Volkswagen'; else if (/^citroen$/i.test(best)) best = 'Citroën'; else if (/^skoda$/i.test(best)) best = 'Škoda'; else if (/^mercedes$/i.test(best)) best = 'Mercedes-Benz';
+    if (/^ora$/i.test(best) && !md) md = 'Ora';
+    best = normMakeName(best);
     mk = best;
   }
   if (/^mercedes/i.test(mk) && md) { var mcm = md.match(/^([A-Za-z]{1,3})[\s\-]?(\d{2,3})(?!\d)/); if (mcm) md = (mcm[1] + mcm[2]).toUpperCase(); }
@@ -915,6 +932,7 @@ var MAKE_TRIMS={
 'mercedes':'Exclusive|Progressive|Urban|Classic|Designo!|Premium Plus|Style|Sport|Edition|Edition 1!|Business|Night Edition!|Avantgarde|Elegance|BlueEFFICIENCY|Brabus!|Maybach!|Final Edition',
 'skoda':'Active|Ambition|Style|Scout!|Classic|Joy|Drive|Clever|Tour|Ambiente|Selection|Cool Edition|Fresh|Atelier|Soleil|Edition|Business|Sportline|Black Edition!|Laurin & Klement!|RS!|Monte Carlo!|Elegance|Dynamic|Greentech|Design|Plus|Premium',
 'seat':'Reference|Reference Plus|Style|Style Plus|Style Advanced|Xcellence!|Xperience|Connect|FR Line!|Copa|Cupra!|Sport|Edition|Business|Fresh|Hola|Comfort|Stylance|Sportcoupe|Black Edition!|SE|Ecomotive',
+'gwm':'Funky Cat|Good Cat|Ballet Cat|Punk Cat|Lightning Cat',
 'cupra':'V|VZ!|VZ1!|VZ2!|VZ3!|Competition!|Dark Forest!|Edition|e-Hybrid|Tribe',
 'opel':'Enjoy|Cosmo|Elective|Innovation|Excellence|Selective|Essentia|GS Line!|GS!|Ultimate!|OPC!|Business Edition|Business Elegance|Color Edition|Design & Tech|Edition|Active|Drive|Dynamic|Sport|Sport+|Turbo|Comfort|Elegance|Cosmo Pack|Selection|Rocks-e|Black Edition!|Business|Style|Sportive|Tourer Edition|120 Years',
 'ford':'Trend|Titanium|Titanium X|Titanium Vignale|Ambiente|Ghia|ST!|Vignale!|Active|Business|Sport|Zetec|Zetec S|Trend Sport|Limited|Edition|Connected|Style|Cool & Connect|Wildtrak!|Platinum|Raptor!|Carver|Black Edition!|Trend X|Trend Edition|RS!|Duratec|Econetic|Lx|Ghia X|Eco Titanium|Black Pack',
@@ -1180,6 +1198,9 @@ async function run(){
     Object.keys(man).forEach(function(k){ if(man[k]!=null&&man[k]!=='') car[k]=man[k]; });
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
+    /* ss.com lists less common brands (GWM, BYD, ...) under "Others": take the real make from the ad text */
+    var OTHER_MK=/^(other|others|citas?|citi|другая|другие|прочие|прочее|иная)$/i;
+    if(!car.make||OTHER_MK.test(car.make)){ var gm=parseText([car.model,car.title,car.desc,f.text].join(' ')); if(gm.make){ car.make=gm.make; car.model=gm.model||car.model; } else if(OTHER_MK.test(car.make||'')) car.make=null; }
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
     car.allText=[car.title,car.desc,f.text,ocrText].join(' ');
     if(!f.fuel&&isEvCar(car)) car.fuel='electric';

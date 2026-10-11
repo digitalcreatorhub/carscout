@@ -23,7 +23,7 @@ const HOSTS = [
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const MAKES = ['Alfa Romeo', 'Aston Martin', 'Audi', 'Bentley', 'BMW', 'Citroën', 'Citroen', 'Cupra', 'Dacia', 'DS', 'Fiat', 'Ford', 'Honda', 'Hyundai', 'Infiniti',
   'Jaguar', 'Jeep', 'Kia', 'Land Rover', 'Lexus', 'Mazda', 'Mercedes-Benz', 'Mercedes', 'MINI', 'Mini', 'Mitsubishi', 'Nissan', 'Opel', 'Peugeot', 'Polestar', 'Porsche',
-  'Renault', 'SEAT', 'Seat', 'Škoda', 'Skoda', 'Smart', 'Subaru', 'Suzuki', 'Tesla', 'Toyota', 'Volkswagen', 'VW', 'Volvo', 'Chevrolet', 'Chrysler', 'Dodge', 'Saab', 'Lancia'];
+  'Renault', 'SEAT', 'Seat', 'Škoda', 'Skoda', 'Smart', 'Subaru', 'Suzuki', 'Tesla', 'Toyota', 'Volkswagen', 'VW', 'Volvo', 'Chevrolet', 'Chrysler', 'Dodge', 'Saab', 'Lancia', 'GWM','Great Wall','Ora','BYD','Chery','Geely','MG','Lynk & Co','NIO','XPeng','Zeekr','Leapmotor','Haval','Omoda','Jaecoo','Dongfeng','Voyah','Maxus','Lotus'];
 
 /* ---------------- HTTP helpers ---------------- */
 function cors(env) {
@@ -99,7 +99,8 @@ function cleanMakeModel(make, model) {
   if (best) {
     const rest = mk.slice(best.length).replace(/^[\s,\-–:]+/, '').trim();
     if (rest && !md) md = multiModel(rest) || rest.split(/\s+/)[0];
-    if (/^vw$/i.test(best)) best = 'Volkswagen'; else if (/^citroen$/i.test(best)) best = 'Citroën'; else if (/^skoda$/i.test(best)) best = 'Škoda'; else if (/^mercedes$/i.test(best)) best = 'Mercedes-Benz';
+    if (/^ora$/i.test(best) && !md) md = 'Ora';
+    best = normMakeName(best);
     mk = best;
   }
   const re = new RegExp('^' + mk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i');
@@ -112,9 +113,25 @@ function as24Model(mk, md) {
   if (mk === 'bmw') { const m = md.match(/^(\d{3})[a-z]*$/); if (m) return m[1]; }
   return md;
 }
+var MAKE_BOUNDED={'MG':1,'NIO':1,'Ora':1,'BYD':1,'GWM':1,'DS':1,'Lynk & Co':1,'Haval':1,'Omoda':1,'Jaecoo':1,'Lotus':1,'Chery':1,'Geely':1,'Zeekr':1,'XPeng':1,'Leapmotor':1,'Dongfeng':1,'Voyah':1,'Maxus':1,'Great Wall':1};
+function normMakeName(mk){
+  if(/^vw$/i.test(mk)) return 'Volkswagen'; if(/^citroen$/i.test(mk)) return 'Citroën'; if(/^skoda$/i.test(mk)) return 'Škoda'; if(/^mercedes$/i.test(mk)) return 'Mercedes-Benz';
+  if(/^(great wall|ora)$/i.test(mk)) return 'GWM'; if(/^xpeng$/i.test(mk)) return 'XPeng'; return mk;
+}
+function findMake(t){
+  var lt=String(t||'').toLowerCase(), best=null;
+  MAKES.forEach(function(mk){
+    var l=mk.toLowerCase(), i=-1;
+    if(MAKE_BOUNDED[mk]){ var m=new RegExp('(^|[^a-z0-9])'+l.replace(/[.*+?^${}()|[\]\\&]/g,'\\$&')+'(?![a-z0-9])').exec(lt); if(m) i=m.index+m[1].length; }
+    else i=lt.indexOf(l);
+    if(i>-1&&(!best||mk.length>best.mk.length)) best={mk:mk,i:i};
+  });
+  return best;
+}
 function multiModel(rest){
   var r=String(rest||''), m, cap=function(s){ return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); };
   if((m=r.match(/^model[\s\-]?([3sxy])(?![A-Za-z0-9])/i))) return 'Model '+m[1].toUpperCase();
+  if(/^ora(?![a-z0-9])/i.test(r)) return 'Ora';
   if(/^cyber[\s\-]?truck/i.test(r)) return 'Cybertruck';
   if((m=r.match(/^range[\s\-]?rover(?:[\s\-]+(sport|evoque|velar))?(?![A-Za-z0-9])/i))) return 'Range Rover'+(m[1]?' '+cap(m[1]):'');
   if(/^discovery[\s\-]?sport/i.test(r)) return 'Discovery Sport';
@@ -129,21 +146,14 @@ function multiModel(rest){
 }
 function guessMakeModel(title) {
   const t = String(title || '');
-  let best = null;
-  MAKES.forEach(function (mk) {
-    const i = t.toLowerCase().indexOf(mk.toLowerCase());
-    if (i > -1 && (!best || mk.length > best.mk.length)) best = { mk: mk, i: i };
-  });
+  const best = findMake(t);
   if (!best) return { make: null, model: null };
   { const lt = t.toLowerCase(), lm = best.mk.toLowerCase(); let p = best.i; while (p > -1) { if (multiModel(t.slice(p + lm.length).replace(/^[\s,\-–:]+/, ''))) { best.i = p; break; } p = lt.indexOf(lm, p + 1); } }
   const rest = t.slice(best.i + best.mk.length).replace(/^[\s,\-–:]+/, '');
   const mm = rest.match(/^([A-Za-z0-9ČčŠšŽžĀāĒēĪīŪū][A-Za-z0-9ČčŠšŽžĀāĒēĪīŪū\-]*)/);
-  let make = best.mk;
-  if (/^vw$/i.test(make)) make = 'Volkswagen';
-  if (/^citroen$/i.test(make)) make = 'Citroën';
-  if (/^skoda$/i.test(make)) make = 'Škoda';
-  if (/^mercedes$/i.test(make)) make = 'Mercedes-Benz';
-  return { make: make, model: multiModel(rest) || (mm ? mm[1] : null) };
+  const make = normMakeName(best.mk);
+  const rest2 = best.mk === 'Ora' ? 'Ora ' + rest : rest;
+  return { make: make, model: multiModel(rest2) || (mm ? mm[1] : null) };
 }
 
 /* ---------------- field parsers (shared logic) ---------------- */
@@ -346,8 +356,14 @@ function parseSsListing(html, url) {
     body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 8000),
     lpg: hasLpg(L.engine || '') || hasLpg(desc.slice(0, 3000))
   };
+  const OTHER_MAKE = /^(other|others|citas?|citi|cita marka|другая|другие|прочие|прочее|иная|—|-)$/i;
+  if (!listing.make || OTHER_MAKE.test(listing.make)) {
+    const g = guessMakeModel([listing.model, desc.slice(0, 500)].join(' '));
+    if (g.make) { listing.make = g.make; listing.model = g.model || listing.model; } else listing.make = null;
+  }
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model;
-  return { listing: listing, hints: { ss_path: m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };
+  const m3 = url.match(/\/msg\/[a-z]{2}\/transport\/cars\/others\/[^/]+\.html/i);
+  return { listing: listing, hints: { ss_others: !!m3, ss_path: m3 ? '/ru/transport/cars/others/' : m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };
 }
 function parseSsList(html, base) {
   const items = [];
@@ -522,6 +538,14 @@ async function hListing(env, q) {
     listing: L, image: res.image || null, images: collectImages(p.text, p.url), title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
 }
 
+function filterOthers(items, make, model) {
+  const w = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); };
+  const has = function (t, s) { return !!s && (' ' + w(t) + ' ').indexOf(' ' + s + ' ') > -1; };
+  const mk = w(make), md = w(model);
+  const byModel = items.filter(function (i) { return md && has(i.title, md); });
+  if (byModel.length >= 3) return byModel;
+  return items.filter(function (i) { return (md && has(i.title, md)) || has(i.title, mk) || (mk === 'gwm' && (has(i.title, 'great wall') || has(i.title, 'ora'))); });
+}
 async function hComps(env, q) {
   const source = q.get('source');
   const cm = cleanMakeModel(q.get('make') || '', q.get('model') || '');
@@ -529,7 +553,8 @@ async function hComps(env, q) {
   const year = parseInt(q.get('year') || '', 10) || null;
   if (source === 'ss') {
     let path = q.get('ssPath');
-    if (!path || !/^\/[a-z]{2}\/transport\/cars\/[a-z0-9\-]+\/[a-z0-9\-]+\/$/i.test(path)) {
+    let others = !!path && /^\/[a-z]{2}\/transport\/cars\/others\/$/i.test(path);
+    if (!others && (!path || !/^\/[a-z]{2}\/transport\/cars\/[a-z0-9\-]+\/[a-z0-9\-]+\/$/i.test(path))) {
       let mk = slugify(make); if (mk === 'mercedes-benz') mk = 'mercedes'; if (mk === 'vw') mk = 'volkswagen';
       let md = slugify(model);
       if (/^bmw$/.test(mk) && /^\d{3}[a-z]*$/.test(md)) md = md.slice(0, 3);
@@ -538,9 +563,13 @@ async function hComps(env, q) {
       if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
       path = '/ru/transport/cars/' + mk + '/' + md + '/';
     }
-    const base = 'https://www.ss.com' + path;
-    const urls = [base, base + 'page2.html', base + 'page3.html', base + 'page4.html', base + 'page5.html'];
-    const pages = await Promise.all(urls.map(function (u) { return getPage(u, 900).catch(function (e) { return { status: 0, text: '', url: u, err: String(e) }; }); }));
+    let base = 'https://www.ss.com' + path;
+    const fetchSs = function (b, n) { const us = [b]; for (let k = 2; k <= n; k++) us.push(b + 'page' + k + '.html'); return Promise.all(us.map(function (u) { return getPage(u, 900).catch(function (e) { return { status: 0, text: '', url: u, err: String(e) }; }); })); };
+    let pages = await fetchSs(base, others ? 8 : 5);
+    /* A make that ss.com does not have as its own category (for example GWM or other Chinese brands) is listed under "Others". */
+    if (!others && pages[0].status === 404) {
+      others = true; base = 'https://www.ss.com/ru/transport/cars/others/'; pages = await fetchSs(base, 8);
+    }
     const first = pages[0];
     const b = blockedBy(first);
     if (b) return json(env, { ok: false, source: 'ss', error: 'blocked', message: 'ss.com refused the server request (' + b + ').', searchUrl: base });
@@ -548,16 +577,18 @@ async function hComps(env, q) {
     let items = [];
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseSsList(p.text, p.url)); });
     items = dedupe(items);
+    if (others) items = filterOthers(items, make, model);
     return json(env, { ok: items.length > 0, source: 'ss', region: 'LV', label: 'ss.com', searchUrl: base, items: items, pages: pages.filter(function (p) { return p.status === 200; }).length, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
   }
   if (source === 'as24de') {
     let mk = slugify(make); if (mk === 'mercedes') mk = 'mercedes-benz'; if (mk === 'vw') mk = 'volkswagen';
-    const md = as24Model(mk, slugify(model));
-    if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
+    let md = as24Model(mk, slugify(model));
+    if (mk === 'gwm' && /^ora/.test(md)) { mk = 'ora'; md = ''; }
+    if (!mk || (!md && mk !== 'ora')) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
     const fuelCode = { diesel: 'D', petrol: 'B', electric: 'E', lpg: 'L' }[q.get('fuel')] || '';
     const f = (fuelCode ? '&fuel=' + fuelCode : '') + (year ? '&fregfrom=' + (year - 1) + '&fregto=' + (year + 1) : '');
     const trim = String(q.get('trim') || '').replace(/[^A-Za-z0-9 \-+&]/g, '').trim().slice(0, 30);
-    const mkUrlV = function (p, tv) { return 'https://www.autoscout24.com/lst/' + mk + '/' + md + '?atype=C&cy=D&damaged_listing=exclude&desc=0' + f + (tv ? '&version=' + encodeURIComponent(tv) : '') + '&sort=standard&ustate=N%2CU&page=' + p; };
+    const mkUrlV = function (p, tv) { return 'https://www.autoscout24.com/lst/' + mk + (md ? '/' + md : '') + '?atype=C&cy=D&damaged_listing=exclude&desc=0' + f + (tv ? '&version=' + encodeURIComponent(tv) : '') + '&sort=standard&ustate=N%2CU&page=' + p; };
     const fetchSet = function (tv) { return Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrlV(n, tv), 900).catch(function (e) { return { status: 0, text: '', url: mkUrlV(n, tv) }; }); })); };
     let usedTrim = '';
     let pages = await fetchSet(trim);
