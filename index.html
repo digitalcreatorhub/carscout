@@ -1357,7 +1357,7 @@ function secFacts(v){
     (c.price!=null?'<p class="price">'+eur(c.price)+'</p>':'<p class="hint">'+esc(L('Цена не найдена: введите её вручную.','No price found: enter it manually.'))+'</p>')+link+'</div></div>'+
     (kv.length?'<dl class="kv">'+kv.map(function(x){return '<div><dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd></div>'}).join('')+'</dl>':'')+
     ((!c.trims||!c.trims.length)&&c.year?'<div class="banner" style="margin-top:12px"><span>'+esc(L('Комплектация в тексте объявления не найдена, поэтому сравнение идёт с обычными версиями. Если у машины R-Line, AMG Line, M Sport и т. п., укажите её вручную.','The trim was not found in the listing text, so the comparison uses regular versions. If the car is an R-Line, AMG Line, M Sport etc., enter it manually.'))+'</span><div class="btns"><button class="btn sm pri" type="button" data-act="set-trim">'+esc(L('Указать комплектацию','Set the trim'))+'</button></div></div>':'')+
-    (v.notes.length?'<ul class="dots" style="margin-top:12px">'+v.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join('')+'</ul>':'')+'</section>';
+    (v.notes.length?'<ul class="dots" style="margin-top:12px">'+v.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join('')+'</ul>':'')+'<div class="btns" style="margin-top:12px"><button class="btn sm" type="button" data-act="fav-toggle">'+esc(favHas(c)?L('★ В избранном (убрать)','★ In favourites (remove)'):L('☆ Сохранить в избранное','☆ Save to favourites'))+'</button></div></section>';
 }
 function trimLabel(k){ return k==='-'?L('не указана в названии','not stated in title'):trimDisplay(k); }
 function trimGroups(items,car){
@@ -1690,18 +1690,167 @@ function reportText(v){
   return o.join('\n');
 }
 
+/* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
+var APP_VER='2026-10-12.1', KEY_FAVS='carscout_favs', KEY_OWN='carscout_own';
+function refreshApp(){
+  showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
+  var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
+  var p=[];
+  try{ if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations) p.push(navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){return r.unregister()})); })); }catch(e){}
+  try{ if(window.caches&&caches.keys) p.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){return caches.delete(k)})); })); }catch(e){}
+  Promise.all(p).then(done,done); setTimeout(done,2500);
+}
+function dealerOf(c){
+  var tx=String(c.allText||'');
+  return {
+    dealer:/d[iī]ler|дилер|dealer|autosalon|auto\s+salon|автосалон|autohaus|h[aä]ndler|(^|[^A-Za-z])SIA([^A-Za-z]|$)|(^|[^А-Яа-я])ООО([^А-Яа-я]|$)/i.test(tx),
+    vat:/pvn\s+iek[lļ]aut|ar\s+pvn|cena\s+ar\s+pvn|цена\s+с\s+ндс|ндс\s+включ|включая\s+ндс|inkl\.?\s*mwst|mwst\.?\s*ausweisbar|vat\s+included|incl\.?\s*vat/i.test(tx),
+    warranty:/ražot[aā]ja\s+garantij|garantij[aā]\b|garantija|гарантия|warranty|garantie/i.test(tx),
+    leasing:/l[iī]zing|leasing|лизинг|kred[iī]t|рассрочк|part\s+payment|apmai[nņ]a|trade[\s\-]?in|обмен/i.test(tx)
+  };
+}
+function secDealer(v){
+  var d=dealerOf(v.car); if(!(d.dealer||d.vat||(d.warranty&&d.leasing))) return '';
+  var li=[];
+  if(d.dealer) li.push(L('Похоже, объявление от дилера или салона. Обычно есть история и гарантия, но скидка меньше, чем у частника. Вместо скидки просите допоборудование, ТО, комплект шин или более длинную гарантию.','This looks like a dealer ad. There is usually a history and a warranty, but less room for a discount than with a private seller. Instead of a discount ask for extras, a service, a set of tyres or a longer warranty.'));
+  if(d.vat) li.push(L('Цена указана с НДС (PVN). В частных объявлениях НДС обычно нет, поэтому сравнение с ними выгоднее для частника: учитывайте это.','The price includes VAT (PVN). Private ads usually have no VAT, so the comparison favours the private ones: keep that in mind.'));
+  if(d.warranty) li.push(L('Упомянута гарантия: уточните срок, пробег, что она покрывает и кто её выдаёт (производитель или салон), попросите условия письменно.','A warranty is mentioned: ask for its length, mileage limit, what it covers and who gives it (maker or dealer), and get the terms in writing.'));
+  if(d.leasing) li.push(L('Упомянут лизинг, кредит или обмен (trade-in): сравнивайте цену за наличные и цену с финансированием, это разные цифры.','Leasing, credit or trade-in is mentioned: compare the cash price with the financed one, they are different numbers.'));
+  return '<section class="sec" id="sec-dealer"><h3 class="sh">'+esc(L('Продавец: дилер','Seller: dealer'))+'</h3><ul class="dots" style="margin-top:12px">'+li.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul></section>';
+}
+
+/* favourites (stored in this browser only) and the price watch */
+function favLoad(){ try{ var a=JSON.parse(LS.get(KEY_FAVS)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function favSave(a){ LS.set(KEY_FAVS,JSON.stringify(a.slice(0,30))); }
+function favId(c){ return c.url||[c.make,c.model,c.year,c.km,c.price].join('|'); }
+function favHas(c){ var id=favId(c); return favLoad().some(function(x){return x.id===id}); }
+function favFromView(v){
+  var c=v.car, now=Date.now();
+  return {id:favId(c),url:c.url||'',make:c.make||'',model:c.model||'',year:c.year||null,km:c.km!=null?c.km:null,price:c.price||null,fuel:c.fuel||'',lpg:!!c.lpg,
+    trim:(c.trims||[]).map(trimDisplay).join(', '),fair:v.fair?Math.round(v.fair.mid):null,delta:v.ver&&v.ver.delta!=null?Math.round(v.ver.delta*10)/10:null,
+    verdict:v.ver?v.ver.key:null,savedAt:now,checkedAt:now,hist:[{t:now,p:c.price||null}],sel:false};
+}
+function favToggle(){
+  var v=S.view; if(!v||!v.car) return; var a=favLoad(), id=favId(v.car), i=a.findIndex(function(x){return x.id===id});
+  if(i>-1){ a.splice(i,1); favSave(a); showStatus('info',L('Убрано из избранного.','Removed from favourites.')); }
+  else { a.unshift(favFromView(v)); favSave(a); showStatus('ok',L('Сохранено в избранное (только в этом браузере).','Saved to favourites (in this browser only).')); }
+  render();
+}
+function favTitle(f){ return [f.make,f.model,f.year].filter(Boolean).join(' ')||L('Автомобиль','Car'); }
+function favRow(f,i){
+  var first=f.hist&&f.hist.length?f.hist[0].p:null, drop=(first&&f.price&&f.price!==first)?f.price-first:0;
+  var badge=drop?'<span class="rn" style="color:var(--'+(drop<0?'good':'bad')+')"> '+(drop<0?'▼ ':'▲ ')+esc(eur(Math.abs(drop)))+'</span>':'';
+  var meta=[f.km!=null?fmt(f.km)+' km':null,f.fuel?fuelLabel({fuel:f.fuel,lpg:f.lpg}):null,f.trim||null].filter(Boolean).join(' · ');
+  var vd=f.verdict&&VNAME[f.verdict]?VNAME[f.verdict][S.lang==='ru'?0:1]:'';
+  var link=f.url&&safeUrl(f.url)?'<a href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть','Open'))+'</a>':'';
+  return '<li style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)"><input type="checkbox" data-fsel="'+i+'"'+(f.sel?' checked':'')+' aria-label="'+esc(L('Выбрать для сравнения','Select to compare'))+'">'+
+    '<div style="min-width:0"><b>'+esc(favTitle(f))+'</b> <span class="num">'+esc(f.price?eur(f.price):'–')+'</span>'+badge+'<div class="mini">'+esc(meta)+(vd?' · '+esc(vd):'')+'</div></div>'+
+    '<div class="btns" style="flex-wrap:nowrap;gap:6px">'+link+'<button class="btn sm" type="button" data-act="fav-rm" data-i="'+i+'" aria-label="'+esc(L('Удалить','Delete'))+'">×</button></div></li>';
+}
+function favCompare(a){
+  var sel=a.filter(function(x){return x.sel}).slice(0,3); if(sel.length<2) return '';
+  var rows=[[L('Цена','Price'),function(f){return f.price?eur(f.price):'–'},'price',-1],[L('Справедливая цена','Fair price'),function(f){return f.fair?eur(f.fair):'–'}],
+    [L('К рынку','vs market'),function(f){return f.delta!=null?pct(f.delta):'–'},'delta',-1],[L('Год','Year'),function(f){return f.year||'–'},'year',1],
+    [L('Пробег','Mileage'),function(f){return f.km!=null?fmt(f.km)+' km':'–'},'km',-1],[L('Топливо','Fuel'),function(f){return fuelLabel({fuel:f.fuel,lpg:f.lpg})||'–'}],[L('Комплектация','Trim'),function(f){return f.trim||'–'}]];
+  var th='<tr><th></th>'+sel.map(function(f){return '<th>'+esc(favTitle(f))+'</th>'}).join('')+'</tr>';
+  var body=rows.map(function(r){
+    var best=null; if(r[2]){ var vals=sel.map(function(f){return f[r[2]]}).filter(function(x){return x!=null}); if(vals.length>1) best=r[3]<0?Math.min.apply(null,vals):Math.max.apply(null,vals); }
+    return '<tr><td class="rn">'+esc(r[0])+'</td>'+sel.map(function(f){ var isB=best!=null&&r[2]&&f[r[2]]===best; return '<td'+(isB?' style="font-weight:700;color:var(--good)"':'')+'>'+esc(r[1](f))+'</td>'; }).join('')+'</tr>';
+  }).join('');
+  return '<div style="overflow-x:auto;margin-top:10px"><table class="tbl" style="width:100%">'+th+body+'</table></div><p class="mini" style="margin-top:6px">'+esc(L('Зелёным отмечено лучшее значение (ниже цена и пробег, новее год).','Green marks the better value (lower price and mileage, newer year).'))+'</p>';
+}
+function renderFavs(){
+  var box=document.getElementById('favs');
+  if(!box){ var out=$('#out'); if(!out) return; box=document.createElement('section'); box.id='favs'; box.className='sec'; box.style.marginBottom='16px'; out.parentNode.insertBefore(box,out); }
+  var a=favLoad(); if(!a.length){ box.hidden=true; box.innerHTML=''; return; } box.hidden=false;
+  var n=a.filter(function(x){return x.sel}).length;
+  box.innerHTML='<h3 class="sh">'+esc(L('Избранное','Favourites'))+' ('+a.length+')</h3><ul class="stack" style="gap:0;margin-top:10px;list-style:none;padding:0">'+a.map(favRow).join('')+'</ul>'+
+    '<div class="btns" style="margin-top:12px"><button class="btn sm" type="button" data-act="fav-recheck">'+esc(L('Проверить цены сейчас','Check prices now'))+'</button></div>'+
+    '<p class="hint" style="margin-top:8px">'+esc(L('Отметьте 2–3 машины, чтобы сравнить их рядом. Цены перепроверяются при открытии приложения (не чаще раза в 6 часов); избранное хранится только в этом браузере.','Tick 2–3 cars to compare them side by side. Prices are re-checked when the app opens (at most once every 6 hours); favourites are stored in this browser only.'))+'</p>'+(n>=2?favCompare(a):'');
+}
+var recheckBusy=false;
+async function favRecheck(silent){
+  if(recheckBusy||!S.api) return; var a=favLoad().filter(function(f){return f.url&&safeUrl(f.url)}); if(!a.length){ if(!silent) showStatus('info',L('У сохранённых машин нет ссылок на объявления.','The saved cars have no listing links.')); return; }
+  recheckBusy=true; var changes=[]; if(!silent) showStatus('busy',L('Проверяю цены в избранном…','Checking favourite prices…'),false);
+  try{
+    var all=favLoad(), n=0;
+    for(var k=0;k<all.length&&n<8;k++){
+      var f=all[k]; if(!f.url||!safeUrl(f.url)) continue; n++;
+      var j=await api('/api/listing',{url:f.url},25000), now=Date.now(); f.checkedAt=now;
+      var np=j&&j.listing&&j.listing.asking_price; 
+      if(np>0&&np!==f.price){ changes.push({f:favTitle(f),from:f.price,to:np}); f.hist=(f.hist||[]).concat([{t:now,p:np}]).slice(-30); f.price=np; }
+      else if(j&&j.ok===false&&(j.error==='not_found'||j.status===404)){ f.gone=true; }
+    }
+    favSave(all); LS.set('carscout_favs_at',String(Date.now()));
+  }catch(e){}
+  recheckBusy=false; renderFavs();
+  if(changes.length) showStatus('ok',changes.map(function(c){return c.f+': '+eur(c.from)+' → '+eur(c.to)}).join('; '));
+  else if(!silent) showStatus('ok',L('Цены не изменились.','No price changes.'));
+}
+function favAutoCheck(){
+  var last=parseInt(LS.get('carscout_favs_at')||'0',10)||0;
+  if(favLoad().length&&Date.now()-last>6*3600*1000&&S.api) favRecheck(true);
+}
+
+/* running costs per year (the numbers are the user's own, nothing is assumed) */
+function ownLoad(){ try{ return JSON.parse(LS.get(KEY_OWN)||'{}')||{}; }catch(e){ return {}; } }
+function secOwn(v){
+  var c=v.car, ev=isEvCar(c), o=ownLoad();
+  var row=function(id,label,ph){ return '<div class="crow"><label for="'+id+'">'+esc(label)+'</label><input class="in num" id="'+id+'" type="text" inputmode="decimal" value="'+esc(o[id]!=null?o[id]:'')+'" placeholder="'+esc(ph||'')+'"></div>'; };
+  return '<section class="sec" id="sec-own"><h3 class="sh">'+esc(L('Стоимость владения в год','Yearly running costs'))+'</h3>'+
+    '<p class="hint" style="margin:12px 0">'+esc(L('Впишите свои цифры: приложение их не выдумывает. Налог и страховку возьмите из калькуляторов csdd.lv и страховой компании.','Enter your own numbers: the app does not make them up. Take the tax and the insurance from the csdd.lv and insurer calculators.'))+'</p>'+
+    '<div class="calc"><div class="cbox">'+row('o-km',L('Пробег в год, км','Annual mileage, km'),'15000')+row('o-cons',ev?L('Расход, кВт·ч/100 км','Use, kWh/100 km'):L('Расход, л/100 км','Use, l/100 km'),ev?'':'')+row('o-fp',ev?L('Цена, € за кВт·ч','Price, € per kWh'):L('Цена топлива, € за л','Fuel price, € per l'),'')+'</div>'+
+    '<div class="cbox">'+row('o-tax',L('Налог (ТС и т. п.), € в год','Tax, € per year'),'')+row('o-ins',L('Страховка, € в год','Insurance, € per year'),'')+row('o-srv',L('ТО и ремонт, € в год','Service and repairs, € per year'),'')+'</div></div>'+
+    '<div class="ctotal" style="margin-top:12px"><span>'+esc(L('Итого в год','Total per year'))+'</span><b id="o-total">–</b></div><p class="cdiff" id="o-sub" style="margin-top:6px"></p>'+
+    '<div class="btns" style="margin-top:10px"><a class="sbtn" href="https://www.csdd.lv/" target="_blank" rel="noopener noreferrer">csdd.lv</a></div></section>';
+}
+function updateOwn(){
+  var t=document.getElementById('o-total'); if(!t) return; var o={}, g=function(id){ var el=document.getElementById(id); var s=el?String(el.value||'').replace(',','.').replace(/[^\d.]/g,''):''; if(el) o[id]=el.value; return parseFloat(s)||0; };
+  var km=g('o-km'), cons=g('o-cons'), fp=g('o-fp'), tax=g('o-tax'), ins=g('o-ins'), srv=g('o-srv'); LS.set(KEY_OWN,JSON.stringify(o));
+  var fuel=km*cons/100*fp, total=fuel+tax+ins+srv, sub=document.getElementById('o-sub');
+  if(!total){ t.textContent='–'; sub.textContent=''; return; }
+  t.textContent=eur(Math.round(total));
+  sub.textContent=L('Энергия/топливо: ','Fuel/energy: ')+eur(Math.round(fuel))+' · '+L('в месяц: ','per month: ')+eur(Math.round(total/12))+(km?' · '+L('на 1 км: ','per km: ')+(total/km).toFixed(2).replace('.',',')+' €':'');
+}
+
+/* sharing */
+function shareText(v){
+  var  c=v.car, p=planOf(v), vd=v.ver&&VNAME[v.ver.key]?VNAME[v.ver.key][S.lang==='ru'?0:1]:'', o=[];
+  o.push([c.make,c.model,c.year].filter(Boolean).join(' ')+(c.trims&&c.trims.length?' ('+c.trims.map(trimDisplay).join(', ')+')':''));
+  o.push([c.km!=null?fmt(c.km)+' km':null,fuelLabel(c),c.gear].filter(Boolean).join(' · '));
+  if(c.price) o.push(L('Цена в объявлении: ','Asking price: ')+eur(c.price));
+  if(v.fair) o.push(L('Справедливая цена по рынку: ','Market fair price: ')+eur(Math.round(v.fair.mid))+(v.ver&&v.ver.delta!=null?' ('+pct(v.ver.delta)+', '+vd+')':''));
+  if(p) o.push(L('План торга: предложить ','Negotiation: offer ')+eur(p.offer)+L(', максимум ',', maximum ')+eur(p.max));
+  var f=flagsOf(v); if(f.risks.length) o.push(L('Риски: ','Risks: ')+f.risks.join('; ')); if(f.pros.length) o.push(L('Плюсы: ','Pros: ')+f.pros.join('; '));
+  if(c.url) o.push(c.url);
+  o.push(L('Сводка CarScout. Цены — это цены предложений на момент проверки.','CarScout summary. Prices are asking prices at the time of the check.'));
+  return o.filter(Boolean).join('\n');
+}
+function secShare(v){
+  return '<section class="sec" id="sec-share"><h3 class="sh">'+esc(L('Поделиться результатом','Share the result'))+'</h3><div class="btns" style="margin-top:12px">'+
+    '<button class="btn sm" type="button" data-act="copy-sum">'+esc(L('Копировать сводку','Copy the summary'))+'</button>'+
+    (navigator.share?'<button class="btn sm" type="button" data-act="share-sum">'+esc(L('Отправить…','Send…'))+'</button>':'')+
+    '<button class="btn sm" type="button" data-act="print">'+esc(L('Печать / сохранить в PDF','Print / save as PDF'))+'</button></div>'+
+    '<p class="hint" style="margin-top:8px">'+esc(L('В сводке: цена, вердикт, план торга, риски и плюсы. Данные продавца и ваши заметки не включаются.','The summary has the price, verdict, negotiation plan, risks and pros. No seller contact data or notes are included.'))+'</p></section>';
+}
+(function(){
+  var st=document.createElement('style');
+  st.textContent='@media print{header.top,form#intake,.foot,#favs,#status,.btns,.links,#sec-src,#sec-links,#sec-msg,#sec-share{display:none!important}html,body{background:#fff!important;color:#000!important}.sec,.cbox,.banner{background:#fff!important;border:1px solid #bbb!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;animation:none!important;color:#000!important;break-inside:avoid}.sec *{color:#000!important;-webkit-text-fill-color:#000!important;background-image:none!important}.grid{display:block!important}}';
+  document.head.appendChild(st);
+})();
+
 function render(){
-  var v=S.view, out=$('#out'); if(!v){out.innerHTML='';return}
+  var v=S.view, out=$('#out'); renderFavs(); if(!v){out.innerHTML='';return}
   var h=[];
   if(v.noApi) h.push(secNoApi());
   h.push(secFacts(v));
-  if(v.regions.length){ h.push(secVerdict(v)); h.push(secPlan(v)); h.push(secFlags(v)); h.push(secRegions(v)); h.push(secTrims(v)); h.push(secScatter(v)); h.push(secNear(v)); h.push(secChecks(v)); h.push(secMsg(v)); h.push(secCalc(v)); }
+  if(v.regions.length){ h.push(secVerdict(v)); h.push(secDealer(v)); h.push(secPlan(v)); h.push(secFlags(v)); h.push(secRegions(v)); h.push(secTrims(v)); h.push(secScatter(v)); h.push(secNear(v)); h.push(secChecks(v)); h.push(secMsg(v)); h.push(secCalc(v)); h.push(secOwn(v)); h.push(secShare(v)); }
   if(!v.regions.length&&v.car&&(v.car.make||v.car.model)){ h.push(secFlags(v)); h.push(secChecks(v)); }
   h.push(secVin(v)); h.push(secHistory(v));
   if(v.regions.length) h.push(secSources(v));
   h.push(secSearchLinks(v));
   out.innerHTML=h.join('');
-  updateCalc();
+  updateCalc(); updateOwn();
 }
 
 /* ---------- language ---------- */
@@ -1734,13 +1883,20 @@ document.addEventListener('click',function(e){
   var a=b.getAttribute('data-act');
   if(a==='stop') stopRun();
   else if(a==='set-trim'){ var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')); }
+  else if(a==='fav-toggle') favToggle();
+  else if(a==='fav-rm'){ var fa=favLoad(); fa.splice(+b.getAttribute('data-i'),1); favSave(fa); render(); }
+  else if(a==='fav-recheck') favRecheck(false);
+  else if(a==='copy-sum'){ if(S.view) copyText(shareText(S.view),L('Сводка скопирована.','Summary copied.')); }
+  else if(a==='share-sum'){ if(S.view&&navigator.share) navigator.share({title:'CarScout',text:shareText(S.view)}).catch(function(){}); }
+  else if(a==='print') window.print();
+  else if(a==='refresh') refreshApp();
   else if(a==='copy-msg'){ var ta=$('#msg-text'); if(ta) copyText(ta.value,L('Сообщение скопировано.','Message copied.')); }
   else if(a==='copy-vin'){ if(S.view&&S.view.car&&S.view.car.vin) copyText(S.view.car.vin,L('VIN скопирован.','VIN copied.')); }
   else if(a==='report'){ if(S.view) copyText(reportText(S.view),L('Отчёт скопирован. Вставьте его в чат с Claude.','Report copied. Paste it into the chat with Claude.')); }
   else if(a==='rm-img'){ var im=S.images.splice(+b.getAttribute('data-i'),1)[0]; if(im) URL.revokeObjectURL(im.url); renderThumbs(); }
 });
-document.addEventListener('input',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); });
-document.addEventListener('change',function(e){ if(e.target&&e.target.id==='msg-lang'&&S.view){ var t=$('#msg-text'); if(t) t.value=msgFor(S.view,e.target.value); } if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; });
+document.addEventListener('input',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); if(id&&id.indexOf('o-')===0) updateOwn(); });
+document.addEventListener('change',function(e){ if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-fsel')!=null){ var fl=favLoad(), ix=+e.target.getAttribute('data-fsel'); if(fl[ix]){ fl[ix].sel=e.target.checked; if(fl.filter(function(x){return x.sel}).length>3){ fl[ix].sel=false; showStatus('info',L('Сравнивать можно до 3 машин.','You can compare up to 3 cars.')); } favSave(fl); renderFavs(); } return; } if(e.target&&e.target.id==='msg-lang'&&S.view){ var t=$('#msg-text'); if(t) t.value=msgFor(S.view,e.target.value); } if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; });
 $('#intake').addEventListener('submit',function(e){e.preventDefault(); run();});
 $('#f-url').addEventListener('input',renderHints);
 $('#f-vin').addEventListener('input',renderVinLive);
@@ -1766,7 +1922,8 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   var l=LS.get(KEY_LANG); S.lang=(l==='en'||l==='ru')?l:((navigator.language||'').toLowerCase().indexOf('ru')===0?'ru':'en');
   S.api=normApi(LS.get(KEY_API)||API_DEFAULT); $('#f-api').value=S.api; S.apiOk=null;
   applyLang(); apiDot('none');
-  if(S.api||API_DEFAULT){ connect(); } else { $('#cfg').hidden=false; $('#btn-cfg').setAttribute('aria-expanded','true'); }
+  (function(){ var ft=document.querySelector('.foot'); if(ft){ var p=document.createElement('p'); p.className='mini'; p.innerHTML=''; var s=document.createElement('span'); s.textContent=L('Версия приложения: ','App version: ')+APP_VER+' '; var bt=document.createElement('button'); bt.type='button'; bt.className='btn sm'; bt.setAttribute('data-act','refresh'); bt.textContent=L('Обновить','Update'); p.appendChild(s); p.appendChild(bt); ft.appendChild(p); } })();
+  if(S.api||API_DEFAULT){ connect().then(function(ok){ if(ok) favAutoCheck(); }); } else { $('#cfg').hidden=false; $('#btn-cfg').setAttribute('aria-expanded','true'); }
   /* ---------- install as an app (PWA) ---------- */
 (function(){
   var deferred=null, btn=$('#btn-install');
