@@ -482,6 +482,7 @@ textarea.in.sm{min-height:64px;font-size:13.5px}
             <div class="fld"><label for="f-km" data-ru="Пробег, км" data-en="Mileage, km"></label><input class="in num" id="f-km" type="text" inputmode="numeric"></div>
             <div class="fld"><label for="f-price" data-ru="Цена, €" data-en="Price, €"></label><input class="in num" id="f-price" type="text" inputmode="numeric"></div>
           </div>
+          <div class="fld"><label for="f-trim" data-ru="Комплектация (R-Line, AMG Line, M Sport…)" data-en="Trim (R-Line, AMG Line, M Sport…)"></label><input class="in" id="f-trim" type="text" placeholder="R-Line"></div>
           <div class="row2">
             <div class="fld"><label for="f-fuel" data-ru="Топливо" data-en="Fuel"></label>
               <select class="in" id="f-fuel"><option value=""></option><option value="petrol">Petrol / Бензин</option><option value="diesel">Diesel / Дизель</option><option value="hybrid">Hybrid / Гибрид</option><option value="electric">Electric / Электро</option><option value="lpg">LPG</option></select></div>
@@ -849,6 +850,17 @@ function cleanMakeModel(make, model) {
   return { make: mk || null, model: md || null };
 }
 
+/* ---------- trim / equipment (R-Line, AMG Line, M Sport ...) ---------- */
+var TRIMS=[['amg-line',/\bamg[\s\-]?line\b/i,1],['amg',/\bamg\b/i,1],['r-line',/\br[\s\-]?line\b/i,1],['m-sport',/\bm[\s\-]?sport|\bm[\s\-]?paket|\bm[\s\-]?package/i,1],['s-line',/\bs[\s\-]?line\b/i,1],
+  ['gti/gtd/gte',/\bgt[ide]\b/i,1],['rs',/\bRS[\s\-]?\d?\b/,1],['st-line',/\bst[\s\-]?line\b/i,1],['fr',/\bFR\b/,1],['monte carlo',/monte[\s\-]?carlo/i,1],['l&k',/laurin|\bl&k\b/i,1],['sportline',/sport[\s\-]?line\b/i,1],
+  ['black edition',/black[\s\-]?edition/i,1],['avantgarde',/avantgarde/i,1],['elegance',/\belegance\b/i,0],['highline',/\bhighline\b/i,0],['comfortline',/\bcomfortline\b/i,0],['trendline',/\btrendline\b/i,0]];
+function detectTrim(text){
+  var t=String(text||''), out=[]; TRIMS.forEach(function(x){ if(x[1].test(t)) out.push(x[0]); });
+  if(out.indexOf('amg-line')>-1) out=out.filter(function(k){return k!=='amg'});
+  return out;
+}
+function trimPremium(list){ return list.some(function(k){ return TRIMS.some(function(x){return x[0]===k&&x[2]}); }); }
+
 /* ---------- OCR (runs in the browser, nothing is uploaded) ---------- */
 var ocrLoad=null;
 function loadTesseract(){
@@ -896,7 +908,7 @@ function errText(j){
 function intOnly(id){var v=($(id).value||'').replace(/[^\d]/g,''); return v?parseInt(v,10):null}
 function readForm(){
   var y=intOnly('#f-year');
-  return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:$('#f-vin').value.trim(),make:$('#f-make').value.trim(),model:$('#f-model').value.trim(),
+  return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:$('#f-vin').value.trim(),make:$('#f-make').value.trim(),model:$('#f-model').value.trim(),trim:($('#f-trim')?$('#f-trim').value.trim():''),
     year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:intOnly('#f-km'),price:intOnly('#f-price'),fuel:$('#f-fuel').value,market:$('#f-market').value,
     extra:$('#f-extra').value.split(/\s+/).map(function(s){return s.trim()}).filter(function(s){return /^https?:\/\//i.test(s)}).slice(0,4)};
 }
@@ -992,6 +1004,9 @@ async function run(){
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
+    car.trims=f.trim?detectTrim(f.trim):detectTrim([car.title,car.desc,f.text,ocrText].join(' '));
+    car.trimKnownText=!!(f.trim||car.desc||car.title||f.text||ocrText);
+    if($('#f-trim')&&!$('#f-trim').value) $('#f-trim').value=car.trims.join(', ');
     var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1) car.year=vd.years[0];
     /* fill the form so the user can fix it */
     $('#f-make').value=car.make||''; $('#f-model').value=car.model||''; setField('#f-year',car.year); setField('#f-km',car.km); setField('#f-price',car.price); if(car.fuel&&!$('#f-fuel').value) $('#f-fuel').value=car.fuel; setField('#f-vin',car.vin);
@@ -1047,7 +1062,15 @@ function pickRelevant(items,car){
   }
   if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||i.fuel===car.fuel}); if(same.length>=5) sel=same; }
   var med=median(sel.map(function(i){return i.price})); if(med) sel=sel.filter(function(i){return i.price>=med*0.4&&i.price<=med*2.5});
-  return {items:sel,total:rows.length,tol:tol>3?3:tol};
+  var trimNote=null, mine=car.trims||[];
+  if(mine.length){
+    var same=sel.filter(function(i){var t=detectTrim(i.title); return t.some(function(k){return mine.indexOf(k)>-1})});
+    if(same.length>=5){ sel=same; trimNote={mode:'same',n:same.length}; } else trimNote={mode:'few',n:same.length};
+  } else if(car.trimKnownText&&sel.length){
+    var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title))});
+    if(plain.length>=6&&plain.length<sel.length){ sel=plain; trimNote={mode:'plain',n:plain.length}; }
+  }
+  return {items:sel,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote};
 }
 function fairOf(st){
   if(!st) return null;
@@ -1062,7 +1085,7 @@ function compute(car,results,f,notes){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:errText(j),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
       var pr=pickRelevant((j.items||[]).map(function(i){return Object.assign({src:r.label,region:r.region},i)}),car);
-      row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol;
+      row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote;
       row.stats=compStats(pr.items.map(function(i){return {price:i.price,km:i.km}}),{km:car.km});
       row.fair=fairOf(row.stats); totalUsed+=row.n; all=all.concat(pr.items);
     }
@@ -1123,6 +1146,10 @@ function secVerdict(v){
   var conf={high:L('высокая','high'),medium:L('средняя','medium'),low:L('низкая','low')}[v.conf];
   var mk='';
   if(v.medKm!=null&&v.car.km!=null){ var dk=(v.car.km-v.medKm)/Math.max(1,v.medKm)*100; mk='<li>'+esc(L('Пробег ','Mileage ')+(dk>0?L('выше','above'):L('ниже','below'))+L(' медианы аналогов на ',' the comparables median by ')+Math.abs(dk).toFixed(0)+'% ('+fmt(v.medKm)+' km)')+'</li>'; }
+  var tn=v.home&&v.home.trimNote, mine=(v.car.trims||[]).join(', ');
+  if(tn&&tn.mode==='same') mk+='<li>'+esc(L('Сравнение только с той же комплектацией ('+mine+'): '+tn.n+' объявл.','Compared only with the same trim ('+mine+'): '+tn.n+' ads'))+'</li>';
+  else if(tn&&tn.mode==='few') mk+='<li>'+esc(L('Комплектация '+mine+': точных аналогов мало ('+tn.n+'), сравнение идёт с более широкой выборкой и может быть неточным.','Trim '+mine+': few exact matches ('+tn.n+'), so the comparison uses a wider sample and may be less accurate.'))+'</li>';
+  else if(tn&&tn.mode==='plain') mk+='<li>'+esc(L('Версии с «спортивными» пакетами (R-Line, AMG и т. п.) из сравнения исключены.','Versions with sport packages (R-Line, AMG etc.) were excluded from the comparison.'))+'</li>';
   var tips='';
   if(v.fair&&v.car.price>0){
     var tgt=Math.min(v.car.price,v.fair.mid), wa=v.fair.high;
@@ -1173,7 +1200,7 @@ function secNear(v){
   return '<section class="sec" id="sec-near"><h3 class="sh">'+esc(L('Ближайшие реальные объявления','Closest real listings'))+'</h3><p class="hint" style="margin:12px 0">'+esc(L('Подобраны по году и пробегу. Ссылки ведут на сами объявления.','Picked by year and mileage. Links open the listings themselves.'))+'</p><div class="lcards">'+v.near.map(function(i){
     var d=c.price>0?i.price-c.price:null, u=safeUrl(i.url);
     return '<div class="lc"><span class="lp num">'+eur(i.price)+'</span>'+(d!=null?'<span class="ld '+(d<0?'dneg':'dpos')+'">'+(d<0?'−':'+')+fmt(Math.abs(d))+' € '+esc(L('к вашей','vs yours'))+'</span>':'')+
-      '<span class="lm">'+esc([i.year,i.km!=null?fmt(i.km)+' km':null,i.fuel].filter(Boolean).join(' · '))+'</span><span class="lm">'+esc(i.src+' · '+rname(i.region))+'</span>'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление ↗','Open the listing ↗'))+'</a>':'')+'</div>';
+      '<span class="lm">'+esc([i.year,i.km!=null?fmt(i.km)+' km':null,i.fuel].filter(Boolean).join(' · '))+'</span>'+(i.title?'<span class="lm" style="color:var(--ink)">'+esc(String(i.title).slice(0,90))+'</span>':'')+'<span class="lm">'+esc(i.src+' · '+rname(i.region))+'</span>'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление ↗','Open the listing ↗'))+'</a>':'')+'</div>';
   }).join('')+'</div></section>';
 }
 function secVin(v){

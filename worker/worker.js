@@ -314,7 +314,9 @@ function parseSsList(html, base) {
     if (km == null) tds.forEach(function (c) { if (km == null && /^\d{4,7}$/.test(c) && parseInt(c, 10) !== year) km = parseInt(c, 10); });
     if (!(price >= 300 && price <= 500000) || !year) return;
     const e = parseEngine(eng || '');
-    items.push({ price: Math.round(price), km: km, year: year, url: link ? absUrl(link[1], base) : null, title: '', fuel: e.fuel || null, engine_l: e.engine_l || null });
+    let title = '';
+    (row.match(/<a[^>]+href="\/(?:msg|[a-z]{2}\/msg)\/[^"]+"[^>]*>[\s\S]*?<\/a>/gi) || []).forEach(function (h) { const t = strip(h); if (t.length > title.length) title = t; });
+    items.push({ price: Math.round(price), km: km, year: year, url: link ? absUrl(link[1], base) : null, title: title.slice(0, 160), fuel: e.fuel || null, engine_l: e.engine_l || null });
   });
   return items;
 }
