@@ -513,7 +513,7 @@ textarea.in.sm{min-height:64px;font-size:13.5px}
         </div>
       </details>
 
-      <label class="chk"><input type="checkbox" id="f-photos" checked><span data-ru="Если комплектация не указана в тексте, прочитать фото объявления (сиденья, документы). Занимает до минуты." data-en="If the trim is not in the text, read the listing photos (seats, documents). Takes up to a minute."></span></label>
+      <label class="chk"><input type="checkbox" id="f-photos" checked><span data-ru="Если комплектация не указана в тексте, прочитать фото объявления (сиденья, документы). До 20 фото, может занять пару минут." data-en="If the trim is not in the text, read the listing photos (seats, documents). Up to 20 photos, may take a couple of minutes."></span></label>
       <div class="btns">
         <button class="btn pri" id="btn-go" type="submit" data-ru="Проверить автомобиль" data-en="Check this car"></button>
         <button class="btn" id="btn-clear" type="button" data-ru="Очистить" data-en="Clear"></button>
@@ -1050,7 +1050,7 @@ async function run(){
     car.trimKnownText=!!(f.trim||car.desc||car.title||f.text||ocrText);
     car.trimFromPhoto=false;
     if(!car.trims.length&&!f.trim&&f.photos&&S.api&&car.images&&car.images.length){
-      var phs=car.images.slice(0,8);
+      var phs=car.images.slice(0,20);
       try{
         var scan=await scanPhotos(phs,function(i,n){ stage=L('Читаю фото объявления ','Reading listing photos ')+(i+1)+'/'+n+L(' (комплектация, документы)',' (trim, documents)'); },function(){return S.ctl&&S.ctl.signal.aborted});
         var hit=scan.filter(function(x){return x.trims.length})[0], vinHit=scan.filter(function(x){return x.vin})[0];

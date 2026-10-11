@@ -445,7 +445,7 @@ function collectImages(html, base) {
   const re2 = /https?:\/\/i\.ss\.(?:com|lv)\/gallery\/[^"'\s<>)\\]+?\.(?:jpe?g|png)/gi;
   while ((m = re2.exec(html)) && out.length < 40) add(m[0]);
   const og = meta(html, 'og:image'); if (og) add(og);
-  return out.slice(0, 14);
+  return out.slice(0, 20);
 }
 async function hImg(env, q) {
   const url = q.get('url');
