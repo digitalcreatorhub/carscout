@@ -869,7 +869,7 @@ function cleanMakeModel(make, model) {
 /* ---------- trim / equipment (R-Line, AMG Line, M Sport ...) ---------- */
 var TRIMS=[['amg-line',/\bamg[\s\-]?line\b|амг[\s\-]?лайн/i,1],['amg',/\bamg\b|(^|[^а-яa-z])амг([^а-яa-z]|$)/i,1],['r-line',/\br[\s\-]?l[iī]n(?:e|ija|ijas)?\b|(^|[^а-я])р[\s\-]?лайн|(^|[^а-я])р[\s\-]?лин/i,1],['m-sport',/\bm[\s\-]?sport|\bm[\s\-]?paket|\bm[\s\-]?package|(^|[^а-я])м[\s\-]?спорт/i,1],['s-line',/\bs[\s\-]?l[iī]n(?:e|ija)?\b|(^|[^а-я])с[\s\-]?лайн/i,1],
   ['gti/gtd/gte',/\bgt[ide]\b/i,1],['rs',/\bRS[\s\-]?\d?\b/,1],['st-line',/\bst[\s\-]?line\b/i,1],['fr',/\bFR\b/,1],['monte carlo',/monte[\s\-]?carlo/i,1],['l&k',/laurin|\bl&k\b/i,1],['sportline',/sport[\s\-]?line\b/i,1],
-  ['black edition',/black[\s\-]?edition/i,1],['r-design',/\br[\s\-]?design/i,1],['inscription',/inscription/i,1],['gr sport',/\bgr[\s\-]?sport/i,1],['opc line',/\bopc[\s\-]?line/i,1],['luxury line',/luxury[\s\-]?line/i,0],['modern line',/modern[\s\-]?line/i,0],['avantgarde',/avantgarde/i,1],['elegance',/\belegance\b/i,0],['highline',/\bhighline\b/i,0],['comfortline',/\bcomfortline\b/i,0],['trendline',/\btrendline\b/i,0]];
+  ['black edition',/black[\s\-]?edition/i,1],['avantgarde',/avantgarde/i,1],['elegance',/\belegance\b/i,0],['highline',/\bhighline\b/i,0],['comfortline',/\bcomfortline\b/i,0],['trendline',/\btrendline\b/i,0]];
 function detectTrim(text){
   var t=String(text||''), out=[]; TRIMS.forEach(function(x){ if(x[1].test(t)) out.push(x[0]); });
   if(out.indexOf('amg-line')>-1) out=out.filter(function(k){return k!=='amg'});
@@ -898,47 +898,23 @@ async function ocrImages(files,onProgress){
 }
 
 /* Photos of the listing are read through the server's image proxy (the sites do not allow direct reading by the page). */
-var PHOTO_TRIMS=['amg-line','amg','r-line','m-sport','s-line','st-line','monte carlo','black edition','sportline','l&k','avantgarde','r-design','inscription','gr sport','opc line','luxury line','modern line'];
+var PHOTO_TRIMS=['amg-line','amg','r-line','m-sport','s-line','st-line','monte carlo','black edition','sportline','l&k','avantgarde'];
 function detectTrimPhoto(text){ return detectTrim(text).filter(function(k){return PHOTO_TRIMS.indexOf(k)>-1}); }
-function pickVin(txt){
-  var up=String(txt||'').toUpperCase(), vv, re=/\b([A-HJ-NPR-Z0-9]{17})\b/g;
-  while((vv=re.exec(up))){ if((vv[1].match(/\d/g)||[]).length>=5&&(vv[1].match(/[A-Z]/g)||[]).length>=4) return vv[1]; }
-  return null;
-}
-/* Each photo is read first by the server's vision model (reads seats, badges, documents far better); if that is not available,
-   the text is recognised in the browser (Tesseract). Three photos are processed at a time, and reading stops at the first trim found. */
 async function scanPhotos(urls,onProgress,cancelled){
-  var mode='vision', tw=null, chain=Promise.resolve(), results=[], idx=0, found=null, done=0;
-  async function ocrOne(u){
-    var run=chain.then(async function(){
-      if(!tw){ var T=await loadTesseract(); tw=await T.createWorker('eng'); }
-      var r=await tw.recognize(S.api+'/api/img?url='+encodeURIComponent(u)); return (r&&r.data&&r.data.text)||'';
-    });
-    chain=run.catch(function(){}); return run.catch(function(){return ''});
-  }
-  async function readOne(u){
-    if(mode==='vision'){
-      var j=await api('/api/vision',{url:u},45000);
-      if(j&&j.ok) return {txt:[j.text,j.trim].filter(Boolean).join(' . '),vin:j.vin||pickVin(j.text),how:'vision'};
-      if(j&&(j.error==='no_ai'||j.error==='ai_failed')) mode='ocr';
-      else return {txt:'',vin:null,how:'vision'};
-    }
-    var t=await ocrOne(u); return {txt:t,vin:pickVin(t),how:'ocr'};
-  }
+  var T=await loadTesseract(), w=await T.createWorker('eng'), res=[], i;
   try{
-    await Promise.all([0,1,2].map(async function(){
-      while(!found&&!cancelled()){
-        var i=idx++; if(i>=urls.length) break;
-        onProgress(done,urls.length);
-        var r=await readOne(urls[i]); done++;
-        var tr=detectTrimPhoto(r.txt);
-        results.push({i:i,trims:tr,vin:r.vin,how:r.how});
-        if(tr.length&&!found) found=results[results.length-1];
-      }
-    }));
-  } finally { if(tw){ try{ await tw.terminate(); }catch(e){} } }
-  results.sort(function(x,y){return x.i-y.i});
-  return results;
+    for(i=0;i<urls.length;i++){
+      if(cancelled()) break;
+      onProgress(i,urls.length);
+      var txt='';
+      try{ var r=await w.recognize(S.api+'/api/img?url='+encodeURIComponent(urls[i])); txt=(r&&r.data&&r.data.text)||''; }catch(e){ txt=''; }
+      var trims=detectTrimPhoto(txt), vm=null, up=txt.toUpperCase().replace(/[IOQ]/g,function(c){return c==='I'?'1':'0'}), vv;
+      var re=/\b([A-HJ-NPR-Z0-9]{17})\b/g; while((vv=re.exec(up))){ if((vv[1].match(/\d/g)||[]).length>=5&&(vv[1].match(/[A-Z]/g)||[]).length>=4){ vm=vv[1]; break; } }
+      res.push({i:i,trims:trims,vin:vm,len:txt.length});
+      if(trims.length) break;
+    }
+  } finally { try{ await w.terminate(); }catch(e){} }
+  return res;
 }
 
 /* ---------- API ---------- */
@@ -1078,7 +1054,7 @@ async function run(){
       try{
         var scan=await scanPhotos(phs,function(i,n){ stage=L('Читаю фото объявления ','Reading listing photos ')+(i+1)+'/'+n+L(' (комплектация, документы)',' (trim, documents)'); },function(){return S.ctl&&S.ctl.signal.aborted});
         var hit=scan.filter(function(x){return x.trims.length})[0], vinHit=scan.filter(function(x){return x.vin})[0];
-        if(hit){ car.trims=hit.trims; car.trimFromPhoto=true; notes.push(L('Комплектация найдена на фото №'+(hit.i+1)+': '+hit.trims.join(', ')+'. Распознавание на фото может ошибаться: проверьте и при необходимости исправьте в поле «Комплектация».','Trim found on photo #'+(hit.i+1)+': '+hit.trims.join(', ')+'. Photo recognition can be wrong: please check it and fix the “Trim” field if needed.')); }
+        if(hit){ car.trims=hit.trims; car.trimFromPhoto=true; notes.push(L('Комплектация найдена на фото №'+(hit.i+1)+': '+hit.trims.join(', ')+'. Распознавание текста на фото неточное: проверьте и при необходимости исправьте в поле «Комплектация».','Trim found on photo #'+(hit.i+1)+': '+hit.trims.join(', ')+'. Text recognition on photos is imprecise: please check it and fix the “Trim” field if needed.')); }
         else notes.push(L('Просмотрено фото: '+scan.length+', комплектация на них не найдена.','Photos checked: '+scan.length+', no trim found on them.'));
         if(vinHit&&!car.vin) notes.push(L('На фото виден возможный VIN: '+vinHit.vin+' (проверьте вручную).','A possible VIN is visible on a photo: '+vinHit.vin+' (please check manually).'));
       }catch(e){ notes.push(L('Фото не удалось прочитать (нужен интернет для загрузки распознавания).','Photos could not be read (internet needed to load text recognition).')); }
@@ -1103,7 +1079,7 @@ async function run(){
     stage=L('Собираю реальные объявления','Collecting real listings');
     var jobs=[];
     var base={make:car.make,model:car.model,year:car.year,fuel:car.fuel||''};
-    var AS_TRIM={'r-line':'R-Line','amg-line':'AMG Line','m-sport':'M Sport','s-line':'S-Line','st-line':'ST-Line','sportline':'Sportline','fr':'FR','monte carlo':'Monte Carlo','black edition':'Black Edition','avantgarde':'Avantgarde','rs':'RS','r-design':'R-Design','inscription':'Inscription','gr sport':'GR Sport','opc line':'OPC Line','highline':'Highline','comfortline':'Comfortline','trendline':'Trendline','elegance':'Elegance'};
+    var AS_TRIM={'r-line':'R-Line','amg-line':'AMG Line','m-sport':'M Sport','s-line':'S-Line','st-line':'ST-Line','sportline':'Sportline','fr':'FR','monte carlo':'Monte Carlo','black edition':'Black Edition','avantgarde':'Avantgarde','rs':'RS','highline':'Highline','comfortline':'Comfortline','trendline':'Trendline','elegance':'Elegance'};
     var asTrim=''; (car.trims||[]).some(function(k){ if(AS_TRIM[k]){asTrim=AS_TRIM[k]; return true} });
     setSrc('ss','ss.com (LV)','run',L('загружаю…','loading…'));
     jobs.push(api('/api/comps',Object.assign({source:'ss',ssPath:car.hints&&car.hints.ss_path||''},base),55000).then(function(j){return {key:'ss',region:'LV',label:'ss.com',j:j}}));
