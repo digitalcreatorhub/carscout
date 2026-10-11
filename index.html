@@ -1026,10 +1026,12 @@ async function run(){
     stage=L('Собираю реальные объявления','Collecting real listings');
     var jobs=[];
     var base={make:car.make,model:car.model,year:car.year,fuel:car.fuel||''};
+    var AS_TRIM={'r-line':'R-Line','amg-line':'AMG Line','m-sport':'M Sport','s-line':'S-Line','st-line':'ST-Line','sportline':'Sportline','fr':'FR','monte carlo':'Monte Carlo','black edition':'Black Edition','avantgarde':'Avantgarde','rs':'RS','highline':'Highline','comfortline':'Comfortline','trendline':'Trendline','elegance':'Elegance'};
+    var asTrim=''; (car.trims||[]).some(function(k){ if(AS_TRIM[k]){asTrim=AS_TRIM[k]; return true} });
     setSrc('ss','ss.com (LV)','run',L('загружаю…','loading…'));
     jobs.push(api('/api/comps',Object.assign({source:'ss',ssPath:car.hints&&car.hints.ss_path||''},base),55000).then(function(j){return {key:'ss',region:'LV',label:'ss.com',j:j}}));
     setSrc('as24de','AutoScout24 (DE)','run',L('загружаю…','loading…'));
-    jobs.push(api('/api/comps',Object.assign({source:'as24de'},base),55000).then(function(j){return {key:'as24de',region:'DE',label:'AutoScout24',j:j}}));
+    jobs.push(api('/api/comps',Object.assign({source:'as24de',trim:asTrim},base),55000).then(function(j){return {key:'as24de',region:'DE',label:'AutoScout24',j:j}}));
     f.extra.forEach(function(u,i){
       var key='x'+i, host=''; try{host=new URL(u).hostname.replace(/^www\./,'').replace(/^en\./,'')}catch(e){}
       var reg=/autoplius|autogidas|\.lt$/.test(host)?'LT':/auto24\.ee|\.ee$/.test(host)?'EE':/auto24\.lv|ss\.(com|lv)/.test(host)?'LV':/otomoto|\.pl$/.test(host)?'PL':/mobile\.de|autoscout24|\.de$/.test(host)?'DE':'EU';
@@ -1064,7 +1066,7 @@ function pickRelevant(items,car){
   var med=median(sel.map(function(i){return i.price})); if(med) sel=sel.filter(function(i){return i.price>=med*0.4&&i.price<=med*2.5});
   var trimNote=null, mine=car.trims||[];
   if(mine.length){
-    var same=sel.filter(function(i){var t=detectTrim(i.title); return t.some(function(k){return mine.indexOf(k)>-1})});
+    var same=sel.filter(function(i){ if(i.trimMatch) return true; var t=detectTrim(i.title); return t.some(function(k){return mine.indexOf(k)>-1})});
     if(same.length>=5){ sel=same; trimNote={mode:'same',n:same.length}; } else trimNote={mode:'few',n:same.length};
   } else if(car.trimKnownText&&sel.length){
     var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title))});

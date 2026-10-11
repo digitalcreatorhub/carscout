@@ -329,8 +329,16 @@ function parseAs24List(html, base) {
     const g = function (n) { const x = tag.match(new RegExp('data-' + n + '=["\']([^"\']*)["\']', 'i')); return x ? x[1] : null; };
     const price = toNum(g('price'));
     if (!(price >= 300)) continue;
+    const endIdx = html.indexOf('</article>', m.index);
+    const body = endIdx > -1 ? html.slice(m.index + tag.length, Math.min(endIdx, m.index + tag.length + 12000)) : '';
+    let full = '';
+    const h2 = body.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+    if (h2) full = strip(h2[1]);
+    if (!full) { const al = body.match(/<a[^>]+href="[^"]*\/offers\/[^"]*"[^>]*>([\s\S]*?)<\/a>/i); if (al) full = strip(al[1]); }
+    const mmTitle = [g('make'), g('model')].filter(Boolean).join(' ');
+    const title0 = (full && full.length > mmTitle.length ? full : (mmTitle + (full ? ' ' + full : ''))).slice(0, 200);
     items.push({ price: Math.round(price), km: g('mileage') != null ? parseKm(g('mileage')) : null, year: parseYear(g('first-registration')), url: g('guid') ? base.replace(/\/lst.*$/, '') + '/offers/' + g('guid') : null,
-      title: [g('make'), g('model')].filter(Boolean).join(' '), fuel: ({ b: 'petrol', d: 'diesel', e: 'electric', l: 'lpg' })[String(g('fuel-type') || '').toLowerCase()] || normFuel(g('fuel-type')) });
+      title: title0, fuel: ({ b: 'petrol', d: 'diesel', e: 'electric', l: 'lpg' })[String(g('fuel-type') || '').toLowerCase()] || normFuel(g('fuel-type')) });
   }
   if (items.length) return items;
   const nd = nextData(html);
@@ -453,8 +461,14 @@ async function hComps(env, q) {
     if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
     const fuelCode = { diesel: 'D', petrol: 'B', electric: 'E', lpg: 'L' }[q.get('fuel')] || '';
     const f = (fuelCode ? '&fuel=' + fuelCode : '') + (year ? '&fregfrom=' + (year - 1) + '&fregto=' + (year + 1) : '');
-    const mkUrl = function (p) { return 'https://www.autoscout24.com/lst/' + mk + '/' + md + '?atype=C&cy=D&damaged_listing=exclude&desc=0' + f + '&sort=standard&ustate=N%2CU&page=' + p; };
-    const pages = await Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrl(n), 900).catch(function (e) { return { status: 0, text: '', url: mkUrl(n) }; }); }));
+    const trim = String(q.get('trim') || '').replace(/[^A-Za-z0-9 \-+&]/g, '').trim().slice(0, 30);
+    const mkUrlV = function (p, tv) { return 'https://www.autoscout24.com/lst/' + mk + '/' + md + '?atype=C&cy=D&damaged_listing=exclude&desc=0' + f + (tv ? '&version=' + encodeURIComponent(tv) : '') + '&sort=standard&ustate=N%2CU&page=' + p; };
+    const fetchSet = function (tv) { return Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrlV(n, tv), 900).catch(function (e) { return { status: 0, text: '', url: mkUrlV(n, tv) }; }); })); };
+    let usedTrim = '';
+    let pages = await fetchSet(trim);
+    if (trim && pages[0].status === 200 && !blockedBy(pages[0]) && parseAs24List(pages[0].text, 'https://www.autoscout24.com/lst/').length >= 3) usedTrim = trim;
+    else if (trim) pages = await fetchSet('');
+    const mkUrl = function (p) { return mkUrlV(p, usedTrim); };
     const b = blockedBy(pages[0]);
     const search = mkUrl(1);
     if (b) return json(env, { ok: false, source: 'as24de', error: 'blocked', message: 'AutoScout24 refused the server request (' + b + ').', searchUrl: search });
@@ -462,7 +476,8 @@ async function hComps(env, q) {
     let items = [];
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseAs24List(p.text, 'https://www.autoscout24.com/lst/')); });
     items = dedupe(items);
-    return json(env, { ok: items.length > 0, source: 'as24de', region: 'DE', label: 'AutoScout24 (DE)', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
+    if (usedTrim) items.forEach(function (i) { i.trimMatch = usedTrim; });
+    return json(env, { ok: items.length > 0, source: 'as24de', region: 'DE', label: 'AutoScout24 (DE)', searchUrl: search, trimFilter: usedTrim || null, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
   }
   return json(env, { ok: false, error: 'bad_source', message: 'Unknown source.' }, 400);
 }
