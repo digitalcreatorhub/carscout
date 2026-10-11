@@ -6,3 +6,7 @@ compatibility_date = "2025-01-01"
 [vars]
 # Only your own page may call this server from a browser.
 ALLOW_ORIGIN = "https://digitalcreatorhub.github.io"
+
+# Free Workers AI (a daily allowance is included): lets the server read text and badges on listing photos.
+[ai]
+binding = "AI"

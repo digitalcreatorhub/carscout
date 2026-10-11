@@ -460,6 +460,60 @@ async function hImg(env, q) {
   return new Response(buf, { status: 200, headers: Object.assign({ 'content-type': ct, 'cache-control': 'public, max-age=86400' }, cors(env)) });
 }
 
+/* ---- reading a photo with Workers AI (free daily allowance); falls back to in-browser OCR when the AI binding is missing ---- */
+function b64(bytes) { let s = ''; const CH = 0x8000; for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH)); return btoa(s); }
+const VISION_PROMPT = 'You are reading a photo from a used-car advertisement. Report ONLY text, badges, logos or labels that are clearly legible in the image '
+  + '(for example on the seats, door sills, steering wheel, dashboard screen, rear badge, or on a vehicle registration document or data plate). '
+  + 'Include trim or equipment names such as "S line", "R-Line", "AMG Line", "M Sport", "Sportline" only if you can actually read them. '
+  + 'Do NOT guess and do not infer anything from the shape of the car. If a registration document is visible, copy the VIN and the model/modification text. '
+  + 'Reply with JSON only: {"text":"all legible text, comma separated","trim":"trim name or null","vin":"VIN or null"}';
+function aiText(r) {
+  if (!r) return '';
+  if (typeof r === 'string') return r;
+  return String(r.response != null ? r.response : (r.description != null ? r.description : (r.result && r.result.response) || ''));
+}
+async function runVision(env, bytes, mime) {
+  const model = env.VISION_MODEL || '@cf/meta/llama-3.2-11b-vision-instruct';
+  const enc = b64(bytes), dataUrl = 'data:' + mime + ';base64,' + enc;
+  const attempts = [
+    function () { return env.AI.run(model, { messages: [{ role: 'user', content: [{ type: 'text', text: VISION_PROMPT }, { type: 'image_url', image_url: { url: dataUrl } }] }], max_tokens: 220, temperature: 0 }); },
+    function () { return env.AI.run(model, { prompt: VISION_PROMPT, image: enc, max_tokens: 220, temperature: 0 }); },
+    function () { return env.AI.run(model, { prompt: VISION_PROMPT, image: Array.from(bytes), max_tokens: 220, temperature: 0 }); }
+  ];
+  let lastErr = null, agreed = false;
+  for (let a = 0; a < attempts.length; a++) {
+    for (let t = 0; t < 2; t++) {
+      try { return aiText(await attempts[a]()); }
+      catch (e) {
+        lastErr = e;
+        const msg = String(e && e.message || e);
+        if (!agreed && /agree|licen[cs]e|terms/i.test(msg)) { agreed = true; try { await env.AI.run(model, { prompt: 'agree' }); } catch (x) { /* ignore */ } continue; }
+        break;
+      }
+    }
+  }
+  throw lastErr || new Error('vision_failed');
+}
+async function hVision(env, q) {
+  const url = q.get('url');
+  if (!url || !imgAllowed(url)) return json(env, { ok: false, error: 'bad_url' }, 400);
+  if (!env || !env.AI) return json(env, { ok: false, error: 'no_ai', message: 'Workers AI is not enabled for this server.' });
+  const r = await fetch(url, { headers: { 'user-agent': UA, 'referer': new URL(url).origin + '/', 'accept': 'image/avif,image/webp,image/*,*/*;q=0.8' }, cf: { cacheTtl: 86400, cacheEverything: true } });
+  const ct = (r.headers.get('content-type') || 'image/jpeg').split(';')[0];
+  if (!r.ok || !/^image\//i.test(ct)) return json(env, { ok: false, error: 'not_image', status: r.status });
+  const buf = new Uint8Array(await r.arrayBuffer());
+  if (buf.length > 4000000) return json(env, { ok: false, error: 'too_large' });
+  let raw;
+  try { raw = await runVision(env, buf, ct); } catch (e) { return json(env, { ok: false, error: 'ai_failed', message: String(e && e.message || e).slice(0, 200) }); }
+  let o = null;
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (m) { try { o = JSON.parse(m[0]); } catch (e) { o = null; } }
+  const text = o && o.text != null ? String(o.text) : raw;
+  const trim = o && o.trim && String(o.trim).toLowerCase() !== 'null' ? String(o.trim) : null;
+  const vin = o && o.vin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(String(o.vin).replace(/\s/g, '')) ? String(o.vin).replace(/\s/g, '').toUpperCase() : null;
+  return json(env, { ok: true, text: text.slice(0, 1200), trim: trim, vin: vin });
+}
+
 /* ---------------- handlers ---------------- */
 async function hListing(env, q) {
   const url = q.get('url');
@@ -576,12 +630,13 @@ export default {
     if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     const u = new URL(request.url);
     try {
-      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/comps', '/api/search', '/api/img', '/api/debug'] });
+      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/comps', '/api/search', '/api/img', '/api/vision', '/api/debug'] });
       if (u.pathname === '/api/listing') return await hListing(env, u.searchParams);
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams);
       if (u.pathname === '/api/search') return await hSearch(env, u.searchParams);
       if (u.pathname === '/api/debug') return await hDebug(env, u.searchParams);
       if (u.pathname === '/api/img') return await hImg(env, u.searchParams);
+      if (u.pathname === '/api/vision') return await hVision(env, u.searchParams);
       return json(env, { ok: false, error: 'not_found' }, 404);
     } catch (e) {
       return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500);
