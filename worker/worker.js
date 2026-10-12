@@ -318,10 +318,10 @@ function walkListings(node, base, out, depth) {
 
 /* ---------------- site parsers ---------------- */
 const SS_LABELS = [
-  ['make', /^(marka|марка|make)$/], ['model', /^(modelis|модель|model)$/], ['year', /^(izlaiduma gads|год выпуска|year)$/],
-  ['engine', /^(dzin[eē]js|dzin[eē]ja tips|motors|двигатель|мотор|тип двигателя|engine|engine type)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission)$/],
-  ['mileage', /^(nobraukums|пробег|mileage)$/], ['color', /^(kr[aā]sa|цвет|colou?r)$/], ['body', /^(virsb[uū]ves tips|тип кузова|body type)$/],
-  ['vin', /^(vin|vin kods|vin код)$/]
+  ['make', /^(marka|марка|make|brand)$/], ['model', /^(modelis|модель|model)$/], ['year', /^(izlaiduma gads|год выпуска|year|year of issue|year of manufacture)$/],
+  ['engine', /^(dzin[eē]js|dzin[eē]ja tips|motors|двигатель|мотор|тип двигателя|engine|engine type)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission|gearbox|gear box)$/],
+  ['mileage', /^(nobraukums|пробег|mileage|run|odometer)$/], ['color', /^(kr[aā]sa|цвет|colou?r)$/], ['body', /^(virsb[uū]ves tips|тип кузова|body type)$/],
+  ['vin', /^(vin|vin kods|vin код|vin code)$/]
 ];
 /* The ad text sits in #msg_div_msg together with the photo gallery (nested divs), so we cannot stop at the first </div>.
    Take everything up to the options table (or the footer markers) instead. */
