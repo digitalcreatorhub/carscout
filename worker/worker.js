@@ -651,7 +651,8 @@ async function hDebug(env, q) {
     parsedItems: parseGenericList(p.text, p.url).length, sample: parseGenericList(p.text, p.url).slice(0, 4),
     firstArticle: ((p.text.match(/<article\b[^>]*>/i) || [''])[0]).slice(0, 700),
     mileageSnippets: (p.text.match(/.{0,60}mileage.{0,90}/gi) || []).slice(0, 6),
-    textStart: strip(p.text).slice(0, 500)
+    textStart: strip(p.text).slice(0, 500),
+    around: (function () { const f = q.get('find'); if (!f) return null; const i = p.text.indexOf(f); if (i < 0) return 'not found'; const n = Math.min(parseInt(q.get('len') || '4000', 10) || 4000, 12000); return p.text.slice(Math.max(0, i - n / 2), i + n / 2); })()
   });
 }
 
