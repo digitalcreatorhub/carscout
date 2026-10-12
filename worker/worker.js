@@ -368,6 +368,9 @@ function parseSsListing(html, url) {
     if (g.make) { listing.make = g.make; listing.model = g.model || listing.model; } else listing.make = null;
   }
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model;
+  /* ss.lv puts make and model together in the 'Marka' row, so a model taken from it is table data */
+  if (listing.model && listing.src.make === 'table' && L.make && L.make.toLowerCase().indexOf(String(listing.model).toLowerCase().split(' ')[0]) > -1) listing.src.model = 'table';
+  if (!listing.vin) listing.src.vin = null;
   const m3 = url.match(/\/msg\/[a-z]{2}\/transport\/cars\/others\/[^/]+\.html/i);
   return { listing: listing, hints: { ss_others: !!m3, ss_path: m3 ? '/ru/transport/cars/others/' : m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };
 }
