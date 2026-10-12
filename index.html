@@ -3,32 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#0B0E12">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CarScout">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>CarScout Live</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap">
 <style>
-/* CarScout · theme B "editorial report": light paper, serif headlines, hairline rules, numbered sections,
+/* CarScout · theme A "analyst terminal" (built on the B structure) "editorial report": light paper, serif headlines, hairline rules, numbered sections,
    one signal colour (orange) for "your car" on every chart, navy for market data. */
 :root{
-  color-scheme:light;
-  --bg:#F4F2EC; --paper:#FFFFFF; --surface:#FFFFFF; --surface-2:#F0EDE6; --field:#FFFFFF;
-  --ink:#15171B; --ink2:#2B2F36; --muted:#6B6F76; --dim:#9A9DA3; --line:#E3DFD6; --line2:#D3CEC3;
-  --accent:#E4572E; --accent-fg:#FFFFFF; --accent-soft:#FBE9E2;
-  --navy:#1F3A68; --navy-2:#8FA3C6; --navy-soft:#E5EBF4; --series2:#1F3A68;
-  --info:#1F3A68; --info-soft:#E8EDF5; --good:#1C7C54; --good-soft:#E5F1EA; --warn:#A8650F; --warn-soft:#F8EEDC;
-  --bad:#B93A2B; --bad-soft:#F7E4E0; --sus:#6B4FA3; --sus-soft:#EEE8F6;
+  color-scheme:dark;
+  --bg:#07090C; --paper:#0F1318; --surface:#0F1318; --surface-2:#151A21; --field:#0B0E12;
+  --ink:#E9ECF0; --ink2:#C3C9D2; --muted:#8A94A3; --dim:#5A6472; --line:#1C222A; --line2:#29303A;
+  --accent:#C6F24E; --accent-fg:#0B0E12; --accent-soft:rgba(198,242,78,.12);
+  --navy:#7AA7FF; --navy-2:#3E5C8F; --navy-soft:rgba(122,167,255,.13); --series2:#7AA7FF;
+  --info:#7AA7FF; --info-soft:rgba(122,167,255,.13); --good:#3DD68C; --good-soft:rgba(61,214,140,.12); --warn:#F2B544; --warn-soft:rgba(242,181,68,.12);
+  --bad:#F2686A; --bad-soft:rgba(242,104,106,.12); --sus:#B79CFF; --sus-soft:rgba(183,156,255,.13);
+  --gz1:#3A3150;--gz2:#1F4A36;--gz3:#2A313B;--gz4:#5A4620;--gz5:#5E2A2B;
   --f-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --f-serif:'Lora',Georgia,'Times New Roman',serif;
+  --f-serif:'Inter Tight','Inter',system-ui,sans-serif;
   --f-mono:'Inter',system-ui,sans-serif;
-  --r:12px; --r-sm:10px;
+  --r:14px; --r-sm:10px;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scrollbar-color:#cfcabe transparent}
@@ -386,6 +387,116 @@ textarea.in.sm{min-height:64px;font-size:13.5px}
   .ctotal b{font-size:28px}
 }
 .pmain>.sbtn{align-self:flex-start}
+
+/* ===================== theme A overrides ===================== */
+html{scrollbar-color:#2a313b transparent}
+body{background:radial-gradient(1100px 520px at 12% -10%,rgba(198,242,78,.06),transparent 60%),radial-gradient(900px 600px at 100% 0,rgba(122,167,255,.06),transparent 60%),var(--bg)}
+::selection{background:rgba(198,242,78,.25)}
+.top{background:rgba(11,14,18,.88);border-bottom-color:var(--line)}
+.plate{font:600 19px/1 var(--f-serif);letter-spacing:-.01em}
+.plate::before{width:26px;height:26px;border-radius:7px;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230B0E12' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M4 16l5-6 4 4 7-8'/%3E%3C/svg%3E") center/16px no-repeat}
+.seg{background:var(--paper);border-color:var(--line2)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.lead::before{color:var(--dim)}
+.lead h1{font:600 clamp(32px,5vw,54px)/1.04 var(--f-serif);letter-spacing:-.03em}
+.lead p{font:400 clamp(15px,1.6vw,17px)/1.55 var(--f-body);color:var(--muted)}
+.sheet{background:var(--paper);border-color:var(--line)}
+.in{background:var(--field);border-color:var(--line2)}
+.in:hover{border-color:#3a4350}
+.in:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px rgba(198,242,78,.15)}
+select.in option{background:#0F1318;color:var(--ink)}
+.drop{background:var(--field);border-color:var(--line2)}
+.drop:hover,.drop.over{border-color:var(--accent)}
+details.imp{background:var(--field)}
+.chk input{accent-color:var(--accent)}
+.btn{border-color:var(--line2);background:var(--surface-2);color:var(--ink);border-radius:10px}
+.btn:hover:not(:disabled){background:#1b2129;border-color:#3a4350}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.pri:hover:not(:disabled){background:#d4fa66}
+.sbtn,.links a,.res a{background:var(--surface-2);border-color:var(--line2);color:var(--ink);border-radius:10px}
+.sbtn:hover,.links a:hover,.res a:hover{border-color:var(--accent);background:var(--surface-2)}
+.chip,.tg{background:var(--surface-2);border-color:var(--line2);color:var(--ink2)}
+.tg.o{border-color:rgba(198,242,78,.45);color:var(--accent);background:var(--accent-soft)}
+.tg.g{border-color:rgba(61,214,140,.35)}.tg.w{border-color:rgba(242,181,68,.35)}.tg.b{border-color:rgba(242,104,106,.35)}.tg.s{border-color:rgba(183,156,255,.35)}
+.pill{background:var(--surface-2);border-color:var(--line2);color:var(--ink2)}
+.pill.low{border-color:rgba(242,181,68,.35)}.pill.high{border-color:rgba(61,214,140,.35)}.pill.medium{border-color:rgba(122,167,255,.35)}
+.st{border-color:var(--line)}.st.busy,.st.info{background:var(--field)}
+.st.err{border-color:rgba(242,104,106,.35)}.st.ok{border-color:rgba(61,214,140,.35)}
+.src a{color:var(--accent)}
+.banner,.needshot{border-color:rgba(242,181,68,.4)}
+
+/* panels in a 12-column grid */
+#out{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;counter-reset:none}
+#out>*{grid-column:span 12;min-width:0}
+.sec{display:flex;flex-direction:column;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;border-top:1px solid var(--line)}
+.sec>.sh,.sec>.vhead{position:static;margin:0}
+.sbody{background:transparent;border:0;padding:0;margin-top:14px;border-radius:0}
+.sh{font:600 12px/1.3 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.sh::before{content:none}
+.vhead{flex-direction:row;justify-content:space-between;align-items:center;width:100%}
+@media (min-width:1000px){
+  #out>#sec-verdict,#out>#sec-plan,#out>#sec-dealer,#out>#sec-msg,#out>#sec-share,#out>#sec-history,#out>#sec-vin,#out>#sec-src,#out>#sec-links,#out>#sec-trims,#out>#sec-flags{grid-column:span 6}
+  #out>#sec-facts{grid-column:span 12}
+}
+@media (max-width:899px){.sec{padding:16px}.sbody{padding:0}.sh{font-size:12px}}
+
+/* report hero */
+.rep{padding:4px 0 0;display:flex;flex-direction:column;gap:16px}
+.rep-g{grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding:0;border:0;align-items:stretch}
+.rep-g>div:first-child{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:24px 26px}
+.rep .over{color:var(--dim)}
+.rep .over::before{background:var(--accent);height:2px;width:22px}
+.rep h2{font:600 clamp(32px,4.2vw,46px)/1.05 var(--f-serif);letter-spacing:-.025em}
+.rep h2 em{font-style:normal;font-weight:500;color:var(--muted)}
+.rep .lede{font:400 clamp(15.5px,1.5vw,17.5px)/1.55 var(--f-body);color:var(--ink2)}
+.rep .lede b{color:var(--ink)}
+.rep .lede .o{color:var(--accent)}
+.gcard{background:var(--paper);border-color:var(--line)}
+.gnum{font:600 50px/1 var(--f-serif);letter-spacing:-.03em}
+.gnum small{font-size:18px}
+.facts{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);margin:0}
+.fct{padding:16px 20px!important;border-left:1px solid var(--line)}.fct:first-child{border-left:0}
+.fct dd{font:600 21px/1.2 var(--f-serif);letter-spacing:-.01em}
+@media (max-width:1100px){.rep-g{grid-template-columns:minmax(0,1fr)}.gcard{max-width:none}.fct{border-top:1px solid var(--line)}.fct:nth-child(-n+3){border-top:0}.fct:nth-child(4){border-left:0}}
+@media (max-width:560px){.fct:nth-child(-n+2){border-top:0}.fct:nth-child(even){border-left:1px solid var(--line)}.rep-g>div:first-child{padding:18px}}
+
+/* blocks */
+.pmain h2,.price,.stat b,.ib .v,.lc .lp,.ctotal b,.headline{font-family:var(--f-serif);font-weight:600}
+.price{color:var(--ink)}
+.pthumb{background:var(--surface-2);border-color:var(--line2)}
+.sumbox{border-left-color:var(--accent)}
+.sumbox p{font:400 15.5px/1.55 var(--f-body);color:var(--ink2)}
+.kv{border-top-color:var(--line)}
+.tbl th{border-bottom-color:var(--line2);font-weight:600;color:var(--dim)}
+.tbl tr.me td:first-child{color:var(--accent)}
+.lc{background:var(--paper)}
+.lc a{color:var(--accent);text-decoration:none}
+.ib{background:var(--surface-2)}
+.calc,.stats,.lcards{border-color:var(--line)}
+.cbox{background:var(--surface-2)}
+#sec-plan .cbox:nth-child(2) .ctotal b{color:var(--good)}
+#sec-msg textarea{font:400 15px/1.55 var(--f-body);color:var(--ink);background:var(--field);border-left:3px solid var(--accent)}
+.rbar{background:var(--surface-2)}
+.rmid{background:var(--ink)}
+.brow .bt{background:var(--surface-2);border-radius:4px}.brow .bt i{border-radius:4px}
+.dots li{border-top-color:var(--line)}
+.vg b{background:var(--field);border-color:var(--line2)}
+
+/* charts */
+.chart .gl{stroke:var(--line)}
+.chart .pt{fill:var(--navy);fill-opacity:.75}
+.chart .me{fill:var(--accent);stroke:var(--paper)}
+.chart .halo{fill:var(--accent);fill-opacity:.2}
+.chart .tip{fill:var(--surface-2);stroke:var(--line2)}
+.chart .dot{stroke:var(--paper)}
+
+#favs.sec{background:var(--paper);border-color:var(--line)}
+#favs .sh{font:600 12px var(--f-body);letter-spacing:.12em;text-transform:uppercase}
+#favs .sh::before{content:"★ ";color:var(--accent)}
+.foot{border-top-color:var(--line)}
+@media print{body{background:#fff;color:#000}}
+@media (min-width:900px){.chart svg{max-height:380px}}
+.rep-g>div:first-child{display:flex;flex-direction:column;justify-content:center}
 </style>
 </head>
 <body>
@@ -1661,7 +1772,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.2', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-12.3', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -1793,12 +1904,12 @@ function gaugeSvg(delta){
   var w=400, h=196, cx=w/2, cy=h-8, R=150, lo=-30, hi=30;
   var d=Math.max(lo,Math.min(hi,delta==null?0:delta));
   var a=function(v){return Math.PI*(1-(v-lo)/(hi-lo))}, P=function(v,r){return [cx+r*Math.cos(a(v)),cy-r*Math.sin(a(v))]};
-  var arc=function(v0,v1,c){var p0=P(v0,R),p1=P(v1,R);return '<path d="M'+p0[0].toFixed(1)+' '+p0[1].toFixed(1)+' A'+R+' '+R+' 0 0 1 '+p1[0].toFixed(1)+' '+p1[1].toFixed(1)+'" fill="none" stroke="'+c+'" stroke-width="16"/>'};
+  var arc=function(v0,v1,c){var p0=P(v0,R),p1=P(v1,R);return '<path d="M'+p0[0].toFixed(1)+' '+p0[1].toFixed(1)+' A'+R+' '+R+' 0 0 1 '+p1[0].toFixed(1)+' '+p1[1].toFixed(1)+'" fill="none" style="stroke:'+c+'" stroke-width="16"/>'};
   var s='<svg viewBox="0 0 '+w+' '+(h+6)+'" role="img" aria-label="'+esc(L('Цена относительно рынка: ','Price vs market: ')+pct(delta))+'" font-family="Inter,sans-serif">';
-  s+=arc(-30,-20.6,'#E4DCF0')+arc(-19.4,-8.6,'#CFE3D6')+arc(-7.4,7.4,'#E3DFD6')+arc(8.6,17.4,'#F1DCC0')+arc(18.6,30,'#ECC4BB');
-  [-30,-20,-8,0,8,18,30].forEach(function(v){var p=P(v,R+22);s+='<text x="'+p[0].toFixed(1)+'" y="'+(p[1]+4).toFixed(1)+'" text-anchor="middle" font-size="11" fill="#7A7E85">'+(v>0?'+':v<0?'−':'')+Math.abs(v)+'%</text>'});
-  if(delta!=null){var n=P(d,R-10);s+='<line x1="'+cx+'" y1="'+cy+'" x2="'+n[0].toFixed(1)+'" y2="'+n[1].toFixed(1)+'" stroke="#15171B" stroke-width="2.5" stroke-linecap="round"/><circle cx="'+n[0].toFixed(1)+'" cy="'+n[1].toFixed(1)+'" r="7" fill="#E4572E" stroke="#fff" stroke-width="2.5"/>';}
-  s+='<circle cx="'+cx+'" cy="'+cy+'" r="7" fill="#15171B"/>';
+  s+=arc(-30,-20.6,'var(--gz1)')+arc(-19.4,-8.6,'var(--gz2)')+arc(-7.4,7.4,'var(--gz3)')+arc(8.6,17.4,'var(--gz4)')+arc(18.6,30,'var(--gz5)');
+  [-30,-20,-8,0,8,18,30].forEach(function(v){var p=P(v,R+22);s+='<text x="'+p[0].toFixed(1)+'" y="'+(p[1]+4).toFixed(1)+'" text-anchor="middle" font-size="11" style="fill:var(--muted)">'+(v>0?'+':v<0?'−':'')+Math.abs(v)+'%</text>'});
+  if(delta!=null){var n=P(d,R-10);s+='<line x1="'+cx+'" y1="'+cy+'" x2="'+n[0].toFixed(1)+'" y2="'+n[1].toFixed(1)+'" style="stroke:var(--ink)" stroke-width="2.5" stroke-linecap="round"/><circle cx="'+n[0].toFixed(1)+'" cy="'+n[1].toFixed(1)+'" r="7" style="fill:var(--accent);stroke:var(--paper)" stroke-width="2.5"/>';}
+  s+='<circle cx="'+cx+'" cy="'+cy+'" r="7" style="fill:var(--ink)"/>';
   return s+'</svg>';
 }
 function secReport(v){
@@ -1827,7 +1938,7 @@ function secReport(v){
   var vcls={good:'g',fair:'',high:'w',overpriced:'b',too_cheap:'s',unknown:''}[k]||'';
   var conf={high:L('высокая достоверность','high confidence'),medium:L('средняя достоверность','medium confidence'),low:L('низкая достоверность','low confidence')}[v.conf]||'';
   var card='<div class="gcard"><div class="gtop"><div><div class="gnum">'+(v.score!=null?esc(v.score.toFixed(1).replace('.',',')):'–')+'<small> /10</small></div><div class="glab">'+esc(L('Оценка цены','Price score')+(conf?' · '+conf:''))+'</div></div><span class="tg '+vcls+'">'+esc(vn)+'</span></div>'+
-    gaugeSvg(d)+(d!=null&&v.fair?'<p class="gdl">'+esc(pct(d)+L(' к рынку · ',' vs market · ')+eur(c.price)+L(' против ',' vs ')+eur(v.fair.mid))+'</p>':'')+'<div class="glg">'+[[L('дёшево','cheap'),'#E4DCF0'],[L('ниже','below'),'#CFE3D6'],[L('в рынке','fair'),'#E3DFD6'],[L('выше','above'),'#F1DCC0'],[L('сильно выше','far above'),'#ECC4BB']].map(function(g){return '<span><i style="background:'+g[1]+'"></i>'+esc(g[0])+'</span>'}).join('')+'</div></div>';
+    gaugeSvg(d)+(d!=null&&v.fair?'<p class="gdl">'+esc(pct(d)+L(' к рынку · ',' vs market · ')+eur(c.price)+L(' против ',' vs ')+eur(v.fair.mid))+'</p>':'')+'<div class="glg">'+[[L('дёшево','cheap'),'var(--gz1)'],[L('ниже','below'),'var(--gz2)'],[L('в рынке','fair'),'var(--gz3)'],[L('выше','above'),'var(--gz4)'],[L('сильно выше','far above'),'var(--gz5)']].map(function(g){return '<span><i style="background:'+g[1]+'"></i>'+esc(g[0])+'</span>'}).join('')+'</div></div>';
   var regs=v.regions.filter(function(r){return r.fair}), cheap=regs.slice().sort(function(a,b){return a.fair.mid-b.fair.mid})[0];
   var totalRead=v.regions.reduce(function(a,r){return a+(r.total||0)},0);
   var fact=function(t,val,sub,cls){return '<div class="fct"><dt>'+esc(t)+'</dt><dd>'+esc(val)+'</dd>'+(sub?'<small'+(cls?' style="color:var(--'+cls+')"':'')+'>'+esc(sub)+'</small>':'')+'</div>'};
