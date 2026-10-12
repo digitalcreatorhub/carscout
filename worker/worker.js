@@ -399,6 +399,37 @@ function parseSsList(html, base) {
   });
   return items;
 }
+
+/* autoplius.lt list: each ad is an <a class="announcement-item"> block */
+function parseAutopliusList(html, base) {
+  const items = [];
+  const re = /<a\s+href="(https?:\/\/[a-z.]*autoplius\.lt\/ads\/[^"]+?\.html)"\s+class="announcement-item[^"]*"/gi;
+  const starts = []; let m;
+  while ((m = re.exec(html))) starts.push({ i: m.index, url: m[1] });
+  starts.forEach(function (s, k) {
+    const block = html.slice(s.i, k + 1 < starts.length ? starts[k + 1].i : s.i + 9000);
+    const pm = block.match(/announcement-pricing-info[\s\S]*?<strong[^>]*>\s*([\d\s.,]+)\s*(?:&euro;|€)/i);
+    const price = pm ? toNum(pm[1]) : null;
+    if (!(price >= 300 && price <= 500000)) return;
+    const t = block.match(/class="announcement-title"[^>]*>([\s\S]*?)<\/div>/i);
+    const head = block.match(/class="announcement-title-parameters"[\s\S]*?<\/div>\s*<\/div>/i);
+    const headSpans = head ? (head[0].match(/<span[^>]*>([\s\S]*?)<\/span>/gi) || []).map(strip) : [];
+    let year = null; headSpans.forEach(function (x) { const y = x.match(/^(19[89]\d|20[0-3]\d)(?:-\d{2})?$/); if (y && !year) year = parseInt(y[1], 10); });
+    const pb = block.match(/class="announcement-parameters-block"[\s\S]*?<\/div>\s*<\/div>/i);
+    const ps = pb ? (pb[0].match(/<span[^>]*>([\s\S]*?)<\/span>/gi) || []).map(strip) : [];
+    let km = null, fuel = null, gear = null, eng = null;
+    ps.forEach(function (x) {
+      if (km == null && /^\d[\d\s]*\s*km$/i.test(x)) km = parseKm(x);
+      else if (!fuel && normFuel(x)) fuel = normFuel(x);
+      else if (!gear && /automat|manual|mechan/i.test(x)) gear = /automat/i.test(x) ? 'automatic' : 'manual';
+      else if (!eng && /\d[.,]\d\s*l/i.test(x)) eng = x;
+    });
+    const im = block.match(/(?:data-src|src)="(https:\/\/autoplius-img\.dgn\.lt\/[^"]+?\.(?:jpe?g|png|webp))"/i);
+    const title = [t ? strip(t[1]) : '', headSpans.filter(function (x) { return !/^\d{4}(-\d{2})?$/.test(x); }).join(' '), eng || ''].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    items.push({ price: Math.round(price), km: km, year: year, url: s.url, title: title.slice(0, 160), fuel: fuel, gear: gear, img: im ? im[1] : null });
+  });
+  return items;
+}
 function parseAs24List(html, base) {
   const items = [];
   const re = /<article\b[^>]*data-guid=["'][^"']+["'][^>]*>/gi;
@@ -593,7 +624,11 @@ async function hComps(env, q) {
     if (others) items = filterOthers(items, make, model);
     return json(env, { ok: items.length > 0, source: 'ss', region: 'LV', label: 'ss.com', searchUrl: base, items: items, pages: pages.filter(function (p) { return p.status === 200; }).length, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
   }
-  if (source === 'as24de') {
+  if (source === 'as24de' || source === 'as24') {
+    const CY = { D: 'DE', B: 'BE', NL: 'NL', F: 'FR', A: 'AT', I: 'IT', L: 'LU' };
+    const cy = source === 'as24de' ? 'D' : String(q.get('cy') || 'D').toUpperCase();
+    if (!CY[cy]) return json(env, { ok: false, error: 'bad_source', message: 'Unknown country.' }, 400);
+    const srcName = 'as24' + CY[cy].toLowerCase();
     let mk = slugify(make); if (mk === 'mercedes') mk = 'mercedes-benz'; if (mk === 'vw') mk = 'volkswagen';
     let md = as24Model(mk, slugify(model));
     if (mk === 'gwm' && /^ora/.test(md)) { mk = 'ora'; md = ''; }
@@ -601,7 +636,7 @@ async function hComps(env, q) {
     const fuelCode = { diesel: 'D', petrol: 'B', electric: 'E', lpg: 'L' }[q.get('fuel')] || '';
     const f = (fuelCode ? '&fuel=' + fuelCode : '') + (year ? '&fregfrom=' + (year - 1) + '&fregto=' + (year + 1) : '');
     const trim = String(q.get('trim') || '').replace(/[^A-Za-z0-9 \-+&]/g, '').trim().slice(0, 30);
-    const mkUrlV = function (p, tv) { return 'https://www.autoscout24.com/lst/' + mk + (md ? '/' + md : '') + '?atype=C&cy=D&damaged_listing=exclude&desc=0' + f + (tv ? '&version=' + encodeURIComponent(tv) : '') + '&sort=standard&ustate=N%2CU&page=' + p; };
+    const mkUrlV = function (p, tv) { return 'https://www.autoscout24.com/lst/' + mk + (md ? '/' + md : '') + '?atype=C&cy=' + cy + '&damaged_listing=exclude&desc=0' + f + (tv ? '&version=' + encodeURIComponent(tv) : '') + '&sort=standard&ustate=N%2CU&page=' + p; };
     const fetchSet = function (tv) { return Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrlV(n, tv), 900).catch(function (e) { return { status: 0, text: '', url: mkUrlV(n, tv) }; }); })); };
     let usedTrim = '';
     let pages = await fetchSet(trim);
@@ -610,18 +645,33 @@ async function hComps(env, q) {
     const mkUrl = function (p) { return mkUrlV(p, usedTrim); };
     const b = blockedBy(pages[0]);
     const search = mkUrl(1);
-    if (b) return json(env, { ok: false, source: 'as24de', error: 'blocked', message: 'AutoScout24 refused the server request (' + b + ').', searchUrl: search });
-    if (pages[0].status === 404) return json(env, { ok: false, source: 'as24de', error: 'not_found', message: 'Make/model not found on AutoScout24.', searchUrl: search });
+    if (b) return json(env, { ok: false, source: srcName, error: 'blocked', message: 'AutoScout24 refused the server request (' + b + ').', searchUrl: search });
+    if (pages[0].status === 404) return json(env, { ok: false, source: srcName, error: 'not_found', message: 'Make/model not found on AutoScout24.', searchUrl: search });
     let items = [];
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseAs24List(p.text, 'https://www.autoscout24.com/lst/')); });
     items = dedupe(items);
-    if (/\/lst\//.test(pages[0].url || '') === false || (pages[0].url || '').toLowerCase().indexOf('/lst/' + mk) === -1) return json(env, { ok: false, source: 'as24de', error: 'not_found', message: 'AutoScout24 redirected away from this make/model.', searchUrl: search });
+    if (/\/lst\//.test(pages[0].url || '') === false || (pages[0].url || '').toLowerCase().indexOf('/lst/' + mk) === -1) return json(env, { ok: false, source: srcName, error: 'not_found', message: 'AutoScout24 redirected away from this make/model.', searchUrl: search });
     if (year && items.length >= 10) {
       const inY = items.filter(function (i) { return i.year == null || Math.abs(i.year - year) <= 1; }).length;
-      if (inY / items.length < 0.5) return json(env, { ok: false, source: 'as24de', error: 'filters_ignored', message: 'AutoScout24 did not apply the model/year filters.', searchUrl: search });
+      if (inY / items.length < 0.5) return json(env, { ok: false, source: srcName, error: 'filters_ignored', message: 'AutoScout24 did not apply the model/year filters.', searchUrl: search });
     }
     if (usedTrim) items.forEach(function (i) { i.trimMatch = usedTrim; });
-    return json(env, { ok: items.length > 0, source: 'as24de', region: 'DE', label: 'AutoScout24 (DE)', searchUrl: search, trimFilter: usedTrim || null, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
+    return json(env, { ok: items.length > 0, source: srcName, region: CY[cy], label: 'AutoScout24 (' + CY[cy] + ')', searchUrl: search, trimFilter: usedTrim || null, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
+  }
+  if (source === 'autoplius') {
+    let mk = slugify(make); if (mk === 'vw') mk = 'volkswagen'; if (mk === 'mercedes') mk = 'mercedes-benz';
+    const md = slugify(model);
+    if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
+    const yq = year ? '&make_date_from=' + (year - 1) + '&make_date_to=' + (year + 1) : '';
+    const mkUrl = function (p) { return 'https://en.autoplius.lt/ads/used-cars/' + mk + '/' + md + '?' + yq.slice(1) + (p > 1 ? '&page_nr=' + p : ''); };
+    const pages = await Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrl(n), 900).catch(function (e) { return { status: 0, text: '', url: mkUrl(n) }; }); }));
+    const search = mkUrl(1), b = blockedBy(pages[0]);
+    if (b) return json(env, { ok: false, source: 'autoplius', error: 'blocked', message: 'autoplius.lt refused the server request (' + b + ').', searchUrl: search });
+    if (pages[0].status === 404 || (pages[0].url || '').toLowerCase().indexOf('/' + mk + '/' + md) === -1) return json(env, { ok: false, source: 'autoplius', error: 'not_found', message: 'Make/model not found on autoplius.lt.', searchUrl: search });
+    let items = [];
+    pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseAutopliusList(p.text, p.url)); });
+    items = dedupe(items);
+    return json(env, { ok: items.length > 0, source: 'autoplius', region: 'LT', label: 'autoplius.lt', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found on the page.' });
   }
   return json(env, { ok: false, error: 'bad_source', message: 'Unknown source.' }, 400);
 }

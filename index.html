@@ -782,7 +782,7 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
             <div class="fld"><label for="f-fuel" data-ru="Топливо" data-en="Fuel"></label>
               <select class="in" id="f-fuel"><option value=""></option><option value="petrol">Petrol / Бензин</option><option value="diesel">Diesel / Дизель</option><option value="hybrid">Hybrid / Гибрид</option><option value="electric">Electric / Электро</option><option value="lpg">Petrol + LPG / Бензин + газ</option></select></div>
             <div class="fld"><label for="f-market" data-ru="Сравнивать с рынком" data-en="Compare with market"></label>
-              <select class="in" id="f-market"><option value="LV">Latvia</option><option value="DE">Germany</option><option value="LT">Lithuania</option><option value="EE">Estonia</option></select></div>
+              <select class="in" id="f-market"><option value="LV">Latvia</option><option value="DE">Germany</option><option value="LT">Lithuania</option><option value="EE">Estonia</option><option value="BE">Belgium</option><option value="NL">Netherlands</option><option value="FR">France</option></select></div>
           </div>
         </div>
       </details>
@@ -1097,8 +1097,9 @@ var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}
 
 var LV_TERM={good:'Zem tirgus',fair:'Tirgus cena',high:'Virs tirgus',overpriced:'Ievērojami virs tirgus',too_cheap:'Aizdomīgi lēti',unknown:'Nav datu'};
 var VNAME={good:['Ниже рынка','Below market'],fair:['Рыночная цена','Fair price'],high:['Выше рынка','Above market'],overpriced:['Сильно выше рынка','Well above market'],too_cheap:['Подозрительно дёшево','Suspiciously cheap'],unknown:['Нет данных','No data']};
-var REGION_NAME={LV:['Латвия','Latvia'],LT:['Литва','Lithuania'],EE:['Эстония','Estonia'],DE:['Германия','Germany'],PL:['Польша','Poland'],EU:['ЕС','EU']};
-var RLOC={LV:'Латвии',LT:'Литве',EE:'Эстонии',DE:'Германии',PL:'Польше'},RGEN={LV:'Латвии',LT:'Литвы',EE:'Эстонии',DE:'Германии',PL:'Польши'};
+var REGION_NAME={LV:['Латвия','Latvia'],LT:['Литва','Lithuania'],EE:['Эстония','Estonia'],DE:['Германия','Germany'],BE:['Бельгия','Belgium'],NL:['Нидерланды','Netherlands'],FR:['Франция','France'],PL:['Польша','Poland'],EU:['ЕС','EU']};
+var FAR={DE:1,BE:1,NL:1,FR:1,PL:1,EU:1};
+var RLOC={LV:'Латвии',LT:'Литве',EE:'Эстонии',DE:'Германии',BE:'Бельгии',NL:'Нидерландах',FR:'Франции',PL:'Польше'},RGEN={LV:'Латвии',LT:'Литвы',EE:'Эстонии',DE:'Германии',BE:'Бельгии',NL:'Нидерландов',FR:'Франции',PL:'Польши'};
 function rloc(cc){ return S.lang==='ru'&&RLOC[cc]?RLOC[cc]:rname(cc); }
 function rgen(cc){ return S.lang==='ru'&&RGEN[cc]?RGEN[cc]:rname(cc); }
 function rname(cc){var r=REGION_NAME[cc];return r?r[S.lang==='ru'?0:1]:cc}
@@ -1536,8 +1537,13 @@ async function run(){
     if(!asTrim&&car.trimCustom) asTrim=car.trimCustom;
     setSrc('ss','ss.com (LV)','run',L('загружаю…','loading…'));
     jobs.push(api('/api/comps',Object.assign({source:'ss',ssPath:car.hints&&car.hints.ss_path||''},base),55000).then(function(j){return {key:'ss',region:'LV',label:'ss.com',j:j}}));
-    setSrc('as24de','AutoScout24 (DE)','run',L('загружаю…','loading…'));
-    jobs.push(api('/api/comps',Object.assign({source:'as24de',trim:asTrim},base),55000).then(function(j){return {key:'as24de',region:'DE',label:'AutoScout24',j:j}}));
+    setSrc('apl','autoplius.lt (LT)','run',L('загружаю…','loading…'));
+    jobs.push(api('/api/comps',Object.assign({source:'autoplius'},base),55000).then(function(j){return {key:'apl',region:'LT',label:'autoplius.lt',j:j}}));
+    [['D','DE'],['B','BE'],['NL','NL'],['F','FR']].forEach(function(cc){
+      var key='as24'+cc[1].toLowerCase();
+      setSrc(key,'AutoScout24 ('+cc[1]+')','run',L('загружаю…','loading…'));
+      jobs.push(api('/api/comps',Object.assign({source:'as24',cy:cc[0],trim:asTrim},base),55000).then(function(j){return {key:key,region:cc[1],label:'AutoScout24 '+cc[1],j:j}}));
+    });
     f.extra.forEach(function(u,i){
       var key='x'+i, host=''; try{host=new URL(u).hostname.replace(/^www\./,'').replace(/^en\./,'')}catch(e){}
       var reg=/autoplius|autogidas|\.lt$/.test(host)?'LT':/auto24\.ee|\.ee$/.test(host)?'EE':/auto24\.lv|ss\.(com|lv)/.test(host)?'LV':/otomoto|\.pl$/.test(host)?'PL':/mobile\.de|autoscout24|\.de$/.test(host)?'DE':'EU';
@@ -1596,7 +1602,7 @@ function fairOf(st){
 }
 function compute(car,results,f,notes){
   var regions=[], all=[], totalUsed=0;
-  var order={ss:0,as24de:1}; results.sort(function(a,b){return (order[a.key]!=null?order[a.key]:9)-(order[b.key]!=null?order[b.key]:9)||a.key.localeCompare(b.key)});
+  var order={ss:0,apl:1,as24de:2,as24be:3,as24nl:4,as24fr:5}; results.sort(function(a,b){return (order[a.key]!=null?order[a.key]:9)-(order[b.key]!=null?order[b.key]:9)||a.key.localeCompare(b.key)});
   results.forEach(function(r){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:errText(j),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
@@ -1619,7 +1625,7 @@ function compute(car,results,f,notes){
   var want=f.market||'LV';
   var solid=function(r){return r.fair&&r.n>=5};
   var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
-  if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push(L('В '+(want==='LV'?'Латвии':rname(want))+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку: '+rname(home.region)+(home.region==='DE'?' (цены без учёта ввоза, в Латвии такая машина обычно стоит дороже)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(home.region==='DE'?' (prices before import costs)':'')+'.')); }
+  if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push(L('В '+rloc(want)+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку '+rgen(home.region)+(FAR[home.region]?' (цены без учёта ввоза: доставка и регистрация добавят примерно 800–1500 €)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(FAR[home.region]?' (prices before import costs)':'')+'.')); }
   var fair=home?home.fair:null, ver=verdictOf(car.price,fair?fair.mid:null), score=ver.delta!=null?priceScore(ver.delta):null;
   if(home&&home.fair&&!(home.stats&&home.stats.reg)&&car.km!=null){
     var hk=median(home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km}));
@@ -2004,7 +2010,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.10', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-13.1', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2179,7 +2185,7 @@ function secReport(v){
     fact(L('Справедливая цена','Fair price'),v.fair?eur(v.fair.mid):'–',c.km!=null?L('для ',' for ')+fmt(c.km)+' km':'')+
     fact(L('Справедливый диапазон','Fair range'),v.fair?fmt(v.fair.low)+'–'+fmt(v.fair.high):'–',mk?mk+L(', ±1 год',', ±1 year'):'')+
     fact(L('Пробег аналогов','Comparables mileage'),v.medKm!=null?fmt(v.medKm)+' km':'–',dk2!=null?L('ваш на ','yours ')+Math.round(Math.abs(dk2))+'% '+(dk2<0?L('ниже','lower'):L('выше','higher')):'',dk2!=null?(dk2<0?'good':'warn'):'')+
-    fact(L('Дешевле всего','Cheapest'),cheap?rname(cheap.region):'–',cheap?eur(cheap.fair.mid)+(c.price>0?' · '+pct((cheap.fair.mid-c.price)/c.price*100):'')+(cheap.region==='DE'?L(', без учёта ввоза',', before import costs'):''):'')+
+    fact(L('Дешевле всего','Cheapest'),cheap?rname(cheap.region):'–',cheap?eur(cheap.fair.mid)+(c.price>0?' · '+pct((cheap.fair.mid-c.price)/c.price*100):'')+(FAR[cheap.region]?L(', без учёта ввоза',', before import costs'):''):'')+
     fact(L('Аналогов','Comparables'),v.totalUsed+(totalRead?L(' из ',' of ')+totalRead:''),regs.length+L(' рынк.',' markets'))+
     fact(L('Достоверность','Confidence'),{high:L('Высокая','High'),medium:L('Средняя','Medium'),low:L('Низкая','Low')}[v.conf]||'–',v.home?v.home.n+L(' объявл. в сравнении',' ads compared'):'')+'</dl>';
   return '<section class="rep" id="sec-report"><div class="rep-g"><div><div class="over">'+esc(L('Отчёт о цене · ','Price report · ')+date+(mk?' · '+mk:''))+'</div>'+
@@ -2237,7 +2243,7 @@ function aRing(score){
 }
 function aVerdictText(v){
   var k=v.ver.key, d=v.ver.delta, c=v.car, t='';
-  var pre=v.home&&v.home.region!=='LV'?L('По рынку '+(v.home.region==='DE'?'Германии':rname(v.home.region))+': ','By the '+rname(v.home.region)+' market: '):'';
+  var pre=v.home&&v.home.region!=='LV'?L('По рынку '+rgen(v.home.region)+': ','By the '+rname(v.home.region)+' market: '):'';
   if(k==='fair') t=d>1?L('Цена внутри справедливого диапазона, немного выше середины.','The price is within the fair range, slightly above the midpoint.'):d<-1?L('Цена внутри справедливого диапазона, ниже середины.','The price is within the fair range, below the midpoint.'):L('Цена около середины рынка.','The price is close to the market midpoint.');
   else if(k==='good') t=L('Цена ниже рынка. Проверьте историю и состояние: выгодная цена бывает неспроста.','The price is below the market. Check the history and condition.');
   else if(k==='high') t=L('Цена выше рынка: есть запас для торга.','The price is above the market: there is room to negotiate.');
@@ -2359,10 +2365,10 @@ function aMarkets(v,W,mob){
 }
 function pMarkets(v){
   var mob=aMob(), svg=aMarkets(v,mob?340:760,mob); if(!svg) return '';
-  var de=v.regions.some(function(r){return r.region==='DE'&&r.fair});
+  var de=v.regions.some(function(r){return FAR[r.region]&&r.fair});
   var tbl='<details class="adet"'+(aMob()?'':' open')+'><summary>'+esc(L('Таблица и ссылки на поиск','Table and search links'))+'</summary><div class="scroll"><table class="tbl"><thead><tr><th>'+esc(L('Рынок','Market'))+'</th><th class="r">'+esc(L('Объявл.','Ads'))+'</th><th class="r">'+esc(L('Справедливая','Fair'))+'</th><th class="r">'+esc(L('Мин – макс','Min – max'))+'</th><th></th></tr></thead><tbody>'+v.regions.map(function(r){
     var u=r.url&&safeUrl(r.url); return '<tr><td><b>'+esc(rname(r.region))+'</b><div class="rn">'+esc(r.label)+'</div></td><td class="r">'+(r.ok?r.n+(r.total>r.n?' / '+r.total:''):'–')+'</td><td class="r">'+(r.fair?eur(r.fair.mid):'–')+'</td><td class="r">'+(r.stats?fmt(r.stats.min)+' – '+eur(r.stats.max):'<span class="rn">'+esc(r.err||'')+'</span>')+'</td><td class="r">'+(u?'<a class="sbtn" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть','Open'))+'</a>':'')+'</td></tr>'; }).join('')+'</tbody></table></div></details>';
-  return aPanel('a-markets','c7',aHead(L('Рынки · медиана и разброс','Markets · median and spread'),de?aMeta(L('Германия — без учёта ввоза','Germany — before import costs')):''),svg+tbl);
+  return aPanel('a-markets','c7',aHead(L('Рынки · медиана и разброс','Markets · median and spread'),de?aMeta(L('Западная Европа — без учёта ввоза','Western Europe — before import costs')):''),svg+tbl);
 }
 /* ---- negotiation ---- */
 function aLadder(p,F,W){
