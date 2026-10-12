@@ -1098,6 +1098,9 @@ var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}
 var LV_TERM={good:'Zem tirgus',fair:'Tirgus cena',high:'Virs tirgus',overpriced:'Ievērojami virs tirgus',too_cheap:'Aizdomīgi lēti',unknown:'Nav datu'};
 var VNAME={good:['Ниже рынка','Below market'],fair:['Рыночная цена','Fair price'],high:['Выше рынка','Above market'],overpriced:['Сильно выше рынка','Well above market'],too_cheap:['Подозрительно дёшево','Suspiciously cheap'],unknown:['Нет данных','No data']};
 var REGION_NAME={LV:['Латвия','Latvia'],LT:['Литва','Lithuania'],EE:['Эстония','Estonia'],DE:['Германия','Germany'],PL:['Польша','Poland'],EU:['ЕС','EU']};
+var RLOC={LV:'Латвии',LT:'Литве',EE:'Эстонии',DE:'Германии',PL:'Польше'},RGEN={LV:'Латвии',LT:'Литвы',EE:'Эстонии',DE:'Германии',PL:'Польши'};
+function rloc(cc){ return S.lang==='ru'&&RLOC[cc]?RLOC[cc]:rname(cc); }
+function rgen(cc){ return S.lang==='ru'&&RGEN[cc]?RGEN[cc]:rname(cc); }
 function rname(cc){var r=REGION_NAME[cc];return r?r[S.lang==='ru'?0:1]:cc}
 
 /* ---------- text parsing (screenshots and pasted text) ---------- */
@@ -1125,7 +1128,7 @@ function isEvCar(c){
   if(/^byd$/i.test(mk)&&/^(atto[\s\-]?3|dolphin|seal|han|seagull|yuan)/i.test(md)) return true;
   return /^(Model[\s\-]?[3SXY]|Cybertruck|ID\.\d|ID\.?\s?Buzz|Ioniq[\s\-]?[56]|e[\s\-]?tron(\sGT)?|Q4\se[\s\-]?tron|Taycan|iX\d?|i[3-7]|EV[3-9]|Leaf|Zoe|Mustang Mach[\s\-]?E|bZ4X|Enyaq|Born|Mokka[\s\-]?e|Corsa[\s\-]?e|e[\s\-]?Golf|e[\s\-]?Niro|e[\s\-]?208|e[\s\-]?2008|Spring)$/i.test(md);
 }
-function hasLpg(s){ return /\blpg\b|(^|[^а-яёa-z])газ(?![а-яё])|газов|(^|[^а-яё])гбо(?![а-яё])|gāz|\bhbo\b|пропан/i.test(String(s||'')); }
+function hasLpg(s){ return /\blpg\b|(^|[^а-яёa-z])газ(?![а-яё])|(^|[^а-яё])газов\w*\s+(?:оборуд|установк|баллон)|(^|[^а-яё])гбо(?![а-яё])|(^|[^a-zāēīūčšž])gāz(?:e|es|i)(?![a-zāēīūčšž])|\bhbo\b|пропан|propān/i.test(String(s||'')); }
 function fuelLabel(c){
   var m={petrol:L('бензин','petrol'),diesel:L('дизель','diesel'),hybrid:L('гибрид','hybrid'),electric:L('электро','electric')};
   var b=c.fuel?(m[c.fuel]||c.fuel):''; if(c.lpg) b=(b?b+' + ':'')+L('газ (LPG)','gas (LPG)'); return b||null;
@@ -1492,6 +1495,7 @@ async function run(){
     if(f.fuel){ car.lpg=(f.fuel==='lpg'); }
     else car.lpg=!!(car.lpg||car.fuel==='lpg'||((!car.fuel||car.fuel==='petrol')&&hasLpg([car.title,(car.desc||'').slice(0,3000),f.text,ocrText].join(' '))));
     if(car.fuel==='lpg'||(car.lpg&&!car.fuel)) car.fuel='petrol';
+    if(!f.fuel&&car.lpg&&car.fuel&&car.fuel!=='petrol') car.lpg=false;
     car.trims=f.trim?detectTrim(f.trim,car.make,true):mergeTrims(detectTrim([car.title,car.rawModel,car.desc].join(' '),car.make),detectTrim([f.text,ocrText].join(' '),car.make,false,true));
     car.trimCustom=''; if(f.trim&&!car.trims.length){ car.trimCustom=f.trim; car.trims=[f.trim.toLowerCase()]; }
     if(car.trims.length) car.src.trims=f.trim?'manual':(detectTrim([car.title,car.rawModel].join(' '),car.make).some(function(k){return car.trims.indexOf(k)>-1})?'title':'text');
@@ -1566,7 +1570,7 @@ function isOwnListing(i,car){
   return !!(car.price>0&&i.price===car.price&&car.year&&i.year===car.year&&(i.km==null||car.km==null||Math.abs(i.km-car.km)<=1500)&&car.url&&i.url&&String(i.url).split('/')[2]===String(car.url).split('/')[2]);
 }
 function pickRelevant(items,car){
-  var rows=(items||[]).filter(function(i){return i&&i.price>=300&&i.price<=500000&&!isOwnListing(i,car)}), tol, sel=rows;
+  var seenId={}; var rows=(items||[]).filter(function(i){ if(!(i&&i.price>=300&&i.price<=500000&&!isOwnListing(i,car))) return false; var id=listingId(i.url)||(i.url+'|'+i.price+'|'+i.km); if(seenId[id]) return false; seenId[id]=1; return true; }), tol, sel=rows;
   for(tol=1;tol<=2;tol++){
     sel=rows.filter(function(i){return !car.year||i.year==null||Math.abs(i.year-car.year)<=tol});
     if(sel.length>=5) break;
@@ -1617,6 +1621,17 @@ function compute(car,results,f,notes){
   var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
   if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push(L('В '+(want==='LV'?'Латвии':rname(want))+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку: '+rname(home.region)+(home.region==='DE'?' (цены без учёта ввоза, в Латвии такая машина обычно стоит дороже)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(home.region==='DE'?' (prices before import costs)':'')+'.')); }
   var fair=home?home.fair:null, ver=verdictOf(car.price,fair?fair.mid:null), score=ver.delta!=null?priceScore(ver.delta):null;
+  if(home&&home.fair&&!(home.stats&&home.stats.reg)&&car.km!=null){
+    var hk=median(home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km}));
+    var donor=regions.filter(function(r){return r.stats&&r.stats.reg&&r.stats.n>=10}).sort(function(a,b){return b.stats.n-a.stats.n})[0];
+    if(hk!=null&&donor){
+      var rel=donor.stats.reg.slope/Math.max(1,donor.stats.median), adj=Math.max(-0.25,Math.min(0.25,rel*(car.km-hk)));
+      if(Math.abs(adj)>=0.02){ var m0=home.fair.mid, nm=Math.round(m0*(1+adj)/50)*50, sh=nm-m0;
+        home.fair={mid:nm,low:Math.round((home.fair.low+sh)/50)*50,high:Math.round((home.fair.high+sh)/50)*50,source:'comps-adj'};
+        notes.push(L('В '+rloc(home.region)+' мало объявлений, чтобы учесть пробег, поэтому поправка на пробег взята из рынка '+rgen(donor.region)+': '+(adj<0?'−':'+')+Math.round(Math.abs(adj)*100)+'% (ваш пробег '+fmt(car.km)+' км против '+fmt(hk)+' км у аналогов).','Too few listings in '+rname(home.region)+' to account for mileage, so the mileage correction comes from the '+rname(donor.region)+' market: '+(adj<0?'−':'+')+Math.round(Math.abs(adj)*100)+'%.'));
+        fair=home.fair; ver=verdictOf(car.price,fair.mid); score=ver.delta!=null?priceScore(ver.delta):null; }
+    }
+  }
   var medKm=home&&home.items.length?median(home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km})):null;
   /* nearest real listings */
   var near=all.filter(function(i){return safeUrl(i.url)}).map(function(i){
@@ -1989,7 +2004,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.9', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-12.10', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
