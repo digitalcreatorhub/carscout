@@ -164,9 +164,9 @@ function parseEngine(v) {
   if (m) o.engine_l = parseFloat(m[1] + '.' + m[2]);
   const f = v.match(/(\d[.,]\d)\s*([A-Za-zА-Яа-я])/);
   const w = v.toLowerCase();
-  if (/dīzeļ|дизел|diesel|(\d[.,]\d)\s*d\b/i.test(v)) o.fuel = 'diesel';
+  if (/diesel|d[iī]ze[lļ]|дизел|(\d[.,]\d)\s*d\b/i.test(v)) o.fuel = 'diesel';
   else if (/hibrīd|гибрид|hybrid|(\d[.,]\d)\s*h\b/i.test(v)) o.fuel = 'hybrid';
-  else if (/elektr|электр|(\d[.,]\d)\s*e\b/i.test(v)) o.fuel = 'electric';
+  else if (/elektr|электр|electric|(\d[.,]\d)\s*e\b/i.test(v)) o.fuel = 'electric';
   else if (/benz|бензин|petrol|gasoline/.test(w)) o.fuel = 'petrol';
   else if (/gāze|газ|\blpg\b/.test(w)) o.fuel = 'lpg';
   else if (m && !f) o.fuel = 'petrol';
@@ -177,9 +177,9 @@ function parseEngine(v) {
 function fuelEarliest(s) {
   s = String(s || '');
   const pats = [
-    ['diesel', /diesel|dīzeļ|dizel|дизел|\b(?:tdi|cdi|hdi|dci|cdti|crdi|tdci|bluetec|d-?4d)\b/i],
+    ['diesel', /diesel|d[iī]ze[lļ]|дизел|dizel|\b(?:tdi|cdi|hdi|dci|cdti|crdi|tdci|bluetec|d-?4d)\b/i],
     ['hybrid', /hybrid|hibrīd|гибрид/i],
-    ['electric', /electric|elektro|elektr[ioī]|электр/i],
+    ['electric', /\belectric(?:al)?\s+(?:car|vehicle|motor|drive)|\bfully\s+electric|\belektro(?:auto|mobil\w*|motors)?\b|\belektriskais\b|\belektroauto|\belektromobil|электромобил|\bэлектро\b|электрокар|\bBEV\b/i],
     ['petrol', /petrol|benz|бензин|gasoline|\b(?:tsi|tfsi|fsi|gdi|vvt-?i|mpi)\b/i],
     ['lpg', /\blpg\b|gāze|gaze|газ/i]
   ];
@@ -197,7 +197,7 @@ function fuelEarliest(s) {
 function hasLpg(s) { return /\blpg\b|(^|[^а-яёa-z])газ(?![а-яё])|газов|(^|[^а-яё])гбо(?![а-яё])|gāz|\bhbo\b|пропан/i.test(String(s || '')); }
 function normFuel(s) {
   s = String(s || '').toLowerCase();
-  if (/diesel|dīzeļ|дизел|\bd\b/.test(s)) return 'diesel';
+  if (/diesel|d[iī]ze[lļ]|дизел|\bd\b/.test(s)) return 'diesel';
   if (/hybrid|hibrīd|гибрид/.test(s)) return 'hybrid';
   if (/electr|elektr|электр/.test(s)) return 'electric';
   if (/lpg|gāze|газ/.test(s)) return 'lpg';
@@ -319,7 +319,7 @@ function walkListings(node, base, out, depth) {
 /* ---------------- site parsers ---------------- */
 const SS_LABELS = [
   ['make', /^(marka|марка|make)$/], ['model', /^(modelis|модель|model)$/], ['year', /^(izlaiduma gads|год выпуска|year)$/],
-  ['engine', /^(dzin[eē]js|dzin[eē]ja tips|двигатель|тип двигателя|engine|engine type)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission)$/],
+  ['engine', /^(dzin[eē]js|dzin[eē]ja tips|motors|двигатель|мотор|тип двигателя|engine|engine type)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission)$/],
   ['mileage', /^(nobraukums|пробег|mileage)$/], ['color', /^(kr[aā]sa|цвет|colou?r)$/], ['body', /^(virsb[uū]ves tips|тип кузова|body type)$/],
   ['vin', /^(vin|vin kods|vin код)$/]
 ];

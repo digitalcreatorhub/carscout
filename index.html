@@ -1094,10 +1094,10 @@ function toNum(s){
   if(/^\d{1,3}([.,]\d{3})+$/.test(s)) return parseInt(s.replace(/[.,]/g,''),10);
   var n=parseFloat(s.replace(',','.')); return isFinite(n)?n:null;
 }
-function normFuel(s){s=String(s||'').toLowerCase(); if(/diesel|dīzeļ|дизел/.test(s)) return 'diesel'; if(/hybrid|hibrīd|гибрид/.test(s)) return 'hybrid'; if(/electr|elektr|электр/.test(s)) return 'electric'; if(/lpg|gāze|газ/.test(s)) return 'lpg'; if(/petrol|benz|бензин|gasoline/.test(s)) return 'petrol'; return null}
+function normFuel(s){s=String(s||'').toLowerCase(); if(/diesel|d[iī]ze[lļ]|дизел/.test(s)) return 'diesel'; if(/hybrid|hibrīd|гибрид/.test(s)) return 'hybrid'; if(/electr|elektr|электр/.test(s)) return 'electric'; if(/lpg|gāze|газ/.test(s)) return 'lpg'; if(/petrol|benz|бензин|gasoline/.test(s)) return 'petrol'; return null}
 function fuelEarliest(s){
   s=String(s||'');
-  var pats=[['diesel',/diesel|dīzeļ|dizel|дизел|\b(?:tdi|cdi|hdi|dci|cdti|crdi|tdci|bluetec|d-?4d)\b/i],['hybrid',/hybrid|hibrīd|гибрид/i],['electric',/electric|elektro|elektr[ioī]|электр/i],['petrol',/petrol|benz|бензин|gasoline|\b(?:tsi|tfsi|fsi|gdi|vvt-?i|mpi)\b/i],['lpg',/\blpg\b|gāze|gaze|газ/i]];
+  var pats=[['diesel',/diesel|d[iī]ze[lļ]|дизел|dizel|\b(?:tdi|cdi|hdi|dci|cdti|crdi|tdci|bluetec|d-?4d)\b/i],['hybrid',/hybrid|hibrīd|гибрид/i],['electric',/\belectric(?:al)?\s+(?:car|vehicle|motor|drive)|\bfully\s+electric|\belektro(?:auto|mobil\w*|motors)?\b|\belektriskais\b|\belektroauto|\belektromobil|электромобил|\bэлектро\b|электрокар|\bBEV\b/i],['petrol',/petrol|benz|бензин|gasoline|\b(?:tsi|tfsi|fsi|gdi|vvt-?i|mpi)\b/i],['lpg',/\blpg\b|gāze|gaze|газ/i]];
   var best=null, hasP=false, hasL=false;
   pats.forEach(function(p){ var m=p[1].exec(s); if(!m) return; if(p[0]==='petrol') hasP=true; if(p[0]==='lpg') hasL=true; if(!best||m.index<best.i) best={k:p[0],i:m.index}; });
   if(!best) return null;
@@ -1974,7 +1974,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.7', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-12.8', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
