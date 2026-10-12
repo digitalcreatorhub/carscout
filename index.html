@@ -2275,7 +2275,7 @@ function pKpis(v){
   var k=function(t,val,sm,cls,smcls){return '<div class="kpi"><dt>'+esc(t)+'</dt><dd'+(cls?' class="'+cls+'"':'')+'>'+esc(val)+'</dd>'+(sm?'<small'+(smcls?' class="'+smcls+'"':'')+'>'+esc(sm)+'</small>':'')+'</div>'};
   var dcls=v.ver.delta==null?'':v.ver.delta>0.5?'up':v.ver.delta<-0.5?'dn':'';
   return '<dl class="kpis c12" id="a-kpis">'+
-    k(L('Справедливая цена','Fair price'),F?eur(F.mid):'–',F&&F.source==='comps-reg'?L('регрессия цена ~ пробег','price ~ mileage regression'):L('медиана аналогов','comparables median'))+
+    k(L('Справедливая цена','Fair price'),F?eur(F.mid):'–',F&&F.source==='comps-reg'?L('регрессия цена ~ пробег','price ~ mileage regression'):F&&F.source==='comps-adj'?L('медиана с поправкой на пробег','median adjusted for mileage'):L('медиана аналогов','comparables median'))+
     k(L('Справедливый диапазон','Fair range'),F?fmt(F.low)+'–'+eur(F.high):'–',v.home?rname(v.home.region):'')+
     k(L('К рынку','vs market'),v.ver.delta!=null?pct(v.ver.delta):'–',VNAME[v.ver.key][S.lang==='ru'?0:1],dcls)+
     k(L('Медиана пробега аналогов','Comparables median mileage'),v.medKm!=null?aKmTxt(v.medKm):'–',dk!=null?L('ваша на ','yours ')+Math.round(Math.abs(dk))+'% '+(dk<0?L('ниже','lower'):L('выше','higher')):'','',dk==null?'':dk<0?'dn':'up')+
