@@ -1545,12 +1545,18 @@ async function run(){
 
 /* ---------- analysis ---------- */
 function median(a){var s=a.slice().sort(function(x,y){return x-y}),n=s.length; return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):null}
+function listingId(u){ var m=String(u||'').match(/\/msg\/(?:[a-z]{2}\/)?.*?([a-z0-9]{4,})\.html?(?:$|[?#])/i)||String(u||'').match(/\/offers\/([^/?#]+)/i); return m?m[1].toLowerCase():null; }
+function isOwnListing(i,car){
+  var a=listingId(i.url), b=listingId(car.url); if(a&&b&&a===b) return true;
+  return !!(car.price>0&&i.price===car.price&&car.year&&i.year===car.year&&(i.km==null||car.km==null||Math.abs(i.km-car.km)<=1500)&&car.url&&i.url&&String(i.url).split('/')[2]===String(car.url).split('/')[2]);
+}
 function pickRelevant(items,car){
-  var rows=(items||[]).filter(function(i){return i&&i.price>=300&&i.price<=500000}), tol, sel=rows;
-  for(tol=1;tol<=3;tol++){
+  var rows=(items||[]).filter(function(i){return i&&i.price>=300&&i.price<=500000&&!isOwnListing(i,car)}), tol, sel=rows;
+  for(tol=1;tol<=2;tol++){
     sel=rows.filter(function(i){return !car.year||i.year==null||Math.abs(i.year-car.year)<=tol});
-    if(sel.length>=8) break;
+    if(sel.length>=5) break;
   }
+  if(tol>2) tol=2;
   if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===car.fuel}); if(same.length>=5) sel=same; }
   var med=median(sel.map(function(i){return i.price})); if(med) sel=sel.filter(function(i){return i.price>=med*0.4&&i.price<=med*2.5});
   var pre=sel, trimNote=null, mine=car.trims||[];
@@ -1592,7 +1598,9 @@ function compute(car,results,f,notes){
   });
   /* home market: the one the user chose, falling back to any region that has enough data */
   var want=f.market||'LV';
-  var home=regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.region==='LV'&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
+  var solid=function(r){return r.fair&&r.n>=5};
+  var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
+  if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push(L('В '+(want==='LV'?'Латвии':rname(want))+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку: '+rname(home.region)+(home.region==='DE'?' (цены без учёта ввоза, в Латвии такая машина обычно стоит дороже)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(home.region==='DE'?' (prices before import costs)':'')+'.')); }
   var fair=home?home.fair:null, ver=verdictOf(car.price,fair?fair.mid:null), score=ver.delta!=null?priceScore(ver.delta):null;
   var medKm=home&&home.items.length?median(home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km})):null;
   /* nearest real listings */
@@ -1966,7 +1974,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.5', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-12.6', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2198,12 +2206,14 @@ function aRing(score){
 }
 function aVerdictText(v){
   var k=v.ver.key, d=v.ver.delta, c=v.car, t='';
+  var pre=v.home&&v.home.region!=='LV'?L('По рынку '+(v.home.region==='DE'?'Германии':rname(v.home.region))+': ','By the '+rname(v.home.region)+' market: '):'';
   if(k==='fair') t=d>1?L('Цена внутри справедливого диапазона, немного выше середины.','The price is within the fair range, slightly above the midpoint.'):d<-1?L('Цена внутри справедливого диапазона, ниже середины.','The price is within the fair range, below the midpoint.'):L('Цена около середины рынка.','The price is close to the market midpoint.');
   else if(k==='good') t=L('Цена ниже рынка. Проверьте историю и состояние: выгодная цена бывает неспроста.','The price is below the market. Check the history and condition.');
   else if(k==='high') t=L('Цена выше рынка: есть запас для торга.','The price is above the market: there is room to negotiate.');
   else if(k==='overpriced') t=L('Цена сильно выше рынка. Торгуйтесь или ищите другие варианты.','The price is far above the market.');
   else if(k==='too_cheap') t=L('Подозрительно дёшево. Тщательно проверьте документы, пробег и историю.','Suspiciously cheap. Check the papers, mileage and history carefully.');
   else t=L('Недостаточно данных для оценки.','Not enough data for a verdict.');
+  t=pre+t;
   if(v.medKm!=null&&c.km!=null){ var dk=(c.km-v.medKm)/Math.max(1,v.medKm)*100; if(Math.abs(dk)>=8) t+=' '+L('Пробег на '+Math.round(Math.abs(dk))+'% '+(dk<0?'ниже':'выше')+' типичного','Mileage is '+Math.round(Math.abs(dk))+'% '+(dk<0?'below':'above')+' typical')+(dk<0&&d>0?L(': это частично оправдывает надбавку.',': this partly explains the premium.'):'.'); }
   return t;
 }
