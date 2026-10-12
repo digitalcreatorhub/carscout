@@ -387,7 +387,9 @@ function parseSsList(html, base) {
     const e = parseEngine(eng || '');
     let title = '';
     (row.match(/<a[^>]+href="\/(?:msg|[a-z]{2}\/msg)\/[^"]+"[^>]*>[\s\S]*?<\/a>/gi) || []).forEach(function (h) { const t = strip(h); if (t.length > title.length) title = t; });
-    items.push({ price: Math.round(price), km: km, year: year, url: link ? absUrl(link[1], base) : null, title: title.slice(0, 160), fuel: e.fuel || null, engine_l: e.engine_l || null });
+    let img = null; const im = row.match(/<img[^>]+(?:data-src|src)=["']([^"']+\.(?:jpe?g|png|webp)(?:\?[^"']*)?)["']/i);
+    if (im) { const u = absUrl(im[1].replace(/&amp;/g, '&'), base); if (u && imgAllowed(u) && !/(logo|icon|noimage|placeholder|sprite)/i.test(u)) img = u; }
+    items.push({ price: Math.round(price), km: km, year: year, url: link ? absUrl(link[1], base) : null, title: title.slice(0, 160), fuel: e.fuel || null, engine_l: e.engine_l || null, img: img });
   });
   return items;
 }
@@ -406,10 +408,12 @@ function parseAs24List(html, base) {
     const h2 = body.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
     if (h2) full = strip(h2[1]);
     if (!full) { const al = body.match(/<a[^>]+href="[^"]*\/offers\/[^"]*"[^>]*>([\s\S]*?)<\/a>/i); if (al) full = strip(al[1]); }
+    let img = null; const ims = body.match(/https:\/\/[a-z0-9.-]*autoscout24\.(?:net|com|de)\/[^"'\s<>]+\.(?:jpe?g|png|webp)/i);
+    if (ims && imgAllowed(ims[0]) && !/(logo|icon|placeholder)/i.test(ims[0])) img = ims[0].replace(/&amp;/g, '&');
     const mmTitle = [g('make'), g('model')].filter(Boolean).join(' ');
     const title0 = (full && full.length > mmTitle.length ? full : (mmTitle + (full ? ' ' + full : ''))).slice(0, 200);
     items.push({ price: Math.round(price), km: g('mileage') != null ? parseKm(g('mileage')) : null, year: parseYear(g('first-registration')), url: g('guid') ? base.replace(/\/lst.*$/, '') + '/offers/' + g('guid') : null,
-      title: title0, fuel: ({ b: 'petrol', d: 'diesel', e: 'electric', l: 'lpg' })[String(g('fuel-type') || '').toLowerCase()] || normFuel(g('fuel-type')) });
+      title: title0, img: img, fuel: ({ b: 'petrol', d: 'diesel', e: 'electric', l: 'lpg' })[String(g('fuel-type') || '').toLowerCase()] || normFuel(g('fuel-type')) });
   }
   if (items.length) return items;
   const nd = nextData(html);

@@ -680,6 +680,13 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
   #a-near th:nth-child(2),#a-near td:nth-child(2){display:none}
   #a-near td{white-space:normal}#a-near td.r{white-space:nowrap}
 }
+.ph svg{position:relative;z-index:0}
+.ph img{z-index:0;background:var(--surface-2)}
+.thc{width:84px;padding-right:12px!important}
+.thumbn{display:block;width:72px;height:54px;border-radius:8px;overflow:hidden;background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 130' fill='none' stroke='%235A6472' stroke-width='6'%3E%3Cpath d='M22 96 L22 78 Q24 66 38 62 L78 54 Q102 30 136 26 L206 24 Q236 24 254 42 L272 60 Q296 64 300 78 L300 96 Z'/%3E%3Ccircle cx='79' cy='96' r='22'/%3E%3Ccircle cx='243' cy='96' r='22'/%3E%3C/svg%3E") center/60% no-repeat;border:1px solid var(--line)}
+.thumbn img{width:100%;height:100%;object-fit:cover;display:block}
+#a-near td{vertical-align:middle}
+@media (max-width:760px){.thc{width:66px}.thumbn{width:58px;height:44px}#a-near th:nth-child(3),#a-near td:nth-child(3){display:none}#a-near th:nth-child(2),#a-near td:nth-child(2){display:table-cell}}
 </style>
 </head>
 <body>
@@ -1959,7 +1966,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.4', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-12.5', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2141,6 +2148,7 @@ function secReport(v){
     '<h2>'+esc(title)+(c.year?' <em>'+esc(c.year)+'</em>':'')+'</h2><p class="lede">'+lede+'</p><div class="tags">'+tags.join('')+'</div></div>'+card+'</div>'+facts+'</section>';
 }
 /* ================= layout A: analyst terminal (panels in a 12-column grid) ================= */
+function aImg(u){ u=safeUrl(u); if(!u) return ''; return S.api?S.api.replace(/\/$/,'')+'/api/img?url='+encodeURIComponent(u):u; }
 function aMob(){ return window.matchMedia&&matchMedia('(max-width:760px)').matches; }
 function aSc(d0,d1,r0,r1){ return function(v){ return r0+(v-d0)/((d1-d0)||1)*(r1-r0); }; }
 function aNice(lo,hi,n){ var t=niceTicks(lo,hi,n||4); return t; }
@@ -2170,7 +2178,8 @@ function pCar(v){
   if(dl.leasing) chips.push(['',L('Лизинг / обмен','Leasing / trade-in')]);
   var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
   var sub=[c.year,c.km!=null?aKmTxt(c.km):null,fuelLabel(c),c.gear?aGear(c.gear):null].filter(Boolean).join(' · ');
-  var img=c.image&&safeUrl(c.image)?'<img src="'+esc(safeUrl(c.image))+'" alt="" referrerpolicy="no-referrer" loading="lazy">':aCarSvg();
+  var mainImg=c.image||(c.images&&c.images[0])||'', isrc=mainImg?aImg(mainImg):'';
+  var img=aCarSvg()+(isrc?'<img src="'+esc(isrc)+'" alt="'+esc(L('Фото из объявления','Listing photo'))+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">':'');
   var src=c.site||(c.url?(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})():'');
   var noTrim=(!c.trims||!c.trims.length)&&c.year;
   var btns='<div class="abtns">'+(c.url&&safeUrl(c.url)?'<a class="btn sm" href="'+esc(safeUrl(c.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление ↗','Open the listing ↗'))+'</a>':'')+
@@ -2371,9 +2380,10 @@ function pNear(v){
   if(!v.near.length) return '';
   var c=v.car;
   return aPanel('a-near','c6',aHead(L('Ближайшие аналоги','Closest comparables'),aMeta(L('по году и пробегу','by year and mileage'))),
-    '<div class="scroll"><table class="tbl"><thead><tr><th>'+esc(L('Объявление','Listing'))+'</th><th class="r">'+esc(L('Год','Year'))+'</th><th class="r">'+esc(L('Пробег','Mileage'))+'</th><th class="r">'+esc(L('Цена','Price'))+'</th><th class="r">'+esc(L('К вашей','vs yours'))+'</th></tr></thead><tbody>'+v.near.slice(0,6).map(function(i){
+    '<div class="scroll"><table class="tbl"><thead><tr><th class="thc"></th><th>'+esc(L('Объявление','Listing'))+'</th><th class="r">'+esc(L('Год','Year'))+'</th><th class="r">'+esc(L('Пробег','Mileage'))+'</th><th class="r">'+esc(L('Цена','Price'))+'</th><th class="r">'+esc(L('К вашей','vs yours'))+'</th></tr></thead><tbody>'+v.near.slice(0,8).map(function(i){
       var d=c.price>0?(i.price-c.price)/c.price*100:null, u=safeUrl(i.url);
-      return '<tr><td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(i.title||L('Объявление','Listing')).slice(0,48))+'</a>':esc(String(i.title||'').slice(0,48)))+'<div class="rn">'+esc(i.src+' · '+rname(i.region))+'</div></td><td class="r">'+(i.year||'–')+'</td><td class="r">'+(i.km!=null?esc(aKmTxt(i.km)):'–')+'</td><td class="r">'+esc(eur(i.price))+'</td><td class="r" style="color:var(--'+(d==null?'muted':d<0?'good':'bad')+')">'+(d!=null?esc(pct(d)):'–')+'</td></tr>'; }).join('')+'</tbody></table></div>'+
+      var ti=i.img?aImg(i.img):''; var thumb='<td class="thc">'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" tabindex="-1">':'')+'<span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span>'+(u?'</a>':'')+'</td>';
+      return '<tr>'+thumb+'<td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(i.title||L('Объявление','Listing')).slice(0,48))+'</a>':esc(String(i.title||'').slice(0,48)))+'<div class="rn">'+esc(i.src+' · '+rname(i.region))+'</div></td><td class="r">'+(i.year||'–')+'</td><td class="r">'+(i.km!=null?esc(aKmTxt(i.km)):'–')+'</td><td class="r">'+esc(eur(i.price))+'</td><td class="r" style="color:var(--'+(d==null?'muted':d<0?'good':'bad')+')">'+(d!=null?esc(pct(d)):'–')+'</td></tr>'; }).join('')+'</tbody></table></div>'+
     '<div class="abtns"><button class="btn sm" type="button" data-act="go-msg">'+esc(L('Сообщение продавцу','Message to the seller'))+'</button><button class="btn sm" type="button" data-act="nav-compare">'+esc(L('Сравнить с избранным','Compare with favourites'))+'</button></div>');
 }
 /* existing sections rendered as panels */
