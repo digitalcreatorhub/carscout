@@ -497,7 +497,7 @@ function collectImages(html, base) {
     if (!u) return;
     u = absUrl(String(u).replace(/&amp;/g, '&'), base);
     if (!u || !imgAllowed(u)) return;
-    if (/(logo|icon|sprite|banner|avatar|flag|noimage|placeholder)/i.test(u)) return;
+    if (/(logo|icon|sprite|banner|avatar|flag|noimage|placeholder)/i.test(u) || /\/img\/m\//i.test(u) || /-\d{2,3}x\d{2,3}\.png$/i.test(u)) return;
     // ss.com: thumbnails (.t.jpg, .th2.jpg, .th.jpg) -> large (.800.jpg)
     const big = u.replace(/\.(?:th2|th|t|\d{2,3})\.(jpe?g|png)(\?.*)?$/i, '.800.$1');
     const key = big.replace(/\.\d{2,4}\.(jpe?g|png)$/i, '');

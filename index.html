@@ -1974,7 +1974,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.6', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-12.7', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2186,7 +2186,8 @@ function pCar(v){
   if(dl.leasing) chips.push(['',L('Лизинг / обмен','Leasing / trade-in')]);
   var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
   var sub=[c.year,c.km!=null?aKmTxt(c.km):null,fuelLabel(c),c.gear?aGear(c.gear):null].filter(Boolean).join(' · ');
-  var mainImg=c.image||(c.images&&c.images[0])||'', isrc=mainImg?aImg(mainImg):'';
+  var goodImgs=(c.images||[]).filter(function(u){return !/\/img\/m\/|-\d{2,3}x\d{2,3}\.png$|logo|icon/i.test(u)});
+  var mainImg=(c.image&&!/logo|icon|\/img\/m\//i.test(c.image)?c.image:'')||goodImgs[0]||'', isrc=mainImg?aImg(mainImg):'';
   var img=aCarSvg()+(isrc?'<img src="'+esc(isrc)+'" alt="'+esc(L('Фото из объявления','Listing photo'))+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">':'');
   var src=c.site||(c.url?(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})():'');
   var noTrim=(!c.trims||!c.trims.length)&&c.year;
@@ -2194,7 +2195,7 @@ function pCar(v){
     '<button class="btn sm" type="button" data-act="fav-toggle">'+esc(favHas(c)?L('★ В избранном','★ Saved'):L('☆ В избранное','☆ Save'))+'</button>'+
     (noTrim?'<button class="btn sm" type="button" data-act="set-trim">'+esc(L('Указать комплектацию','Set the trim'))+'</button>':'')+'</div>';
   var notes=v.notes&&v.notes.length?'<ul class="anotes">'+v.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join('')+'</ul>':'';
-  return aPanel('a-car','c7','', '<div class="hero"><div class="ph">'+(src?'<span class="src">'+esc(src)+'</span>':'')+img+(c.images&&c.images.length?'<span class="cnt">'+c.images.length+L(' фото',' photos')+'</span>':'')+'</div>'+
+  return aPanel('a-car','c7','', '<div class="hero"><div class="ph">'+(src?'<span class="src">'+esc(src)+'</span>':'')+img+(goodImgs.length?'<span class="cnt">'+goodImgs.length+L(' фото',' photos')+'</span>':'')+'</div>'+
     '<div class="hmain"><div class="title">'+esc(title)+'</div><div class="sub">'+esc(sub)+'</div>'+
     (chips.length?'<div class="chips">'+chips.map(function(x){return '<span class="chip '+x[0]+'"><i></i>'+esc(x[1])+'</span>'}).join('')+'</div>':'')+
     '<div class="ask">'+(c.price>0?'<b>'+esc(eur(c.price))+'</b><span>'+esc(L('цена в объявлении','asking price'))+'</span>':'<span>'+esc(L('Цена не найдена: введите её вручную (кнопка «Скриншот, текст, вручную»).','No price found: enter it manually.'))+'</span>')+'</div>'+btns+'</div></div>'+notes);
