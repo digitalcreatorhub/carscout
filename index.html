@@ -25,7 +25,7 @@
   --navy:#7AA7FF; --navy-2:#3E5C8F; --navy-soft:rgba(122,167,255,.13); --series2:#7AA7FF;
   --info:#7AA7FF; --info-soft:rgba(122,167,255,.13); --good:#3DD68C; --good-soft:rgba(61,214,140,.12); --warn:#F2B544; --warn-soft:rgba(242,181,68,.12);
   --bad:#F2686A; --bad-soft:rgba(242,104,106,.12); --sus:#B79CFF; --sus-soft:rgba(183,156,255,.13);
-  --gz1:#3A3150;--gz2:#1F4A36;--gz3:#2A313B;--gz4:#5A4620;--gz5:#5E2A2B;
+  --bar:#2A3443;--gz1:#3A3150;--gz2:#1F4A36;--gz3:#2A313B;--gz4:#5A4620;--gz5:#5E2A2B;
   --f-body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --f-serif:'Inter Tight','Inter',system-ui,sans-serif;
   --f-mono:'Inter',system-ui,sans-serif;
@@ -434,10 +434,7 @@ details.imp{background:var(--field)}
 .sh{font:600 12px/1.3 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .sh::before{content:none}
 .vhead{flex-direction:row;justify-content:space-between;align-items:center;width:100%}
-@media (min-width:1000px){
-  #out>#sec-verdict,#out>#sec-plan,#out>#sec-dealer,#out>#sec-msg,#out>#sec-share,#out>#sec-history,#out>#sec-vin,#out>#sec-src,#out>#sec-links,#out>#sec-trims,#out>#sec-flags{grid-column:span 6}
-  #out>#sec-facts{grid-column:span 12}
-}
+
 @media (max-width:899px){.sec{padding:16px}.sbody{padding:0}.sh{font-size:12px}}
 
 /* report hero */
@@ -497,14 +494,201 @@ details.imp{background:var(--field)}
 @media print{body{background:#fff;color:#000}}
 @media (min-width:900px){.chart svg{max-height:380px}}
 .rep-g>div:first-child{display:flex;flex-direction:column;justify-content:center}
+
+/* ===================== layout A (mock-up structure) ===================== */
+.wrap{max-width:1400px;padding-inline:24px}
+.sr-only,.rail .rl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* left rail (desktop) / bottom tab bar (phone) */
+.rail{position:fixed;left:0;top:0;bottom:0;width:68px;z-index:40;background:#090B0E;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0}
+.rail .rlogo{width:36px;height:36px;border-radius:10px;background:var(--accent);display:grid;place-items:center;margin-bottom:14px}
+.rail button{width:42px;height:42px;border-radius:10px;border:0;background:transparent;color:var(--dim);display:grid;place-items:center;cursor:pointer;padding:0}
+.rail button svg{width:20px;height:20px}
+.rail button:hover{color:var(--ink);background:var(--surface-2)}
+.rail button.on{background:var(--surface-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)}
+.rail button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rail .sp{flex:1}
+@media (min-width:761px){
+  body{padding-left:68px}
+  .top{background:rgba(9,11,14,.9)}
+  .top .plate{display:none}
+  .brand .sub{display:none}
+  .crumb{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crumb b{color:var(--ink);font-weight:500}
+}
+@media (max-width:760px){
+  .rail{top:auto;right:0;width:auto;height:auto;flex-direction:row;justify-content:space-around;align-items:stretch;padding:8px 4px calc(8px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid var(--line);background:rgba(11,14,18,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .rail .rlogo,.rail .sp,.rail [data-act="nav-cfg"]{display:none}
+  .rail button{flex:1;width:auto;height:auto;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;border-radius:10px}
+  .rail button.on{box-shadow:none;background:transparent;color:var(--accent)}
+  .rail .rl{position:static;width:auto;height:auto;overflow:visible;clip:auto;font-size:10.5px;font-weight:500}
+  body{padding-bottom:96px}
+  .crumb{display:none}
+}
+.bar{height:58px}
+/* intro only before the first check */
+.lead{padding:30px 0 18px}
+body.has-view .lead{display:none}
+/* the form is the top bar: link + buttons; the rest opens on demand */
+#intake{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px 16px;padding:14px 16px;border-radius:14px;align-items:start;margin-top:16px}
+#intake>*{grid-column:1/-1}
+#intake>.fld:first-child{grid-column:1/3;gap:8px}
+#intake>.fld:first-child>label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+#intake>.fld:first-child .in.lg{height:46px;padding:0 16px;font-size:14.5px;border-radius:10px}
+#intake>.btns{grid-column:3;grid-row:1;flex-wrap:nowrap;align-items:center}
+#intake>.btns .btn{height:46px;min-height:46px}
+#btn-go{min-width:0;padding-inline:22px}
+#intake:not(.open)>#shots-fld,#intake:not(.open)>#shots-fld+.fld,#intake:not(.open)>#shots-fld+.fld+.fld,#intake:not(.open)>#manual,#intake:not(.open)>#extra-d,#intake:not(.open)>.chk{display:none}
+#intake.open>#shots-fld{grid-column:1}
+#intake.open>#shots-fld+.fld{grid-column:2/-1}
+#intake.open>#manual{grid-column:1}
+#intake.open>#extra-d{grid-column:2/-1}
+#intake [data-act="more"][aria-expanded="true"]{border-color:var(--accent);color:var(--accent)}
+#status:empty,#srcs:empty{display:none}
+.srcs{flex-direction:row;flex-wrap:wrap;gap:8px}
+.src{border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--field)}
+.src:first-child{border-top:1px solid var(--line)}
+.src .sn{min-width:0}
+@media (max-width:760px){
+  #intake{grid-template-columns:minmax(0,1fr);padding:12px}
+  #intake>.fld:first-child,#intake>.btns,#intake.open>*{grid-column:1/-1!important}
+  #intake>.btns{grid-row:auto;flex-wrap:wrap}
+  #intake>.btns #btn-go{flex:1 1 100%}
+  #intake>.btns .btn:not(#btn-go){flex:1 1 0}
+}
+/* panels grid */
+#out{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;margin-top:16px}
+#out>*{grid-column:span 12;min-width:0}
+@media (min-width:1100px){
+  #out>.c8{grid-column:span 8}#out>.c7{grid-column:span 7}#out>.c6{grid-column:span 6}#out>.c5{grid-column:span 5}#out>.c4{grid-column:span 4}
+}
+@media (min-width:761px) and (max-width:1099px){
+  #out>.c6,#out>.c4{grid-column:span 6}
+}
+.ap,.sec.ap{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 20px;min-width:0;display:flex;flex-direction:column;gap:14px;margin:0}
+.ap>*{margin-top:0!important;margin-bottom:0!important}
+.ah{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap}
+.ah .sh,.ap>.sh,.ap>.vhead .sh{font:600 12px/1.3 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+.am{font-size:12px;color:var(--dim)}
+.anote{font-size:12.5px;color:var(--muted);line-height:1.5}
+.abtns{display:flex;flex-wrap:wrap;gap:8px}
+.abtns .btn{text-decoration:none;display:inline-flex;align-items:center}
+.achart{display:block;width:100%;height:auto;overflow:visible}
+.achart .tx{fill:var(--muted);font:11px var(--f-body)}
+.achart .tv{fill:var(--ink);font:600 12px var(--f-body)}
+.achart .tl{fill:var(--accent-fg);font:700 11px var(--f-body)}
+.achart .gl{stroke:var(--line);stroke-width:1}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin:0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}.legend i.sq{border-radius:2px}
+.seg2{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+.seg2 button{font:500 12px var(--f-body);padding:4px 10px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg2 button.on{background:var(--surface-2);color:var(--ink)}
+.pill.k{color:var(--accent);border-color:rgba(198,242,78,.4);background:transparent}
+/* car card */
+.hero{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;align-items:center}
+.ph{height:186px;border-radius:12px;background:linear-gradient(160deg,#1a2029,#0e1217);border:1px solid var(--line2);display:grid;place-items:center;position:relative;overflow:hidden}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ph .src,.ph .cnt{position:absolute;z-index:1;font-size:11px;color:var(--ink);background:rgba(0,0,0,.55);border:1px solid var(--line2);padding:3px 8px;border-radius:20px}
+.ph .src{left:10px;top:10px}.ph .cnt{right:10px;bottom:10px;color:var(--muted)}
+.hmain{min-width:0;display:flex;flex-direction:column;gap:12px}
+.title{font:600 30px/1.1 var(--f-serif);letter-spacing:-.015em}
+.hmain .sub{color:var(--muted);font-size:14px;margin-top:-6px}
+.hmain .chips{gap:8px}
+.hmain .chip{gap:6px;font-size:12px;padding:4px 10px}
+.hmain .chip i{width:6px;height:6px;border-radius:50%;background:var(--navy);display:inline-block}
+.hmain .chip.ok i{background:var(--good)}.hmain .chip.w i{background:var(--warn)}
+.ask{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.ask b{font:600 34px/1 var(--f-serif);letter-spacing:-.02em;white-space:nowrap}
+.ask span{color:var(--muted);font-size:13px}
+.anotes{list-style:none;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:12px!important}
+.anotes li{font-size:12.5px;color:var(--muted);padding-left:14px;position:relative}
+.anotes li::before{content:"";position:absolute;left:2px;top:.6em;width:5px;height:5px;border-radius:50%;background:var(--warn)}
+/* verdict */
+.verd{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;align-items:center}
+.ring{position:relative;width:150px;height:150px}
+.ring .v{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.ring .v b{font:600 40px/1 var(--f-serif);display:block}.ring .v small{font-size:12px;color:var(--muted)}
+.vk{font:600 22px/1.2 var(--f-serif)}
+.vk em{font-style:normal;color:var(--accent)}
+.vd{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+.conf{display:flex;gap:4px;margin-top:12px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.conf i{width:18px;height:4px;border-radius:2px;background:var(--good)}.conf i.o{background:var(--line2)}
+/* KPI strip */
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line);border-radius:14px;background:var(--paper);overflow:hidden;margin:0}
+.kpi{padding:16px 20px;border-left:1px solid var(--line);min-width:0}.kpi:first-child{border-left:0}
+.kpi dt{font-size:12px;color:var(--muted)}
+.kpi dd{font:600 22px/1.2 var(--f-serif);margin-top:6px;letter-spacing:-.01em;overflow-wrap:anywhere}
+.kpi small{display:block;font-size:12px;color:var(--dim);margin-top:4px}
+.up{color:var(--bad)!important}.dn{color:var(--good)!important}
+/* plan */
+.plan{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.pc{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2);min-width:0}
+.pc dt{font-size:12px;color:var(--muted)}.pc dd{font:600 21px/1.2 var(--f-serif);margin-top:4px;white-space:nowrap}.pc small{font-size:11px;color:var(--dim)}
+.pc.g{border-color:rgba(61,214,140,.35)}.pc.g dd{color:var(--good)}
+.pc.a{border-color:rgba(198,242,78,.35)}
+.ap .crow{grid-template-columns:minmax(0,1fr) 130px}
+/* lists */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.shh{font-size:12px;color:var(--muted);margin-bottom:10px;display:flex;gap:8px;align-items:center}.shh i{width:8px;height:8px;border-radius:2px;display:inline-block}
+.ls{list-style:none;display:flex;flex-direction:column;gap:11px}
+.ls li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;font-size:13.5px;line-height:1.45}
+.ls li svg{margin-top:2px}
+.ls li small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+.cklist{list-style:none;display:flex;flex-direction:column}
+.cklist li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.cklist li:last-child{border-bottom:0}
+.cklist .ck{display:flex;gap:10px;align-items:flex-start;cursor:pointer;min-width:0}
+.cklist .ck input{width:16px;height:16px;margin-top:2px;flex:none;accent-color:var(--accent)}
+.cklist .ck input:checked+span{color:var(--muted);text-decoration:line-through}
+.cklist .pill{flex:none;font-size:11px;padding:2px 8px;font-weight:500}
+/* tables */
+.ap .tbl th{padding:0 10px 10px 0;font-size:11px;letter-spacing:.1em}
+.ap .tbl td{padding:11px 10px 11px 0;font-size:13px}
+.tbl .r{text-align:right}
+.tbl tr.me td{color:var(--accent)}
+.tagme{font-size:10px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--accent);border-radius:4px;padding:1px 5px;margin-left:6px}
+.sbar{height:6px;border-radius:3px;background:var(--line2);position:relative;width:100%}.sbar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--navy)}
+.tbl tr.me .sbar i{background:var(--accent)}
+a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
+.adet summary{cursor:pointer;font-size:12.5px;color:var(--muted)}
+.adet[open] summary{margin-bottom:10px}
+#favs,#hist{margin-top:16px}
+#favs.sec,#hist.sec{display:flex;flex-direction:column;gap:12px;padding:18px 20px;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
+.foot{margin-top:24px}
+/* phone */
+@media (max-width:760px){
+  .wrap{padding-inline:12px}
+  .ap,.sec.ap{padding:16px;border-radius:16px}
+  .hero{grid-template-columns:minmax(0,1fr);gap:14px}
+  .ph{height:160px}
+  .title{font-size:24px}
+  .ask b{font-size:30px}
+  .verd{grid-template-columns:110px minmax(0,1fr);gap:14px}
+  .ring{width:110px;height:110px}.ring svg{width:110px;height:110px}.ring .v b{font-size:30px}
+  .vk{font-size:19px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi{padding:12px 14px;border-left:0;border-top:1px solid var(--line)}
+  .kpi:nth-child(-n+2){border-top:0}.kpi:nth-child(even){border-left:1px solid var(--line)}
+  .kpi:last-child{grid-column:1/-1}
+  .kpi dd{font-size:19px}
+  .plan{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .two{grid-template-columns:minmax(0,1fr)}
+  .ap .tbl{display:block;overflow-x:auto}
+}
+@media (max-width:760px){
+  #intake>.btns .btn:not(#btn-go){flex:1 1 auto;white-space:nowrap;font-size:13px;padding-inline:12px}
+  #a-near th:nth-child(2),#a-near td:nth-child(2){display:none}
+  #a-near td{white-space:normal}#a-near td.r{white-space:nowrap}
+}
 </style>
 </head>
 <body>
+<nav class="rail" aria-label="Menu"><div class="rlogo" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0B0E12" stroke-width="2.4" stroke-linecap="round"><path d="M4 16l5-6 4 4 7-8"/></svg></div><button type="button" class="on" data-act="nav-top" title="Анализ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span class="rl" data-ru="Анализ" data-en="Analysis"></span></button><button type="button" data-act="nav-favs" title="Избранное"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span class="rl" data-ru="Избранное" data-en="Favourites"></span></button><button type="button" data-act="nav-compare" title="Сравнение"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/></svg><span class="rl" data-ru="Сравнение" data-en="Compare"></span></button><button type="button" data-act="nav-hist" title="История"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4M12 7v5l3 2"/></svg><span class="rl" data-ru="История" data-en="History"></span></button><div class="sp"></div><button type="button" data-act="nav-cfg" title="Сервер"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg><span class="rl" data-ru="Сервер" data-en="Server"></span></button></nav>
 <header class="top">
   <div class="wrap bar">
     <div class="brand">
       <span class="plate" aria-hidden="true"><span class="eu">EU</span><span class="pt">CarScout</span></span>
-      <span class="sub"><span data-ru="Живые цены · Рига · Балтия · ЕС" data-en="Live prices · Riga · Baltics · EU"></span></span>
+      <span class="crumb" id="crumb"></span><span class="sub"><span data-ru="Живые цены · Рига · Балтия · ЕС" data-en="Live prices · Riga · Baltics · EU"></span></span>
     </div>
     <div class="btns" style="flex-wrap:nowrap;align-items:center">
       <button class="btn sm pri" type="button" id="btn-install" hidden data-ru="Установить" data-en="Install"></button>
@@ -594,6 +778,7 @@ details.imp{background:var(--field)}
       <label class="chk"><input type="checkbox" id="f-photos" checked><span data-ru="Если комплектация не указана в тексте, прочитать фото объявления (сиденья, документы). До 20 фото, может занять пару минут." data-en="If the trim is not in the text, read the listing photos (seats, documents). Up to 20 photos, may take a couple of minutes."></span></label>
       <div class="btns">
         <button class="btn pri" id="btn-go" type="submit" data-ru="Проверить автомобиль" data-en="Check this car"></button>
+        <button class="btn" type="button" data-act="more" aria-expanded="false" data-ru="Скриншот, текст, вручную" data-en="Screenshot, text, manual"></button>
         <button class="btn" id="btn-clear" type="button" data-ru="Очистить" data-en="Clear"></button>
       </div>
       <div id="status" aria-live="polite"></div>
@@ -1096,7 +1281,8 @@ function titleHasTrim(title,car){
   return false;
 }
 function trimPremium(list){ return list.some(function(k){ return MT_FLAG[k]===1||TRIMS.some(function(x){return x[0]===k&&x[2]}); }); }
-function trimDisplay(k){ return MT_NAME[k]||k; }
+var TRIM_PRETTY={'amg-line':'AMG Line','amg':'AMG','r-line':'R-Line','m-sport':'M Sport','s-line':'S line','gti/gtd/gte':'GTI/GTD/GTE','rs':'RS','st-line':'ST-Line','fr':'FR','l&k':'Laurin & Klement','se':'SE','gr sport':'GR Sport','opc line':'OPC Line','r-design':'R-Design'};
+function trimDisplay(k){ if(MT_NAME[k]) return MT_NAME[k]; if(TRIM_PRETTY[k]) return TRIM_PRETTY[k]; return String(k).replace(/(^|[\s\-\/])([a-zа-яё])/g,function(m,p,c){return p+c.toUpperCase()}); }
 
 /* ---------- OCR (runs in the browser, nothing is uploaded) ---------- */
 var ocrLoad=null;
@@ -1265,7 +1451,7 @@ async function run(){
       } else {
         notes.push(L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.'));
         linkMsg=L('Сайт '+(hint.host||'')+' не отдаёт страницу серверу (защита от роботов). Откройте объявление в своём браузере, нажмите Ctrl+A, затем Ctrl+C и вставьте скопированное в поле «Текст объявления» ниже (на телефоне: выделить всё, копировать). Либо загрузите скриншот. Затем нажмите «Проверить автомобиль» ещё раз.','The site '+(hint.host||'')+' does not give the page to the server (bot protection). Open the listing in your own browser, press Ctrl+A then Ctrl+C and paste it into the “Listing text” field below (on a phone: select all, copy). Or upload a screenshot. Then press “Check this car” again.');
-        if(!f.text&&!S.images.length){ var tf=$('#f-text'); if(tf){ tf.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){tf.focus()},400); } }
+        if(!f.text&&!S.images.length){ $('#intake').classList.add('open'); var tf=$('#f-text'); if(tf){ tf.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){tf.focus()},400); } }
       }
     }else if(f.url&&!S.api){ notes.push(L('Сервер не подключён, поэтому ссылка использована только как подсказка (кнопка «Сервер»).','The server is not connected, so the link is used only as a hint (the “Server” button).')); }
     /* 3. pasted text */
@@ -1340,7 +1526,8 @@ async function run(){
     })}));
     S.view=compute(car,results,f,notes);
     render();
-    try{ var rp=document.getElementById('sec-report'); if(rp) setTimeout(function(){ var y=rp.getBoundingClientRect().top+window.pageYOffset-70; window.scrollTo({top:y,behavior:'smooth'}); },60); }catch(e){}
+    histAdd(S.view);
+    try{ var rp=document.getElementById('a-car'); if(rp) setTimeout(function(){ var y=rp.getBoundingClientRect().top+window.pageYOffset-(aMob()?70:20); window.scrollTo({top:Math.max(0,y),behavior:'smooth'}); },60); }catch(e){}
     showStatus('ok',L('Готово: ','Done: ')+S.view.totalUsed+L(' реальных объявлений использовано.',' real listings used.'));
   }catch(e){
     showStatus('err',L('Что-то пошло не так: ','Something went wrong: ')+(e&&e.message||e));
@@ -1772,7 +1959,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.3', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-12.4', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -1953,21 +2140,298 @@ function secReport(v){
   return '<section class="rep" id="sec-report"><div class="rep-g"><div><div class="over">'+esc(L('Отчёт о цене · ','Price report · ')+date+(mk?' · '+mk:''))+'</div>'+
     '<h2>'+esc(title)+(c.year?' <em>'+esc(c.year)+'</em>':'')+'</h2><p class="lede">'+lede+'</p><div class="tags">'+tags.join('')+'</div></div>'+card+'</div>'+facts+'</section>';
 }
-function render(){
-  var v=S.view, out=$('#out'); renderFavs(); if(!v){out.innerHTML='';return}
+/* ================= layout A: analyst terminal (panels in a 12-column grid) ================= */
+function aMob(){ return window.matchMedia&&matchMedia('(max-width:760px)').matches; }
+function aSc(d0,d1,r0,r1){ return function(v){ return r0+(v-d0)/((d1-d0)||1)*(r1-r0); }; }
+function aNice(lo,hi,n){ var t=niceTicks(lo,hi,n||4); return t; }
+function aK(t,ticks){ var st=ticks.length>1?Math.abs(ticks[1]-ticks[0]):1000; return st<1000?(t/1000).toFixed(1).replace('.',',')+'k':fmt(t/1000)+'k'; }
+function aIcon(k){
+  var P={warn:'<path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>',ok:'<path d="M5 12l5 5 9-10"/>'};
+  var c={warn:'var(--bad)',info:'var(--warn)',ok:'var(--good)'}[k];
+  return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" style="stroke:'+c+'" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+P[k]+'</svg>';
+}
+function aCarSvg(){
+  return '<svg viewBox="0 0 320 130" width="230" fill="none" style="stroke:var(--muted)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M22 96 L22 78 Q24 66 38 62 L78 54 Q102 30 136 26 L206 24 Q236 24 254 42 L272 60 Q296 64 300 78 L300 96" style="fill:var(--surface-2)"/><path d="M22 96 L52 96 M106 96 L216 96 M270 96 L300 96"/><path d="M96 56 Q112 36 138 34 L176 33 L180 56 Z M190 33 L214 33 Q232 34 246 52 L248 56 L194 56 Z" style="fill:var(--navy-soft)"/><circle cx="79" cy="96" r="22" style="fill:var(--surface-2)"/><circle cx="79" cy="96" r="9"/><circle cx="243" cy="96" r="22" style="fill:var(--surface-2)"/><circle cx="243" cy="96" r="9"/></svg>';
+}
+function aHead(t,meta){ return '<div class="ah"><h3 class="sh">'+esc(t)+'</h3>'+(meta||'')+'</div>'; }
+function aMeta(t){ return '<span class="am">'+esc(t)+'</span>'; }
+function aPanel(id,cls,head,body){ return '<section class="ap '+cls+'" id="'+id+'">'+head+body+'</section>'; }
+function aGear(g){ return g==='automatic'?L('Автомат','Automatic'):g==='manual'?L('Механика','Manual'):g; }
+function aKmTxt(n){ return fmt(n)+L(' км',' km'); }
+
+/* ---- car card ---- */
+function pCar(v){
+  var c=v.car, dl=dealerOf(c), chips=[];
+  (c.trims||[]).forEach(function(t){ chips.push(['ok',L('Комплектация ','Trim ')+trimDisplay(t)+(c.trimFromPhoto?L(' (по фото)',' (photo)'):'')]); });
+  if(dl.dealer) chips.push(['',L('Дилер','Dealer')]);
+  if(dl.vat) chips.push(['w',L('Цена с НДС','Price incl. VAT')]);
+  if(dl.warranty) chips.push(['ok',L('Гарантия','Warranty')]);
+  if(c.lpg) chips.push(['w',L('ГБО','LPG')]);
+  if(dl.leasing) chips.push(['',L('Лизинг / обмен','Leasing / trade-in')]);
+  var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
+  var sub=[c.year,c.km!=null?aKmTxt(c.km):null,fuelLabel(c),c.gear?aGear(c.gear):null].filter(Boolean).join(' · ');
+  var img=c.image&&safeUrl(c.image)?'<img src="'+esc(safeUrl(c.image))+'" alt="" referrerpolicy="no-referrer" loading="lazy">':aCarSvg();
+  var src=c.site||(c.url?(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})():'');
+  var noTrim=(!c.trims||!c.trims.length)&&c.year;
+  var btns='<div class="abtns">'+(c.url&&safeUrl(c.url)?'<a class="btn sm" href="'+esc(safeUrl(c.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление ↗','Open the listing ↗'))+'</a>':'')+
+    '<button class="btn sm" type="button" data-act="fav-toggle">'+esc(favHas(c)?L('★ В избранном','★ Saved'):L('☆ В избранное','☆ Save'))+'</button>'+
+    (noTrim?'<button class="btn sm" type="button" data-act="set-trim">'+esc(L('Указать комплектацию','Set the trim'))+'</button>':'')+'</div>';
+  var notes=v.notes&&v.notes.length?'<ul class="anotes">'+v.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join('')+'</ul>':'';
+  return aPanel('a-car','c7','', '<div class="hero"><div class="ph">'+(src?'<span class="src">'+esc(src)+'</span>':'')+img+(c.images&&c.images.length?'<span class="cnt">'+c.images.length+L(' фото',' photos')+'</span>':'')+'</div>'+
+    '<div class="hmain"><div class="title">'+esc(title)+'</div><div class="sub">'+esc(sub)+'</div>'+
+    (chips.length?'<div class="chips">'+chips.map(function(x){return '<span class="chip '+x[0]+'"><i></i>'+esc(x[1])+'</span>'}).join('')+'</div>':'')+
+    '<div class="ask">'+(c.price>0?'<b>'+esc(eur(c.price))+'</b><span>'+esc(L('цена в объявлении','asking price'))+'</span>':'<span>'+esc(L('Цена не найдена: введите её вручную (кнопка «Скриншот, текст, вручную»).','No price found: enter it manually.'))+'</span>')+'</div>'+btns+'</div></div>'+notes);
+}
+/* ---- verdict ---- */
+function aRing(score){
+  var R=62, Ln=2*Math.PI*R, s=score==null?0:score;
+  return '<div class="ring"><svg width="150" height="150" viewBox="0 0 150 150" aria-hidden="true"><circle cx="75" cy="75" r="'+R+'" fill="none" style="stroke:var(--line)" stroke-width="10"/><circle cx="75" cy="75" r="'+R+'" fill="none" style="stroke:var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+(Ln*s/10).toFixed(1)+' '+Ln.toFixed(1)+'" transform="rotate(-90 75 75)"/></svg><div class="v"><div><b>'+(score!=null?esc(score.toFixed(1).replace('.',',')):'–')+'</b><small>'+esc(L('из 10','of 10'))+'</small></div></div></div>';
+}
+function aVerdictText(v){
+  var k=v.ver.key, d=v.ver.delta, c=v.car, t='';
+  if(k==='fair') t=d>1?L('Цена внутри справедливого диапазона, немного выше середины.','The price is within the fair range, slightly above the midpoint.'):d<-1?L('Цена внутри справедливого диапазона, ниже середины.','The price is within the fair range, below the midpoint.'):L('Цена около середины рынка.','The price is close to the market midpoint.');
+  else if(k==='good') t=L('Цена ниже рынка. Проверьте историю и состояние: выгодная цена бывает неспроста.','The price is below the market. Check the history and condition.');
+  else if(k==='high') t=L('Цена выше рынка: есть запас для торга.','The price is above the market: there is room to negotiate.');
+  else if(k==='overpriced') t=L('Цена сильно выше рынка. Торгуйтесь или ищите другие варианты.','The price is far above the market.');
+  else if(k==='too_cheap') t=L('Подозрительно дёшево. Тщательно проверьте документы, пробег и историю.','Suspiciously cheap. Check the papers, mileage and history carefully.');
+  else t=L('Недостаточно данных для оценки.','Not enough data for a verdict.');
+  if(v.medKm!=null&&c.km!=null){ var dk=(c.km-v.medKm)/Math.max(1,v.medKm)*100; if(Math.abs(dk)>=8) t+=' '+L('Пробег на '+Math.round(Math.abs(dk))+'% '+(dk<0?'ниже':'выше')+' типичного','Mileage is '+Math.round(Math.abs(dk))+'% '+(dk<0?'below':'above')+' typical')+(dk<0&&d>0?L(': это частично оправдывает надбавку.',': this partly explains the premium.'):'.'); }
+  return t;
+}
+function aPos(v,w){
+  var c=v.car, F=v.fair; if(!F||!(c.price>0)) return '';
+  var lo=Math.min(F.low,c.price)*0.97, hi=Math.max(F.high,c.price)*1.03, X=aSc(lo,hi,12,w-12), y=34, h=66;
+  var s='<svg class="achart" viewBox="0 0 '+w+' '+h+'" aria-hidden="true">';
+  s+='<rect x="12" y="'+(y-3)+'" width="'+(w-24)+'" height="6" rx="3" style="fill:var(--line)"/>';
+  s+='<rect x="'+X(F.low)+'" y="'+(y-3)+'" width="'+Math.max(4,X(F.high)-X(F.low))+'" height="6" rx="3" style="fill:var(--navy);fill-opacity:.5"/>';
+  s+='<line x1="'+X(F.mid)+'" x2="'+X(F.mid)+'" y1="'+(y-10)+'" y2="'+(y+10)+'" style="stroke:var(--ink)" stroke-width="2"/>';
+  s+='<circle cx="'+X(c.price)+'" cy="'+y+'" r="9" style="fill:var(--accent);stroke:var(--paper)" stroke-width="3"/>';
+  s+='<text x="'+X(F.mid)+'" y="'+(y-17)+'" text-anchor="middle" class="tx">'+esc(L('рынок ','market ')+eur(F.mid))+'</text>';
+  s+='<text x="'+X(F.low)+'" y="'+(y+27)+'" text-anchor="middle" class="tx">'+esc(eur(F.low))+'</text><text x="'+X(F.high)+'" y="'+(y+27)+'" text-anchor="middle" class="tx">'+esc(eur(F.high))+'</text>';
+  return s+'</svg>';
+}
+function pVerdict(v){
+  var k=v.ver.key, vn=VNAME[k][S.lang==='ru'?0:1], h=v.home, bars={high:3,medium:2,low:1}[v.conf]||0;
+  var meta=h?rname(h.region)+(h.tol?L(' · аналоги ±',' · comparables ±')+h.tol+L(' г.',' y.'):''):'';
+  var conf='<div class="conf">'+esc(L('Достоверность','Confidence'))+' '+[1,2,3,4].map(function(i){return '<i'+(i<=bars?'':' class="o"')+'></i>'}).join('')+' '+esc({high:L('высокая','high'),medium:L('средняя','medium'),low:L('низкая','low')}[v.conf]||'')+(h?' · '+h.n+L(' аналогов',' comparables'):'')+'</div>';
+  return aPanel('a-verdict','c5',aHead(L('Вердикт','Verdict'),aMeta(meta)),
+    '<div class="verd">'+aRing(v.score)+'<div><div class="vk">'+esc(vn)+(v.ver.delta!=null?' · <em class="'+(v.ver.delta>0?'up':'dn')+'">'+esc(pct(v.ver.delta))+'</em>':'')+'</div><div class="vd">'+esc(aVerdictText(v))+'</div>'+conf+'</div></div>'+
+    '<div class="apos">'+aPos(v,aMob()?330:520)+'</div>');
+}
+/* ---- KPI strip ---- */
+function pKpis(v){
+  var c=v.car, F=v.fair, read=v.regions.reduce(function(a,r){return a+(r.total||0)},0), mk=v.regions.filter(function(r){return r.fair}).length;
+  var dk=(v.medKm!=null&&c.km!=null)?(c.km-v.medKm)/Math.max(1,v.medKm)*100:null;
+  var k=function(t,val,sm,cls,smcls){return '<div class="kpi"><dt>'+esc(t)+'</dt><dd'+(cls?' class="'+cls+'"':'')+'>'+esc(val)+'</dd>'+(sm?'<small'+(smcls?' class="'+smcls+'"':'')+'>'+esc(sm)+'</small>':'')+'</div>'};
+  var dcls=v.ver.delta==null?'':v.ver.delta>0.5?'up':v.ver.delta<-0.5?'dn':'';
+  return '<dl class="kpis c12" id="a-kpis">'+
+    k(L('Справедливая цена','Fair price'),F?eur(F.mid):'–',F&&F.source==='comps-reg'?L('регрессия цена ~ пробег','price ~ mileage regression'):L('медиана аналогов','comparables median'))+
+    k(L('Справедливый диапазон','Fair range'),F?fmt(F.low)+'–'+eur(F.high):'–',v.home?rname(v.home.region):'')+
+    k(L('К рынку','vs market'),v.ver.delta!=null?pct(v.ver.delta):'–',VNAME[v.ver.key][S.lang==='ru'?0:1],dcls)+
+    k(L('Медиана пробега аналогов','Comparables median mileage'),v.medKm!=null?aKmTxt(v.medKm):'–',dk!=null?L('ваша на ','yours ')+Math.round(Math.abs(dk))+'% '+(dk<0?L('ниже','lower'):L('выше','higher')):'','',dk==null?'':dk<0?'dn':'up')+
+    k(L('Объявлений прочитано','Listings read'),String(read||v.totalUsed),L('использовано ','used ')+v.totalUsed+' · '+mk+L(' рынк.',' markets'))+'</dl>';
+}
+/* ---- price vs mileage ---- */
+function aScatter(v,W,H,mob){
+  var h=v.home; if(!h) return '';
+  var pts=h.items.filter(function(i){return i.km!=null&&i.price>0}), c=v.car; if(pts.length<4) return '';
+  var l=mob?46:58, r=mob?12:20, t=18, b=34;
+  var xs=pts.map(function(p){return p.km}).concat(c.km!=null?[c.km]:[]), ys=pts.map(function(p){return p.price}).concat(c.price>0?[c.price]:[]);
+  var xt=aNice(0,Math.max.apply(null,xs)*1.05,mob?4:6), yt=aNice(Math.min.apply(null,ys)*0.93,Math.max.apply(null,ys)*1.05,mob?4:5);
+  var X=aSc(xt.min,xt.max,l,W-r), Y=aSc(yt.min,yt.max,H-b,t);
+  var cid='ac'+Math.random().toString(36).slice(2,7);
+  var s='<svg class="achart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(L('Цена и пробег объявлений','Price and mileage of listings'))+'"><defs><clipPath id="'+cid+'"><rect x="'+l+'" y="'+t+'" width="'+(W-l-r)+'" height="'+(H-t-b)+'"/></clipPath></defs>';
+  yt.ticks.forEach(function(y){ s+='<line x1="'+l+'" x2="'+(W-r)+'" y1="'+Y(y)+'" y2="'+Y(y)+'" class="gl"/><text x="'+(l-8)+'" y="'+(Y(y)+4)+'" text-anchor="end" class="tx">'+(mob?aK(y,yt.ticks):fmt(y))+'</text>'; });
+  xt.ticks.forEach(function(x,i){ var last=i===xt.ticks.length-1; s+='<text x="'+X(x)+'" y="'+(H-10)+'" text-anchor="'+(last?'end':i===0?'start':'middle')+'" class="tx">'+fmt(x/1000)+(last&&!mob?L(' тыс. км',' k km'):'')+'</text>'; });
+  var rg=h.stats&&h.stats.reg, F=v.fair;
+  if(rg){ var bw=F?Math.max(F.mid-F.low,1):rg.sd, f0=rg.intercept, f1=rg.intercept+rg.slope*xt.max;
+    s+='<g clip-path="url(#'+cid+')"><path d="M'+X(0)+' '+Y(f0+bw)+' L'+X(xt.max)+' '+Y(f1+bw)+' L'+X(xt.max)+' '+Y(f1-bw)+' L'+X(0)+' '+Y(f0-bw)+' Z" style="fill:var(--navy-soft)"/><line x1="'+X(0)+'" y1="'+Y(f0)+'" x2="'+X(xt.max)+'" y2="'+Y(f1)+'" style="stroke:var(--navy)" stroke-width="1.5"/></g>'; }
+  pts.forEach(function(p){ s+='<circle cx="'+X(p.km).toFixed(1)+'" cy="'+Y(p.price).toFixed(1)+'" r="'+(mob?3.5:4.2)+'" style="fill:var(--navy);fill-opacity:.78"/>'; });
+  if(c.km!=null&&c.price>0){
+    var cx=X(c.km), cy=Y(c.price);
+    if(rg&&F){ var fy=Y(rg.intercept+rg.slope*c.km); s+='<line x1="'+cx+'" x2="'+cx+'" y1="'+(cy+(cy<fy?8:-8))+'" y2="'+fy+'" style="stroke:var(--accent)" stroke-width="1.25" stroke-dasharray="2 3"/><rect x="'+(cx-4)+'" y="'+(fy-4)+'" width="8" height="8" transform="rotate(45 '+cx+' '+fy+')" style="fill:var(--paper);stroke:var(--navy)" stroke-width="1.5"/>';
+      if(!mob) s+='<text x="'+(cx-14)+'" y="'+(fy+22)+'" text-anchor="end" class="tx">'+esc(L('справедливая для этого пробега','fair for this mileage'))+'</text><text x="'+(cx-14)+'" y="'+(fy+38)+'" text-anchor="end" class="tv">'+esc(eur(rg.intercept+rg.slope*c.km))+'</text>'; }
+    s+='<circle cx="'+cx+'" cy="'+cy+'" r="12" style="fill:var(--accent);fill-opacity:.2"/><circle cx="'+cx+'" cy="'+cy+'" r="6.5" style="fill:var(--accent);stroke:var(--paper)" stroke-width="2"/>';
+    if(!mob){ var tw=170, tx=cx+16+tw>W-r?cx-16-tw:cx+16; s+='<rect x="'+tx+'" y="'+(cy-32)+'" width="'+tw+'" height="40" rx="7" style="fill:var(--surface-2);stroke:var(--line2)"/><text x="'+(tx+11)+'" y="'+(cy-16)+'" class="tx">'+esc(L('Эта машина','This car'))+'</text><text x="'+(tx+11)+'" y="'+cy+'" class="tv">'+esc(eur(c.price)+' · '+aKmTxt(c.km))+'</text>'; }
+  }
+  return s+'</svg>';
+}
+function pScatter(v){
+  var mob=aMob(), svg=aScatter(v,mob?340:860,mob?230:340,mob); if(!svg) return '';
+  var lg='<div class="legend"><span><i style="background:var(--navy)"></i>'+esc(L('аналоги','comparables'))+'</span><span><i style="background:var(--accent)"></i>'+esc(L('эта машина','this car'))+'</span>'+(v.home.stats&&v.home.stats.reg?'<span><i class="sq" style="background:var(--navy-soft)"></i>'+esc(L('справедливый коридор','fair corridor'))+'</span>':'')+'</div>';
+  return aPanel('a-scatter','c8',aHead(L('Цена и пробег · ','Price and mileage · ')+rname(v.home.region),mob?'':lg),svg+(mob?lg:''));
+}
+/* ---- price distribution ---- */
+function aHist(items,v,W,H){
+  var ps=items.map(function(i){return i.price}).filter(function(p){return p>0}); if(ps.length<4) return '';
+  var c=v.car, lo=Math.min.apply(null,ps.concat(c.price>0?[c.price]:[])), hi=Math.max.apply(null,ps.concat(c.price>0?[c.price]:[]));
+  var span=hi-lo||1, step=[250,500,1000,2000,2500,5000].filter(function(s){return span/s<=12})[0]||10000;
+  var a0=Math.floor(lo/step)*step, a1=Math.ceil((hi+1)/step)*step, bins=[];
+  for(var a=a0;a<a1;a+=step) bins.push({a:a,b:a+step,n:0});
+  ps.forEach(function(p){ var b=bins[Math.min(bins.length-1,Math.floor((p-a0)/step))]; if(b) b.n++; });
+  var mx=Math.max.apply(null,bins.map(function(b){return b.n})), m={l:6,r:6,t:20,b:30}, bw=(W-m.l-m.r)/bins.length, Y=aSc(0,mx,H-m.b,m.t), X=aSc(a0,a1,m.l,W-m.r);
+  var s='<svg class="achart" viewBox="0 0 '+W+' '+H+'" aria-hidden="true">';
+  bins.forEach(function(b,i){ var me=c.price>=b.a&&c.price<b.b, y=Y(b.n); s+='<rect x="'+(m.l+i*bw+2)+'" y="'+y+'" width="'+Math.max(2,bw-4)+'" height="'+Math.max(0,H-m.b-y)+'" rx="2" style="fill:'+(me?'var(--accent)':'var(--bar)')+'"/>'; });
+  s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+(H-m.b)+'" y2="'+(H-m.b)+'" class="gl"/>';
+  if(v.fair) s+='<rect x="'+X(v.fair.low)+'" y="'+(H-m.b+3)+'" width="'+Math.max(3,X(v.fair.high)-X(v.fair.low))+'" height="4" rx="2" style="fill:var(--navy)"/>';
+  s+='<text x="'+m.l+'" y="'+(H-9)+'" class="tx">'+esc(eur(a0))+'</text><text x="'+(W-m.r)+'" y="'+(H-9)+'" text-anchor="end" class="tx">'+esc(eur(a1))+'</text>';
+  if(v.fair){ var fx=X(v.fair.mid); s+='<line x1="'+fx+'" x2="'+fx+'" y1="'+(m.t-8)+'" y2="'+(H-m.b)+'" style="stroke:var(--navy)" stroke-width="1.5" stroke-dasharray="3 3"/><text x="'+(fx>W*0.6?fx-5:fx+5)+'" y="'+(m.t-2)+'" text-anchor="'+(fx>W*0.6?'end':'start')+'" class="tv">'+esc(L('рынок ','market ')+eur(v.fair.mid))+'</text>'; }
+  var cb=bins.filter(function(b){return c.price>=b.a&&c.price<b.b})[0];
+  return {svg:s+'</svg>',bin:cb,n:ps.length};
+}
+function pHist(v,reg){
+  var rs=v.regions.filter(function(r){return r.items&&r.items.length>=4}); if(!rs.length) return '';
+  var r=rs.filter(function(x){return x.region===reg})[0]||rs.filter(function(x){return x===v.home})[0]||rs[0];
+  var hh=aHist(r.items,v,aMob()?340:400,aMob()?200:262); if(!hh) return '';
+  var seg=rs.length>1?'<span class="seg2">'+rs.map(function(x){return '<button type="button" data-act="hreg" data-r="'+esc(x.region)+'" class="'+(x===r?'on':'')+'">'+esc(x.region)+'</button>'}).join('')+'</span>':aMeta(r.region);
+  var txt=hh.bin&&v.car.price>0?L('Ваша цена в интервале ','Your price is in the ')+fmt(hh.bin.a)+'–'+eur(hh.bin.b)+L(': там '+hh.bin.n+' из '+hh.n+' объявлений. Пунктир — справедливая цена, полоса под осью — справедливый диапазон.',' band: '+hh.bin.n+' of '+hh.n+' listings. Dashed line is the fair price, the bar under the axis is the fair range.'):'';
+  return aPanel('a-hist','c4',aHead(L('Распределение цен','Price distribution'),seg),hh.svg+(txt?'<p class="anote">'+esc(txt)+'</p>':''));
+}
+/* ---- markets: range + median + your price ---- */
+function aMarkets(v,W,mob){
+  var c=v.car, rows=v.regions; if(!rows.length) return '';
+  var vals=[]; rows.forEach(function(r){ if(r.stats){ vals.push(r.stats.min,r.stats.max); } if(r.fair) vals.push(r.fair.mid); }); if(c.price>0) vals.push(c.price);
+  if(vals.length<2) return '';
+  var tk=aNice(Math.min.apply(null,vals)*0.97,Math.max.apply(null,vals)*1.02,mob?3:4);
+  var lw=mob?86:170, rw=mob?78:96, rh=mob?50:54, H=rows.length*rh+40, X=aSc(tk.min,tk.max,lw,W-rw);
+  var s='<svg class="achart" viewBox="0 0 '+W+' '+H+'" aria-label="'+esc(L('Цены по рынкам','Prices by market'))+'" role="img">';
+  tk.ticks.forEach(function(t){ s+='<line x1="'+X(t)+'" x2="'+X(t)+'" y1="22" y2="'+(H-6)+'" class="gl"/><text x="'+X(t)+'" y="13" text-anchor="middle" class="tx">'+(mob?aK(t,tk.ticks):(function(){var s=aK(t,tk.ticks);return s.slice(0,-1)+L(' тыс.',' k')})())+'</text>'; });
+  rows.forEach(function(r,i){ var y=34+i*rh+rh/2-10;
+    s+='<text x="0" y="'+(y-3)+'" class="tv">'+esc(rname(r.region))+'</text><text x="0" y="'+(y+13)+'" class="tx">'+esc(mob?(r.ok?r.n+L(' объявл.',' ads'):'—'):r.label+(r.ok?' · '+r.n+L(' объявл.',' ads'):''))+'</text>';
+    if(r.stats&&r.fair){ var d=c.price>0?(r.fair.mid-c.price)/c.price*100:null;
+      s+='<line x1="'+X(r.stats.min)+'" x2="'+X(r.stats.max)+'" y1="'+y+'" y2="'+y+'" style="stroke:var(--line2)" stroke-width="'+(mob?5:6)+'" stroke-linecap="round"/><circle cx="'+X(r.fair.mid)+'" cy="'+y+'" r="6" style="fill:var(--navy);stroke:var(--paper)" stroke-width="2"/>';
+      s+='<text x="'+W+'" y="'+(y-3)+'" text-anchor="end" class="tv">'+esc(eur(r.fair.mid))+'</text>'+(d!=null?'<text x="'+W+'" y="'+(y+13)+'" text-anchor="end" class="tx" style="fill:var(--'+(d<0?'good':'bad')+')">'+esc(pct(d)+(mob?'':L(' к вашей',' vs yours')))+'</text>':'');
+    } else s+='<text x="'+lw+'" y="'+(y+4)+'" class="tx">'+esc(r.suspect?L('результат отброшен как ошибочный','result ignored as wrong'):r.n<3&&r.ok?L('меньше 3 объявлений','fewer than 3 listings'):L('нет данных','no data'))+'</text>';
+  });
+  if(c.price>0){ var px=X(c.price), lab=(mob?'':L('ваша ','yours '))+eur(c.price), lw2=lab.length*6.6+18;
+    s+='<line x1="'+px+'" x2="'+px+'" y1="20" y2="'+(H-22)+'" style="stroke:var(--accent)" stroke-width="1.5"/><rect x="'+(px-lw2/2)+'" y="'+(H-22)+'" width="'+lw2+'" height="20" rx="10" style="fill:var(--accent)"/><text x="'+px+'" y="'+(H-8)+'" text-anchor="middle" class="tl">'+esc(lab)+'</text>'; }
+  return s+'</svg>';
+}
+function pMarkets(v){
+  var mob=aMob(), svg=aMarkets(v,mob?340:760,mob); if(!svg) return '';
+  var de=v.regions.some(function(r){return r.region==='DE'&&r.fair});
+  var tbl='<details class="adet"'+(aMob()?'':' open')+'><summary>'+esc(L('Таблица и ссылки на поиск','Table and search links'))+'</summary><div class="scroll"><table class="tbl"><thead><tr><th>'+esc(L('Рынок','Market'))+'</th><th class="r">'+esc(L('Объявл.','Ads'))+'</th><th class="r">'+esc(L('Справедливая','Fair'))+'</th><th class="r">'+esc(L('Мин – макс','Min – max'))+'</th><th></th></tr></thead><tbody>'+v.regions.map(function(r){
+    var u=r.url&&safeUrl(r.url); return '<tr><td><b>'+esc(rname(r.region))+'</b><div class="rn">'+esc(r.label)+'</div></td><td class="r">'+(r.ok?r.n+(r.total>r.n?' / '+r.total:''):'–')+'</td><td class="r">'+(r.fair?eur(r.fair.mid):'–')+'</td><td class="r">'+(r.stats?fmt(r.stats.min)+' – '+eur(r.stats.max):'<span class="rn">'+esc(r.err||'')+'</span>')+'</td><td class="r">'+(u?'<a class="sbtn" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть','Open'))+'</a>':'')+'</td></tr>'; }).join('')+'</tbody></table></div></details>';
+  return aPanel('a-markets','c7',aHead(L('Рынки · медиана и разброс','Markets · median and spread'),de?aMeta(L('Германия — без учёта ввоза','Germany — before import costs')):''),svg+tbl);
+}
+/* ---- negotiation ---- */
+function aLadder(p,F,W){
+  var vals=[p.offer,p.max,p.ask,F.mid], lo=Math.min.apply(null,vals), hi=Math.max.apply(null,vals), pad=(hi-lo||500)*0.12, X=aSc(lo-pad,hi+pad,14,W-14), y=26, H=62;
+  var s='<svg class="achart" viewBox="0 0 '+W+' '+H+'" aria-hidden="true"><line x1="14" x2="'+(W-14)+'" y1="'+y+'" y2="'+y+'" style="stroke:var(--line2)" stroke-width="2"/><line x1="'+X(p.offer)+'" x2="'+X(p.max)+'" y1="'+y+'" y2="'+y+'" style="stroke:var(--good)" stroke-width="4" stroke-linecap="round"/>';
+  var mk=[[L('предложить','offer'),p.offer,'var(--good)'],[L('рынок','market'),F.mid,'var(--ink)'],[L('максимум','max'),p.max,'var(--warn)'],[L('в объявлении','asking'),p.ask,'var(--accent)']];
+  mk.sort(function(a,b){return a[1]-b[1]});
+  mk.forEach(function(m,i){ s+='<circle cx="'+X(m[1])+'" cy="'+y+'" r="'+(m[0]===L('в объявлении','asking')?7:5)+'" style="fill:'+m[2]+';stroke:var(--paper)" stroke-width="2"/><text x="'+X(m[1])+'" y="'+(i%2?y-12:y+24)+'" text-anchor="middle" class="tx">'+esc(m[0])+'</text>'; });
+  return s+'</svg>';
+}
+function pPlan(v){
+  var p=planOf(v); if(!p) return '';
+  var dl=dealerOf(v.car), target=Math.min(p.max,Math.round((p.offer+p.max)/2/100)*100);
+  var card=function(t,val,sm,cls){return '<div class="pc '+(cls||'')+'"><dt>'+esc(t)+'</dt><dd>'+esc(eur(val))+'</dd><small>'+esc(sm)+'</small></div>'};
+  var note=dl.dealer?L('Дилер редко снижает цену. Вместо скидки просите зимние шины, ТО или допоборудование.','Dealers rarely cut the price. Ask for winter tyres, a service or extras instead.'):p.below?L('Цена уже ниже рынка: главное проверить историю и состояние.','The price is already below the market: check the history and condition.'):L('Начните с предложения и двигайтесь к цели. Выше максимума платить невыгодно.','Start with the offer and move toward the target. Above the maximum is not worth it.');
+  return aPanel('a-plan','c5',aHead(L('План торга','Negotiation plan'),dl.dealer?'<span class="pill k">'+esc(L('дилер: торг ограничен','dealer: little room'))+'</span>':''),
+    '<div class="plan">'+card(L('В объявлении','Asking'),p.ask,L('старт продавца','seller start'),'a')+card(L('Предложить','Offer'),p.offer,pct((p.offer-p.ask)/p.ask*100),'g')+card(L('Цель','Target'),target,L('реалистично','realistic'))+card(L('Максимум','Maximum'),p.max,L('выше невыгодно','above is not worth it'))+'</div>'+
+    aLadder(p,v.fair,aMob()?330:500)+'<p class="anote">'+esc(note)+'</p>'+
+    '<div class="crow"><label for="k-what">'+esc(L('Если продавец согласится на цену, €','If the seller agrees to a price, €'))+'</label><input class="in num" id="k-what" type="text" inputmode="numeric" placeholder="'+esc(String(p.offer))+'"></div><p class="cdiff" id="k-what-out"></p>');
+}
+/* ---- trims ---- */
+function pTrims(v){
+  var h=v.home, c=v.car, gs=h?trimGroups(h.pre||h.items,c):[], mine=c.trims||[];
+  if(gs.length<2) return aPanel('a-trims','c5',aHead(L('Цены по комплектациям','Prices by trim'),h?aMeta(rname(h.region)):''),'<p class="anote" style="margin:0">'+esc(L('Продавцы редко пишут версию в названии, поэтому сравнить цены по комплектациям здесь не получилось.','Sellers rarely state the version in the title, so prices by trim could not be compared here.'))+'</p>'+((!mine.length)?'<div class="abtns"><button class="btn sm" type="button" data-act="set-trim">'+esc(L('Указать комплектацию','Set the trim'))+'</button></div>':''));
+  var tot=gs.reduce(function(a,g){return a+g.n},0);
+  return aPanel('a-trims','c5',aHead(L('Цены по комплектациям','Prices by trim'),aMeta(rname(h.region))),
+    '<div class="scroll"><table class="tbl"><thead><tr><th>'+esc(L('Версия','Version'))+'</th><th class="r">'+esc(L('Объявл.','Ads'))+'</th><th class="r">'+esc(L('Медиана','Median'))+'</th><th class="r">'+esc(L('Пробег','Mileage'))+'</th><th style="width:22%">'+esc(L('Доля','Share'))+'</th></tr></thead><tbody>'+gs.map(function(g){
+      var me=mine.indexOf(g.key)>-1; return '<tr class="'+(me?'me':'')+'"><td>'+esc(trimLabel(g.key))+(me?' <span class="tagme">'+esc(L('ваша','yours'))+'</span>':'')+'</td><td class="r">'+g.n+'</td><td class="r">'+esc(eur(g.median))+'</td><td class="r">'+(g.medKm!=null?esc(aKmTxt(g.medKm)):'–')+'</td><td><div class="sbar"><i style="width:'+(g.n/tot*100).toFixed(1)+'%"></i></div></td></tr>'; }).join('')+'</tbody></table></div>');
+}
+/* ---- risks and pros ---- */
+function aSplit(s){ var i=s.indexOf(': '); return i>8&&i<90?[s.slice(0,i),s.slice(i+2)]:[s,'']; }
+function pFlags(v){
+  var f=flagsOf(v), li=function(arr,kind){ return arr.length?arr.map(function(x,i){ var p=aSplit(x); return '<li>'+aIcon(kind==='r'?(i===0?'warn':'info'):'ok')+'<span>'+esc(p[0])+(p[1]?'<small>'+esc(p[1])+'</small>':'')+'</span></li>'; }).join(''):'<li><span class="rn">'+esc(kind==='r'?L('Явных рисков в данных не найдено. Осмотр всё равно обязателен.','No obvious risks in the data. An inspection is still a must.'):L('Явных плюсов в данных не найдено.','No obvious pros in the data.'))+'</span></li>'; };
+  return aPanel('a-flags','c7',aHead(L('На что смотреть','What to look at'),aMeta(L('из цифр сравнения и текста объявления','from the numbers and the listing text'))),
+    '<div class="two"><div><div class="shh"><i style="background:var(--bad)"></i>'+esc(L('Риски','Risks'))+'</div><ul class="ls">'+li(f.risks,'r')+'</ul></div><div><div class="shh"><i style="background:var(--good)"></i>'+esc(L('Плюсы','Pros'))+'</div><ul class="ls">'+li(f.pros,'p')+'</ul></div></div>');
+}
+/* ---- inspection + questions ---- */
+function aTag(s){
+  var t=s.toLowerCase();
+  if(/батаре|заряд|battery|charg/.test(t)) return [L('батарея','battery'),'k'];
+  if(/vin|документ|paper|владельц|owner/.test(t)) return [L('документы','papers'),''];
+  if(/csdd|истори|history|пробег|mileage/.test(t)) return [L('история','history'),''];
+  if(/кузов|днищ|body|underbody|авари|accident/.test(t)) return [L('кузов','body'),''];
+  if(/тормоз|шин|подвеск|тест|brake|tyre|test/.test(t)) return [L('ходовая','chassis'),''];
+  if(/obd|двигат|запуск|грм|масло|коробк|сажев|engine|start|timing|oil|gearbox|filter/.test(t)) return [L('техника','mechanics'),''];
+  if(/газ|гбо|lpg|баллон/.test(t)) return ['LPG','k'];
+  return ['',''];
+}
+function pChecks(v){
+  var c=checksOf(v), row=function(x){ var t=aTag(x); return '<li><label class="ck"><input type="checkbox"><span>'+esc(x)+'</span></label>'+(t[0]?'<span class="pill '+t[1]+'">'+esc(t[0])+'</span>':'')+'</li>'; };
+  return aPanel('a-checks','c6',aHead(isEvCar(v.car)?L('Осмотр электромобиля','Electric car inspection'):L('Осмотр и вопросы','Inspection and questions'),'<span class="seg2"><button type="button" class="on" data-act="ck-tab" data-t="i">'+esc(L('Осмотр','Inspection'))+'</button><button type="button" data-act="ck-tab" data-t="q">'+esc(L('Вопросы','Questions'))+'</button></span>'),
+    '<ul class="cklist" data-t="i">'+c.i.map(row).join('')+'</ul><ul class="cklist" data-t="q" hidden>'+c.q.map(row).join('')+'</ul>');
+}
+/* ---- nearest listings ---- */
+function pNear(v){
+  if(!v.near.length) return '';
+  var c=v.car;
+  return aPanel('a-near','c6',aHead(L('Ближайшие аналоги','Closest comparables'),aMeta(L('по году и пробегу','by year and mileage'))),
+    '<div class="scroll"><table class="tbl"><thead><tr><th>'+esc(L('Объявление','Listing'))+'</th><th class="r">'+esc(L('Год','Year'))+'</th><th class="r">'+esc(L('Пробег','Mileage'))+'</th><th class="r">'+esc(L('Цена','Price'))+'</th><th class="r">'+esc(L('К вашей','vs yours'))+'</th></tr></thead><tbody>'+v.near.slice(0,6).map(function(i){
+      var d=c.price>0?(i.price-c.price)/c.price*100:null, u=safeUrl(i.url);
+      return '<tr><td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(i.title||L('Объявление','Listing')).slice(0,48))+'</a>':esc(String(i.title||'').slice(0,48)))+'<div class="rn">'+esc(i.src+' · '+rname(i.region))+'</div></td><td class="r">'+(i.year||'–')+'</td><td class="r">'+(i.km!=null?esc(aKmTxt(i.km)):'–')+'</td><td class="r">'+esc(eur(i.price))+'</td><td class="r" style="color:var(--'+(d==null?'muted':d<0?'good':'bad')+')">'+(d!=null?esc(pct(d)):'–')+'</td></tr>'; }).join('')+'</tbody></table></div>'+
+    '<div class="abtns"><button class="btn sm" type="button" data-act="go-msg">'+esc(L('Сообщение продавцу','Message to the seller'))+'</button><button class="btn sm" type="button" data-act="nav-compare">'+esc(L('Сравнить с избранным','Compare with favourites'))+'</button></div>');
+}
+/* existing sections rendered as panels */
+function aWrap(html,cls){ return html?html.replace('<section class="sec"','<section class="sec ap '+cls+'"'):''; }
+
+function renderA(v){
   var h=[];
-  if(v.noApi) h.push(secNoApi());
-  if(v.regions.length) h.push(secReport(v));
-  h.push(secFacts(v));
-  if(v.regions.length){ h.push(secVerdict(v)); h.push(secDealer(v)); h.push(secPlan(v)); h.push(secFlags(v)); h.push(secRegions(v)); h.push(secTrims(v)); h.push(secScatter(v)); h.push(secNear(v)); h.push(secChecks(v)); h.push(secMsg(v)); h.push(secCalc(v)); h.push(secShare(v)); }
-  if(!v.regions.length&&v.car&&(v.car.make||v.car.model)){ h.push(secFlags(v)); h.push(secChecks(v)); }
-  h.push(secVin(v)); h.push(secHistory(v));
-  if(v.regions.length) h.push(secSources(v));
-  h.push(secSearchLinks(v));
-  out.innerHTML=h.join('');
-  Array.prototype.forEach.call(out.children,function(s){ if(!s.classList||!s.classList.contains('sec')) return; var head=s.querySelector('.sh'); head=head&&head.parentNode!==s?head.parentNode:head; if(!head||head.parentNode!==s) return; var body=document.createElement('div'); body.className='sbody'; Array.prototype.slice.call(s.childNodes).forEach(function(n){ if(n!==head) body.appendChild(n); }); s.appendChild(body); });
+  if(v.noApi) h.push('<div class="c12">'+secNoApi()+'</div>');
+  h.push(pCar(v));
+  if(v.regions.length){
+    h.push(pVerdict(v)); h.push(pKpis(v));
+    var sc=pScatter(v), hi=pHist(v,S.histReg);
+    if(sc&&hi){ h.push(sc); h.push(hi); } else if(sc){ h.push(sc.replace('class="ap c8"','class="ap c12"')); } else if(hi){ h.push(hi.replace('class="ap c4"','class="ap c12"')); }
+    var mk=pMarkets(v), pl=pPlan(v);
+    if(mk&&pl){ h.push(mk); h.push(pl); } else { if(mk) h.push(mk.replace('class="ap c7"','class="ap c12"')); if(pl) h.push(pl.replace('class="ap c5"','class="ap c12"')); }
+    h.push(pTrims(v)); h.push(pFlags(v));
+    var nr=pNear(v); h.push(nr?pChecks(v):pChecks(v).replace('class="ap c6"','class="ap c12"')); if(nr) h.push(nr);
+    h.push(aWrap(secMsg(v),'c6')); h.push(aWrap(secCalc(v),'c6'));
+    h.push(aWrap(secDealer(v),'c4')); h.push(aWrap(secHistory(v),'c4')); h.push(aWrap(secShare(v),'c4'));
+    h.push(aWrap(secSources(v),'c6')); h.push(aWrap(secSearchLinks(v),'c6'));
+  } else {
+    h.push(pFlags(v).replace('class="ap c7"','class="ap c5"')); h.push(pChecks(v).replace('class="ap c6"','class="ap c12"'));
+    h.push(aWrap(secHistory(v),'c6')); h.push(aWrap(secSearchLinks(v),'c6'));
+  }
+  h.push(aWrap(secVin(v),'c12'));
+  return h.filter(Boolean).join('');
+}
+
+/* ---------- history of checks (this browser only) ---------- */
+var KEY_HIST='carscout_hist';
+function histLoad(){ try{ var a=JSON.parse(LS.get(KEY_HIST)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function histAdd(v){
+  try{ var c=v.car, a=histLoad(), id=c.url||[c.make,c.model,c.year,c.km,c.price].join('|');
+    a=a.filter(function(x){return x.id!==id}); a.unshift({id:id,url:c.url||'',title:[c.make,c.model,c.year].filter(Boolean).join(' '),price:c.price||null,km:c.km,verdict:v.ver?v.ver.key:null,delta:v.ver&&v.ver.delta!=null?Math.round(v.ver.delta*10)/10:null,at:Date.now()});
+    LS.set(KEY_HIST,JSON.stringify(a.slice(0,15))); }catch(e){}
+}
+function renderHist(show){
+  var box=document.getElementById('hist');
+  if(!box){ var out=$('#out'); if(!out) return; box=document.createElement('section'); box.id='hist'; box.className='sec ap c12'; box.hidden=true; out.parentNode.insertBefore(box,out); }
+  if(show!=null) box.hidden=!show; if(box.hidden) return;
+  var a=histLoad();
+  box.innerHTML=aHead(L('История проверок','Check history'),'<button class="btn sm" type="button" data-act="nav-hist">'+esc(L('Скрыть','Hide'))+'</button>')+(a.length?'<div class="scroll"><table class="tbl"><thead><tr><th>'+esc(L('Автомобиль','Car'))+'</th><th class="r">'+esc(L('Цена','Price'))+'</th><th class="r">'+esc(L('К рынку','vs market'))+'</th><th class="r">'+esc(L('Когда','When'))+'</th><th></th></tr></thead><tbody>'+a.map(function(x,i){
+    return '<tr><td>'+esc(x.title||x.url||'–')+'</td><td class="r">'+esc(x.price?eur(x.price):'–')+'</td><td class="r">'+esc(x.delta!=null?pct(x.delta):'–')+'</td><td class="r">'+esc(new Date(x.at).toLocaleDateString(S.lang==='ru'?'ru-RU':'en-GB'))+'</td><td class="r">'+(x.url?'<button class="btn sm" type="button" data-act="hist-open" data-i="'+i+'">'+esc(L('Проверить снова','Check again'))+'</button>':'')+'</td></tr>'; }).join('')+'</tbody></table></div>':'<p class="anote">'+esc(L('Здесь появятся машины, которые вы проверяли. Хранится только в этом браузере.','Cars you check will appear here. Stored in this browser only.'))+'</p>');
+}
+function aCrumb(v){
+  var el=document.getElementById('crumb'); if(!el) return;
+  var t=v&&v.car?[v.car.make,v.car.model].filter(Boolean).join(' '):'';
+  el.innerHTML=esc(L('Анализ','Analysis'))+(t?' / <b>'+esc(t)+'</b>':'');
+}
+var aWasMob=null;
+function render(){
+  var v=S.view, out=$('#out'); renderFavs(); renderHist(); aWasMob=aMob();
+  document.body.classList.toggle('has-view',!!v); aCrumb(v);
+  if(!v){ out.innerHTML=''; return; }
+  out.innerHTML=renderA(v);
   updateCalc();
 }
+window.addEventListener('resize',function(){ if(S.view&&aWasMob!==null&&aMob()!==aWasMob) render(); });
 
 /* ---------- language ---------- */
 function applyLang(){
@@ -1998,8 +2462,17 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]'); if(!b) return;
   var a=b.getAttribute('data-act');
   if(a==='stop') stopRun();
-  else if(a==='set-trim'){ var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')); }
+  else if(a==='set-trim'){ $('#intake').classList.add('open'); var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')); }
   else if(a==='fav-toggle') favToggle();
+  else if(a==='more'){ var fm=$('#intake'); fm.classList.toggle('open'); b.setAttribute('aria-expanded',fm.classList.contains('open')?'true':'false'); }
+  else if(a==='hreg'){ S.histReg=b.getAttribute('data-r'); var hp=document.getElementById('a-hist'); if(hp&&S.view){ var nh=pHist(S.view,S.histReg); var tmp=document.createElement('div'); tmp.innerHTML=nh; hp.parentNode.replaceChild(tmp.firstChild,hp); } }
+  else if(a==='ck-tab'){ var pn=b.closest('.ap'); pn.querySelectorAll('[data-act=ck-tab]').forEach(function(x){x.classList.toggle('on',x===b)}); pn.querySelectorAll('.cklist').forEach(function(x){x.hidden=x.getAttribute('data-t')!==b.getAttribute('data-t')}); }
+  else if(a==='go-msg'){ var ms=document.getElementById('sec-msg'); if(ms) ms.scrollIntoView({behavior:'smooth',block:'start'}); }
+  else if(a==='nav-top'){ window.scrollTo({top:0,behavior:'smooth'}); }
+  else if(a==='nav-favs'||a==='nav-compare'){ var fv=document.getElementById('favs'); if(fv&&!fv.hidden){ fv.scrollIntoView({behavior:'smooth',block:'start'}); if(a==='nav-compare'&&favLoad().filter(function(x){return x.sel}).length<2) showStatus('info',L('Отметьте в избранном 2–3 машины, чтобы сравнить их рядом.','Tick 2–3 favourites to compare them.')); } else showStatus('info',L('Избранное пусто: нажмите «☆ В избранное» в карточке машины.','No favourites yet: press “☆ Save” on a car card.')); }
+  else if(a==='nav-hist'){ var hb=document.getElementById('hist'); renderHist(!(hb&&!hb.hidden)); var hb2=document.getElementById('hist'); if(hb2&&!hb2.hidden) hb2.scrollIntoView({behavior:'smooth',block:'start'}); }
+  else if(a==='nav-cfg'){ $('#btn-cfg').click(); var cf=$('#cfg'); if(cf&&!cf.hidden) cf.scrollIntoView({behavior:'smooth',block:'start'}); }
+  else if(a==='hist-open'){ var hx=histLoad()[+b.getAttribute('data-i')]; if(hx&&hx.url){ $('#f-url').value=hx.url; renderHints(); window.scrollTo({top:0,behavior:'smooth'}); run(); } }
   else if(a==='fav-rm'){ var fa=favLoad(); fa.splice(+b.getAttribute('data-i'),1); favSave(fa); render(); }
   else if(a==='fav-recheck') favRecheck(false);
   else if(a==='copy-sum'){ if(S.view) copyText(shareText(S.view),L('Сводка скопирована.','Summary copied.')); }
