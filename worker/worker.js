@@ -356,6 +356,8 @@ function parseSsListing(html, url) {
     model_raw: L.model || null, body: L.body || null, vin: vinIn(L.vin || desc), description: desc.slice(0, 8000),
     lpg: hasLpg(L.engine || '') || hasLpg(desc.slice(0, 3000))
   };
+  listing.src = { make: L.make ? 'table' : 'text', model: L.model ? 'table' : 'text', year: L.year ? 'table' : null, mileage_km: L.mileage ? 'table' : null,
+    asking_price: price ? 'table' : null, gearbox: L.gearbox ? 'table' : null, fuel: (eng.fuel || normFuel(L.engine)) ? 'table' : (listing.fuel ? 'text' : null), vin: L.vin ? 'table' : (listing.vin ? 'text' : null) };
   const OTHER_MAKE = /^(other|others|cit[sai]s?|citas? marka|citas markas|citi|другая|другие|прочие|прочее|иная|—|-)$/i;
   if (!listing.make || OTHER_MAKE.test(listing.make)) {
     const pageTitle = strip((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '');

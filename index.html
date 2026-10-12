@@ -687,6 +687,19 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
 .thumbn img{width:100%;height:100%;object-fit:cover;display:block}
 #a-near td{vertical-align:middle}
 @media (max-width:760px){.thc{width:66px}.thumbn{width:58px;height:44px}#a-near th:nth-child(3),#a-near td:nth-child(3){display:none}#a-near th:nth-child(2),#a-near td:nth-child(2){display:table-cell}}
+/* check-the-data card */
+.cgrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px}
+.cf{display:flex;flex-direction:column;gap:5px;min-width:0}
+.cf label{font-size:11.5px;color:var(--muted)}
+.cf .in{padding:8px 10px;font-size:13.5px;border-radius:8px;min-height:38px}
+.stag{font-size:10.5px;line-height:1.3;color:var(--muted);display:flex;align-items:center;gap:5px}
+.stag::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--dim);flex:none}
+.stag.ok::before{background:var(--good)}.stag.w{color:var(--warn)}.stag.w::before{background:var(--warn)}
+.stag.m{color:var(--accent)}.stag.m::before{background:var(--accent)}.stag.b{color:var(--bad)}.stag.b::before{background:var(--bad)}
+.cf:has(.stag.w) .in{border-color:rgba(242,181,68,.5)}.cf:has(.stag.b) .in{border-color:rgba(242,104,106,.5)}
+.pill.w{color:var(--warn);border-color:rgba(242,181,68,.4);background:transparent}.pill.ok{color:var(--good);border-color:rgba(61,214,140,.35);background:transparent}
+@media (max-width:1250px){.cgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:760px){.cgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -1420,12 +1433,12 @@ function addImages(files){
 
 /* ---------- main run ---------- */
 function stopRun(){ if(S.ctl) S.ctl.abort(); }
-function mergeCar(car,src){
-  Object.keys(src||{}).forEach(function(k){ if(src[k]!=null&&src[k]!==''&&(car[k]==null||car[k]==='')) car[k]=src[k]; });
+function mergeCar(car,src,tag){
+  Object.keys(src||{}).forEach(function(k){ if(src[k]!=null&&src[k]!==''&&(car[k]==null||car[k]==='')){ car[k]=src[k]; if(car.src&&tag) car.src[k]=typeof tag==='function'?tag(k):tag; } });
 }
 async function run(){
   if(S.busy) return;
-  var f=readForm(), notes=[], car={make:null,model:null,year:null,km:null,price:null,fuel:null,gear:null,vin:null,cc:null,site:null,url:f.url||null,image:null,title:null,hints:{}};
+  var f=readForm(), notes=[], car={make:null,model:null,year:null,km:null,price:null,fuel:null,gear:null,vin:null,cc:null,site:null,url:f.url||null,image:null,title:null,hints:{},src:{}};
   var hint=f.url?parseLink(f.url):null;
   if(!f.url&&!f.text&&!S.images.length&&!f.price&&!(f.make&&f.model)&&!f.vin){ showStatus('err',L('Добавьте ссылку, скриншот, текст объявления или марку и модель.','Add a link, a screenshot, the listing text, or a make and model.')); return; }
   S.busy=true; S.ctl=new AbortController(); S.srcRows={}; renderSrcs(); $('#btn-go').disabled=true;
@@ -1443,7 +1456,7 @@ async function run(){
         ocrText=await ocrImages(S.images.map(function(i){return i.file}),function(i,n,p){stage=L('Распознаю скриншот ','Recognising screenshot ')+(i+1)+'/'+n+' · '+Math.round(p*100)+'%'});
         var po=parseText(ocrText);
         notes.push(L('Со скриншота распознано: ','Read from the screenshot: ')+['make','model','year','km','price','vin'].filter(function(k){return po[k]!=null}).map(function(k){return k+' '+po[k]}).join(', '));
-        mergeCar(car,{make:po.make,model:po.model,year:po.year,km:po.km,price:po.price,fuel:po.fuel,gear:po.gearbox,vin:po.vin});
+        mergeCar(car,{make:po.make,model:po.model,year:po.year,km:po.km,price:po.price,fuel:po.fuel,gear:po.gearbox,vin:po.vin},'photo');
       }catch(e){ notes.push(L('Не удалось загрузить распознавание текста (нужен интернет).','Text recognition could not be loaded (internet needed).')); }
     }
     /* 2. link */
@@ -1453,7 +1466,7 @@ async function run(){
       var lj=await api('/api/listing',{url:f.url});
       if(lj&&lj.listing&&(lj.ok||lj.listing.asking_price||lj.listing.make)){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
-        mergeCar(car,carL); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[];
+        var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[];
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
       } else {
         notes.push(L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.'));
@@ -1462,24 +1475,26 @@ async function run(){
       }
     }else if(f.url&&!S.api){ notes.push(L('Сервер не подключён, поэтому ссылка использована только как подсказка (кнопка «Сервер»).','The server is not connected, so the link is used only as a hint (the “Server” button).')); }
     /* 3. pasted text */
-    if(f.text){ var pt=parseText(f.text); mergeCar(car,{make:pt.make,model:pt.model,year:pt.year,km:pt.km,price:pt.price,fuel:pt.fuel,gear:pt.gearbox,vin:pt.vin}); }
+    if(f.text){ var pt=parseText(f.text); mergeCar(car,{make:pt.make,model:pt.model,year:pt.year,km:pt.km,price:pt.price,fuel:pt.fuel,gear:pt.gearbox,vin:pt.vin},'text'); }
     /* 4. manual fields win */
     var man={make:f.make,model:f.model,year:f.year,km:f.km,price:f.price,fuel:f.fuel,vin:f.vin};
-    Object.keys(man).forEach(function(k){ if(man[k]!=null&&man[k]!=='') car[k]=man[k]; });
+    Object.keys(man).forEach(function(k){ if(man[k]!=null&&man[k]!==''){ car[k]=man[k]; car.src[k]='manual'; } });
+    if(S.manualGear){ car.gear=S.manualGear; car.src.gear='manual'; }
     /* 5. hints from the link */
-    if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year});
+    if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year},'link');
     /* ss.com lists less common brands (GWM, BYD, ...) under "Others": take the real make from the ad text */
     var OTHER_MK=/^(other|others|cit[sai]s?|citas? marka|citas markas|citi|другая|другие|прочие|прочее|иная)$/i;
-    if(!car.make||OTHER_MK.test(car.make)){ var gm=parseText([car.model,car.title,car.desc,f.text].join(' ')); if(gm.make){ car.make=gm.make; car.model=gm.model||car.model; } else if(OTHER_MK.test(car.make||'')) car.make=null; }
+    if(!car.make||OTHER_MK.test(car.make)){ var gm=parseText([car.model,car.title,car.desc,f.text].join(' ')); if(gm.make){ car.make=gm.make; car.model=gm.model||car.model; car.src.make='text'; if(gm.model) car.src.model='text'; } else if(OTHER_MK.test(car.make||'')) car.make=null; }
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
     car.allText=[car.title,car.rawModel,car.desc,f.text,ocrText].join(' ');
-    if(!f.fuel&&isEvCar(car)) car.fuel='electric';
+    if(!f.fuel&&isEvCar(car)&&car.fuel!=='electric'){ car.fuel='electric'; car.src.fuel='guess'; }
     /* petrol + gas (LPG): compared as petrol, but shown and flagged separately */
     if(f.fuel){ car.lpg=(f.fuel==='lpg'); }
     else car.lpg=!!(car.lpg||car.fuel==='lpg'||((!car.fuel||car.fuel==='petrol')&&hasLpg([car.title,(car.desc||'').slice(0,3000),f.text,ocrText].join(' '))));
     if(car.fuel==='lpg'||(car.lpg&&!car.fuel)) car.fuel='petrol';
     car.trims=f.trim?detectTrim(f.trim,car.make,true):mergeTrims(detectTrim([car.title,car.rawModel,car.desc].join(' '),car.make),detectTrim([f.text,ocrText].join(' '),car.make,false,true));
     car.trimCustom=''; if(f.trim&&!car.trims.length){ car.trimCustom=f.trim; car.trims=[f.trim.toLowerCase()]; }
+    if(car.trims.length) car.src.trims=f.trim?'manual':(detectTrim([car.title,car.rawModel].join(' '),car.make).some(function(k){return car.trims.indexOf(k)>-1})?'title':'text');
     car.trimKnownText=!!(f.trim||car.desc||car.title||f.text||ocrText);
     car.trimFromPhoto=false;
     if(!car.trims.length&&!f.trim&&f.photos&&S.api&&car.images&&car.images.length){
@@ -1487,13 +1502,13 @@ async function run(){
       try{
         var scan=await scanPhotos(phs,function(i,n){ stage=L('Читаю фото объявления ','Reading listing photos ')+(i+1)+'/'+n+L(' (комплектация, документы)',' (trim, documents)'); },function(){return S.ctl&&S.ctl.signal.aborted});
         var hit=scan.filter(function(x){return x.trims.length})[0], vinHit=scan.filter(function(x){return x.vin})[0];
-        if(hit){ car.trims=hit.trims; car.trimFromPhoto=true; notes.push(L('Комплектация найдена на фото №'+(hit.i+1)+': '+hit.trims.join(', ')+'. Распознавание текста на фото неточное: проверьте и при необходимости исправьте в поле «Комплектация».','Trim found on photo #'+(hit.i+1)+': '+hit.trims.join(', ')+'. Text recognition on photos is imprecise: please check it and fix the “Trim” field if needed.')); }
+        if(hit){ car.trims=hit.trims; car.trimFromPhoto=true; car.src.trims='photo'; notes.push(L('Комплектация найдена на фото №'+(hit.i+1)+': '+hit.trims.join(', ')+'. Распознавание текста на фото неточное: проверьте и при необходимости исправьте в поле «Комплектация».','Trim found on photo #'+(hit.i+1)+': '+hit.trims.join(', ')+'. Text recognition on photos is imprecise: please check it and fix the “Trim” field if needed.')); }
         else notes.push(L('Просмотрено фото: '+scan.length+', комплектация на них не найдена.','Photos checked: '+scan.length+', no trim found on them.'));
         if(vinHit&&!car.vin) notes.push(L('На фото виден возможный VIN: '+vinHit.vin+' (проверьте вручную).','A possible VIN is visible on a photo: '+vinHit.vin+' (please check manually).'));
       }catch(e){ notes.push(L('Фото не удалось прочитать (нужен интернет для загрузки распознавания).','Photos could not be read (internet needed to load text recognition).')); }
     }
     autoSet('#f-trim',(car.trims||[]).map(trimDisplay).join(', '));
-    var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1) car.year=vd.years[0];
+    var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1){ car.year=vd.years[0]; car.src.year='vin'; }
     /* fill the form so the user can fix it */
     autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin);
     renderVinLive();
@@ -1974,7 +1989,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-12.8', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-12.9', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2397,6 +2412,33 @@ function pNear(v){
       return '<tr>'+thumb+'<td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(i.title||L('Объявление','Listing')).slice(0,48))+'</a>':esc(String(i.title||'').slice(0,48)))+'<div class="rn">'+esc(i.src+' · '+rname(i.region))+'</div></td><td class="r">'+(i.year||'–')+'</td><td class="r">'+(i.km!=null?esc(aKmTxt(i.km)):'–')+'</td><td class="r">'+esc(eur(i.price))+'</td><td class="r" style="color:var(--'+(d==null?'muted':d<0?'good':'bad')+')">'+(d!=null?esc(pct(d)):'–')+'</td></tr>'; }).join('')+'</tbody></table></div>'+
     '<div class="abtns"><button class="btn sm" type="button" data-act="go-msg">'+esc(L('Сообщение продавцу','Message to the seller'))+'</button><button class="btn sm" type="button" data-act="nav-compare">'+esc(L('Сравнить с избранным','Compare with favourites'))+'</button></div>');
 }
+
+/* ---- "check the data" card: what was read and where from; fix and recalculate ---- */
+var SRC_TAG={table:['таблица объявления','listing table','ok'],page:['страница объявления','listing page','ok'],title:['заголовок','title','ok'],text:['угадано из текста','guessed from text','w'],photo:['распознано на фото','read from a photo','w'],link:['из ссылки','from the link','w'],guess:['догадка по модели','guess by model','w'],vin:['по VIN','from VIN','ok'],manual:['вы указали','set by you','m'],none:['не найдено','not found','b']};
+function pCheck(v){
+  var c=v.car, s=c.src||{};
+  var tag=function(k,val){ var t=SRC_TAG[(val==null||val===''||(Array.isArray(val)&&!val.length))?'none':(s[k]||'page')]||SRC_TAG.page; return '<span class="stag '+t[2]+'">'+esc(S.lang==='ru'?t[0]:t[1])+'</span>'; };
+  var inp=function(id,label,val,k,type){ return '<div class="cf"><label for="'+id+'">'+esc(label)+'</label><input class="in" id="'+id+'" type="text" '+(type==='n'?'inputmode="numeric" ':'')+'value="'+esc(val==null?'':val)+'" data-orig="'+esc(val==null?'':val)+'">'+tag(k,val)+'</div>'; };
+  var sel=function(id,label,val,k,opts){ return '<div class="cf"><label for="'+id+'">'+esc(label)+'</label><select class="in" id="'+id+'" data-orig="'+esc(val||'')+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===(val||'')?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select>'+tag(k,val)+'</div>'; };
+  var fuelVal=c.lpg?'lpg':(c.fuel||'');
+  var guessed=Object.keys(s).filter(function(k){return /^(text|photo|link|guess)$/.test(s[k])}).length+(['make','model','year','km','price','fuel'].filter(function(k){return c[k]==null||c[k]===''}).length);
+  return aPanel('a-check','c12',aHead(L('Проверьте данные','Check the data'),guessed?'<span class="pill w">'+esc(L('проверьте поля с жёлтой пометкой','check the fields marked yellow'))+'</span>':Object.keys(s).some(function(k){return s[k]==='manual'})?'<span class="pill k">'+esc(L('с вашими исправлениями','with your corrections'))+'</span>':'<span class="pill ok">'+esc(L('всё взято из объявления','all from the listing'))+'</span>'),
+    '<div class="cgrid">'+inp('c-make',L('Марка','Make'),c.make,'make')+inp('c-model',L('Модель','Model'),c.model,'model')+inp('c-year',L('Год','Year'),c.year,'year','n')+inp('c-km',L('Пробег, км','Mileage, km'),c.km,'km','n')+inp('c-price',L('Цена, €','Price, €'),c.price,'price','n')+
+    sel('c-fuel',L('Топливо','Fuel'),fuelVal,'fuel',[['',L('не указано','not set')],['petrol',L('Бензин','Petrol')],['diesel',L('Дизель','Diesel')],['hybrid',L('Гибрид','Hybrid')],['electric',L('Электро','Electric')],['lpg',L('Бензин + газ','Petrol + LPG')]])+
+    sel('c-gear',L('Коробка','Gearbox'),c.gear,'gear',[['',L('не указано','not set')],['automatic',L('Автомат','Automatic')],['manual',L('Механика','Manual')]])+
+    inp('c-trim',L('Комплектация','Trim'),(c.trims||[]).map(trimDisplay).join(', '),'trims')+'</div>'+
+    '<div class="abtns"><button class="btn sm pri" type="button" data-act="recheck">'+esc(L('Пересчитать с исправлениями','Recalculate with corrections'))+'</button><span class="anote" style="align-self:center">'+esc(L('Если всё верно, ничего делать не нужно: сравнение уже выполнено по этим данным.','If everything is right, nothing to do: the comparison already uses these data.'))+'</span></div>');
+}
+function applyCheck(){
+  var ch=function(id){ var el=document.getElementById(id); return !!el&&String(el.value||'').trim()!==String(el.getAttribute('data-orig')||'').trim(); };
+  var g=function(id){ var el=document.getElementById(id); return el?String(el.value||'').trim():''; };
+  var ids=['c-make','c-model','c-year','c-km','c-price','c-fuel','c-trim','c-gear'];
+  if(!ids.some(ch)){ showStatus('info',L('Вы ничего не изменили: эти данные уже учтены.','Nothing changed: these data are already used.')); return; }
+  var set=function(sel,id,num){ if(!ch(id)) return; var el=$(sel); if(!el) return; var val=g(id); el.value=num?val.replace(/[^\d]/g,''):val; el.dataset.auto=''; };
+  set('#f-make','c-make'); set('#f-model','c-model'); set('#f-year','c-year',1); set('#f-km','c-km',1); set('#f-price','c-price',1); set('#f-fuel','c-fuel'); set('#f-trim','c-trim');
+  if(ch('c-gear')) S.manualGear=g('c-gear')||null;
+  window.scrollTo({top:0,behavior:'smooth'}); run();
+}
 /* existing sections rendered as panels */
 function aWrap(html,cls){ return html?html.replace('<section class="sec"','<section class="sec ap '+cls+'"'):''; }
 
@@ -2405,7 +2447,7 @@ function renderA(v){
   if(v.noApi) h.push('<div class="c12">'+secNoApi()+'</div>');
   h.push(pCar(v));
   if(v.regions.length){
-    h.push(pVerdict(v)); h.push(pKpis(v));
+    h.push(pVerdict(v)); h.push(pCheck(v)); h.push(pKpis(v));
     var sc=pScatter(v), hi=pHist(v,S.histReg);
     if(sc&&hi){ h.push(sc); h.push(hi); } else if(sc){ h.push(sc.replace('class="ap c8"','class="ap c12"')); } else if(hi){ h.push(hi.replace('class="ap c4"','class="ap c12"')); }
     var mk=pMarkets(v), pl=pPlan(v);
@@ -2416,6 +2458,7 @@ function renderA(v){
     h.push(aWrap(secDealer(v),'c4')); h.push(aWrap(secHistory(v),'c4')); h.push(aWrap(secShare(v),'c4'));
     h.push(aWrap(secSources(v),'c6')); h.push(aWrap(secSearchLinks(v),'c6'));
   } else {
+    h.push(pCheck(v));
     h.push(pFlags(v).replace('class="ap c7"','class="ap c5"')); h.push(pChecks(v).replace('class="ap c6"','class="ap c12"'));
     h.push(aWrap(secHistory(v),'c6')); h.push(aWrap(secSearchLinks(v),'c6'));
   }
@@ -2485,6 +2528,7 @@ document.addEventListener('click',function(e){
   if(a==='stop') stopRun();
   else if(a==='set-trim'){ $('#intake').classList.add('open'); var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')); }
   else if(a==='fav-toggle') favToggle();
+  else if(a==='recheck') applyCheck();
   else if(a==='more'){ var fm=$('#intake'); fm.classList.toggle('open'); b.setAttribute('aria-expanded',fm.classList.contains('open')?'true':'false'); }
   else if(a==='hreg'){ S.histReg=b.getAttribute('data-r'); var hp=document.getElementById('a-hist'); if(hp&&S.view){ var nh=pHist(S.view,S.histReg); var tmp=document.createElement('div'); tmp.innerHTML=nh; hp.parentNode.replaceChild(tmp.firstChild,hp); } }
   else if(a==='ck-tab'){ var pn=b.closest('.ap'); pn.querySelectorAll('[data-act=ck-tab]').forEach(function(x){x.classList.toggle('on',x===b)}); pn.querySelectorAll('.cklist').forEach(function(x){x.hidden=x.getAttribute('data-t')!==b.getAttribute('data-t')}); }
@@ -2520,7 +2564,7 @@ document.addEventListener('paste',function(e){
   if(files.length) addImages(files);
 });
 $('#btn-clear').addEventListener('click',function(){
-  $('#intake').reset(); S.images.forEach(function(i){URL.revokeObjectURL(i.url)}); S.images=[]; renderThumbs(); S.view=null; S.srcRows={}; renderSrcs(); render(); showStatus(''); renderHints(); renderVinLive();
+  $('#intake').reset(); S.manualGear=null; S.images.forEach(function(i){URL.revokeObjectURL(i.url)}); S.images=[]; renderThumbs(); S.view=null; S.srcRows={}; renderSrcs(); render(); showStatus(''); renderHints(); renderVinLive();
 });
 $('#lang-ru').addEventListener('click',function(){S.lang='ru';LS.set(KEY_LANG,'ru');applyLang()});
 $('#lang-en').addEventListener('click',function(){S.lang='en';LS.set(KEY_LANG,'en');applyLang()});
