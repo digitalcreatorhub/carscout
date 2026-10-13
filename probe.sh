@@ -1,13 +1,12 @@
-sleep 45
+UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 W=https://carscout.pmax70095.workers.dev; O="Origin: https://digitalcreatorhub.github.io"
-rm -f out/as24live.txt
-for q in "make=BMW&model=320&year=2017&fuel=diesel" "make=Mercedes-Benz&model=C%20220&year=2017"; do
-  for cy in D B; do
-  U=$(curl -s -H "$O" "$W/api/comps?source=as24&cy=$cy&$q" | python3 -c "import json,sys;j=json.load(sys.stdin);its=j.get('items') or [];print(its[min(2,len(its)-1)]['url'] if its else '')")
-  [ -z "$U" ] && continue
-  [ "$cy" = "D" ] && U=$(echo "$U" | sed 's#autoscout24.com/offers/#autoscout24.de/angebote/#')
-  curl -s -H "$O" "$W/api/listing?url=$U" | python3 -c "
-import json,sys;j=json.load(sys.stdin);l=j.get('listing') or {}
-print(j.get('parser'), {k:l.get(k) for k in ['make','model','year','mileage_km','asking_price','fuel','gearbox','engine_l','power_kw','place','dealer','accident']}, 'carfax' if l.get('report_url') else '-', '$U'[-60:])" >> out/as24live.txt
+rm -f out/cf_*
+i=0
+for q in "make=BMW&model=320&year=2017&fuel=diesel" "make=Volkswagen&model=Golf&year=2018" "make=Audi&model=A6&year=2016"; do
+  for k in 0 3; do i=$((i+1))
+  U=$(curl -s -H "$O" "$W/api/comps?source=as24&cy=D&$q" | python3 -c "import json,sys;j=json.load(sys.stdin);its=j.get('items') or [];print(its[$k]['url'] if len(its)>$k else '')")
+  R=$(curl -s -H "$O" "$W/api/listing?url=$U" | python3 -c "import json,sys;j=json.load(sys.stdin);print((j.get('listing') or {}).get('report_url') or '')")
+  echo "$i $U $R" >> out/cf_urls.txt
+  [ -n "$R" ] && curl -sL -A "$UA" -H "Accept-Language: en,de" "$R" -o out/cf_$i.html -w "  -> %{http_code} %{size_download} %{url_effective}\n" >> out/cf_urls.txt
   done
 done
