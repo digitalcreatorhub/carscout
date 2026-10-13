@@ -1,0 +1,30 @@
+name: Daily self-check
+on:
+  schedule:
+    - cron: '17 4 * * *'   # 07:17 Riga summer time
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Read real ads through the worker
+        run: node tools/selfcheck.mjs
+      - name: Open, update or close the alert issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          T="Ежедневная проверка CarScout нашла ошибки чтения"
+          N=$(gh issue list --state open --search "$T in:title" --json number --jq '.[0].number')
+          if [ "$(cat selfcheck-failed.txt)" = "1" ]; then
+            if [ -n "$N" ]; then gh issue comment "$N" --body-file selfcheck-report.md; else gh issue create --title "$T" --body-file selfcheck-report.md; fi
+          elif [ -n "$N" ]; then
+            gh issue close "$N" --comment "Проверка $(date -u +%F): ошибок нет."
+          fi

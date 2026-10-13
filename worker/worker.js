@@ -402,6 +402,7 @@ function parseSsList(html, base) {
     const e = parseEngine(eng || '');
     let title = '';
     (row.match(/<a[^>]+href="\/(?:msg|[a-z]{2}\/msg)\/[^"]+"[^>]*>[\s\S]*?<\/a>/gi) || []).forEach(function (h) { const t = strip(h); if (t.length > title.length) title = t; });
+    if (km == null) { const tk = title.match(/(\d{1,3}(?:[ \u00a0.]\d{3})+|\d{4,6})\s*(?:km|км)\b/i); if (tk) { const n = parseInt(tk[1].replace(/\D/g, ''), 10); if (n >= 1000 && n < 1500000) km = n; } }
     let img = null; const im = row.match(/<img[^>]+(?:data-src|src)=["']([^"']+\.(?:jpe?g|png|webp)(?:\?[^"']*)?)["']/i);
     if (im) { const u = absUrl(im[1].replace(/&amp;/g, '&'), base); if (u && imgAllowed(u) && !/(logo|icon|noimage|placeholder|sprite)/i.test(u)) img = u; }
     items.push({ price: Math.round(price), km: km, year: year, url: link ? absUrl(link[1], base) : null, title: title.slice(0, 160), fuel: e.fuel || null, engine_l: e.engine_l || null, img: img });
