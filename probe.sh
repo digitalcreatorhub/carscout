@@ -1,21 +1,8 @@
-UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
-V=WBA8E1C58JA756430
-rm -f out/vs_*; : > out/vsites.txt
-f(){ curl -sL -m 25 -A "$UA" -H "Accept-Language: en" -o "out/vs_$1.html" -w "$1 %{http_code} %{size_download} %{url_effective}" "$2"; echo " vinInPage=$(grep -c $V out/vs_$1.html) cf=$(grep -c -i 'just a moment\|cf-chl\|captcha' out/vs_$1.html)"; sleep 1; }
-{
-f vcit "https://vincheck.it.com/auctions/lot/47296956"
-f vcit2 "https://vincheck.it.com/search?vin=$V"
-f vcit3 "https://vincheck.it.com/vin/$V"
-f vinfax "https://vinfax.net/vin/$V"
-f vinfax2 "https://vinfax.net/search?q=$V"
-f autoastat "https://autoastat.com/en/search?vin=$V"
-f carfast "https://carfast.express/en/vin/$V"
-f ccv "https://www.carcheckervin.com/vin/$V"
-f plc "https://plc.auction/auction/vin/$V"
-f autohelperbot "https://autohelperbot.com/en/vin/$V"
-f bidcars2 "https://bid.cars/en/search/results?search-type=typing&query=$V"
-f statvin "https://stat.vin/cars/$V"
-f poctra "https://poctra.com/search?q=$V"
-f salvagereseller "https://www.salvagereseller.com/search?query=$V"
-f autobidcar "https://autobidcar.com/?s=$V"
-} >> out/vsites.txt
+sleep 50
+W=https://carscout.pmax70095.workers.dev; O="Origin: https://digitalcreatorhub.github.io"
+: > out/vh.txt
+for v in WBA8E1C58JA756430 WBA8E1C53JA159590 WVWZZZ3CZLE012345 1HGCM82633A004352 5YJ3E1EA7KF317000; do
+  curl -s -H "$O" "$W/api/vinhist?vin=$v" | head -c 700 >> out/vh.txt; echo >> out/vh.txt
+done
+P=$(curl -s -H "$O" "$W/api/vinhist?vin=WBA8E1C58JA756430" | python3 -c "import json,sys;print(json.load(sys.stdin)['lots'][0]['photos'][0])")
+curl -s -H "$O" -o /dev/null -w "img %{http_code} %{content_type} %{size_download}\n" "$W/api/img?url=$(python3 -c "import urllib.parse;print(urllib.parse.quote('$P',safe=''))")" >> out/vh.txt
