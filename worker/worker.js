@@ -830,6 +830,13 @@ async function hVinHistory(env, q) {
   if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return json(env, { ok: false, error: 'bad_vin' }, 400);
   const base = 'https://vincheck.it.com';
   const p = await getPage(base + '/vin/' + vin, 86400).catch(function () { return { status: 0, text: '' }; });
+  if (q.get('probe') === 'bidfax') {
+    const out = {};
+    for (const u of ['https://en.bidfax.info/index.php?do=search&subaction=search&story=' + vin, 'https://bidfax.info/index.php?do=search&subaction=search&story=' + vin, 'https://poctra.com/search?q=' + vin, 'https://stat.vin/cars/' + vin]) {
+      try { const r = await fetch(u, { headers: { 'user-agent': UA, 'accept': 'text/html', 'accept-language': 'en' } }); const t = await r.text(); out[u] = { status: r.status, bytes: t.length, vin: t.toUpperCase().indexOf(vin) > -1, cf: /just a moment|cf-chl|captcha/i.test(t.slice(0, 20000)), links: (t.match(/href="[^"]*vin-[a-z0-9]{17}[^"]*"/gi) || []).slice(0, 3) }; } catch (e) { out[u] = String(e); }
+    }
+    return json(env, out);
+  }
   if (p.status === 404 || (p.status === 200 && p.text.indexOf(vin) < 0)) return json(env, { ok: true, vin: vin, found: false, source: 'vincheck.it.com' });
   if (p.status !== 200) return json(env, { ok: false, vin: vin, error: blockedBy(p) ? 'blocked' : 'unavailable', status: p.status });
   const t = vcText(p.text);
