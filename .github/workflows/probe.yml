@@ -2,14 +2,15 @@ name: probe
 on:
   push:
     branches: [probe]
+    paths: ['.github/workflows/probe.yml', 'probe.sh']
+permissions:
+  contents: write
 jobs:
   p:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - run: |
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128 Safari/537.36"
-          curl -sL -A "$UA" https://www.ss.com/msg/en/transport/cars/volkswagen/arteon/cgppgl.html -o ad.html; wc -c ad.html
-          grep -n -i -o '.\{200\}msg_footer.\{300\}' ad.html | head -5
-          grep -n -i -o '.\{300\}phone.\{300\}' ad.html | head -12
-          grep -n -i -o '.\{200\}show_cnt.\{200\}' ad.html | head -3
-          grep -n -i -o '.\{100\}<script[^>]*src=[^>]*>' ad.html | head -10
+          mkdir -p out; bash probe.sh || true
+          git config user.name probe; git config user.email probe@users.noreply.github.com
+          git add out; git commit -qm "probe out [skip ci]" || true; git push
