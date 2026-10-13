@@ -1,12 +1,17 @@
 UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
-curl -sL -A "$UA" https://www.ss.lv/lv/transport/cars/audi/ -o list.html
-grep -o 'href="/msg/lv/transport/cars/audi/[^"]*\.html"' list.html | sed 's/href="//;s/"//' | awk '!s[$0]++' | head -6 > ads.txt
-rm -f out/vin.txt
-while read p; do
-  U="https://www.ss.lv$p"; rm -f cj
-  curl -sL -c cj -b cj -A "$UA" -H "Accept-Language: lv,en" "$U" -o a.html
-  D=$(grep -o "_show_js_special_data( '[^']*'" a.html | head -1 | sed "s/.*( '//;s/'$//")
-  if [ -z "$D" ]; then echo "$p | no vin button" >> out/vin.txt; continue; fi
-  R=$(curl -s -c cj -b cj -A "$UA" -H "Accept: message/x-ajax" -H "Accept-Language: lv,en" -H "X-Requested-With: XMLHttpRequest" -e "$U" "https://www.ss.lv/w_inc/ajax.php?action=show_special_js_data&version=1&lg=lv&data=$D" | head -c 300)
-  echo "$p | $R" >> out/vin.txt; sleep 2
-done < ads.txt
+f(){ curl -sL -A "$UA" -H "Accept-Language: en,lv" -o "out/$1.html" -w "$1 %{http_code} %{size_download} %{url_effective}\n" "$2" >> out/svc.txt; sleep 1; }
+rm -f out/svc.txt
+f ltab "https://services.ltab.lv/lv/VehicleInsAndAcc"
+f statvin "https://stat.vin/cars/5YJ3E1EA7KF317000"
+f poctra "https://poctra.com/search?q=5YJ3E1EA7KF317000"
+f bidcars "https://bid.cars/en/search/results?search-type=typing&query=5YJ3E1EA7KF317000"
+f bidfaxinfo "https://bidfax.info/index.php?do=search&subaction=search&story=5YJ3E1EA7KF317000"
+f nhtsa "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/5YJ3E1EA7KF317000?format=json"
+f rdw "https://opendata.rdw.nl/resource/m9d7-ebf2.json?kenteken=G123BB"
+for k in ltab statvin poctra bidcars bidfaxinfo; do echo "== $k" >> out/svc.txt; python3 - out/$k.html >> out/svc.txt <<'PY'
+import re,sys
+s=open(sys.argv[1],errors='ignore').read()
+t=re.sub(r'<script[\s\S]*?</script>|<style[\s\S]*?</style>',' ',s); t=re.sub('<[^>]+>',' ',t); t=re.sub(r'\s+',' ',t)
+print(t[:600]); print('captcha' in s.lower(), 'cf-chl' in s or 'Just a moment' in s, [m for m in re.findall(r'<form[^>]*>',s)][:3], re.findall(r'<input[^>]+name="([^"]+)"',s)[:20])
+PY
+done
