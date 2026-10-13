@@ -371,8 +371,17 @@ function parseSsListing(html, url) {
   /* ss.lv puts make and model together in the 'Marka' row, so a model taken from it is table data */
   if (listing.model && listing.src.make === 'table' && L.make && L.make.toLowerCase().indexOf(String(listing.model).toLowerCase().split(' ')[0]) > -1) listing.src.model = 'table';
   if (!listing.vin) listing.src.vin = null;
+  const dt = ssDates(html); listing.posted = dt.posted; listing.updated = dt.updated; listing.ss_id = dt.id;
+  listing.removed = !price && !L.year && !L.mileage;
   const m3 = url.match(/\/msg\/[a-z]{2}\/transport\/cars\/others\/[^/]+\.html/i);
   return { listing: listing, hints: { ss_others: !!m3, ss_path: m3 ? '/ru/transport/cars/others/' : m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };
+}
+/* ss.lv: the contacts script path carries the date the ad was first published; the footer shows the last raise date */
+function ssDates(html) {
+  const p = html.match(/\/js\/[a-z]{2}\/(20\d{2}-\d{2}-\d{2})\//);
+  const u = html.match(/(?:Datums|Date|Дата):\s*(\d{2})\.(\d{2})\.(20\d{2})\s+(\d{2}:\d{2})/);
+  const id = html.match(/value=['"](\d{6,})_\d+/);
+  return { posted: p ? p[1] : null, updated: u ? u[3] + '-' + u[2] + '-' + u[1] + 'T' + u[4] : null, id: id ? id[1] : null };
 }
 function parseSsList(html, base) {
   const items = [];
@@ -577,6 +586,7 @@ async function hListing(env, q) {
     Object.keys(g.listing).forEach(function (k) { if (k === 'fuel') return; if (res.listing[k] == null || res.listing[k] === '') res.listing[k] = g.listing[k]; });
   } else { res = parseGenericListing(p.text, p.url); parser = 'generic'; res.hints = {}; }
   const L = res.listing;
+  if (parser === 'ss' && L.removed) return json(env, { ok: false, error: 'not_found', removed: true, message: 'The listing was removed or has expired.', source: host, parser: parser, listing: L });
   const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;
   return json(env, { ok: filled >= 2, error: filled >= 2 ? null : 'parse_failed', message: filled >= 2 ? null : 'Could not read the main fields from this page.', source: host, parser: parser,
     listing: L, image: res.image || null, images: collectImages(p.text, p.url), title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
@@ -595,6 +605,7 @@ async function hComps(env, q) {
   const cm = cleanMakeModel(q.get('make') || '', q.get('model') || '');
   const make = cm.make || '', model = cm.model || '';
   const year = parseInt(q.get('year') || '', 10) || null;
+  const yf = parseInt(q.get('yfrom') || '', 10) || (year ? year - 1 : null), yt = parseInt(q.get('yto') || '', 10) || (year ? year + 1 : null);
   if (source === 'ss') {
     let path = q.get('ssPath');
     let others = !!path && /^\/[a-z]{2}\/transport\/cars\/others\/$/i.test(path);
@@ -634,7 +645,7 @@ async function hComps(env, q) {
     if (mk === 'gwm' && /^ora/.test(md)) { mk = 'ora'; md = ''; }
     if (!mk || (!md && mk !== 'ora')) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
     const fuelCode = { diesel: 'D', petrol: 'B', electric: 'E', lpg: 'L' }[q.get('fuel')] || '';
-    const f = (fuelCode ? '&fuel=' + fuelCode : '') + (year ? '&fregfrom=' + (year - 1) + '&fregto=' + (year + 1) : '');
+    const f = (fuelCode ? '&fuel=' + fuelCode : '') + (yf ? '&fregfrom=' + yf : '') + (yt ? '&fregto=' + yt : '');
     const trim = String(q.get('trim') || '').replace(/[^A-Za-z0-9 \-+&]/g, '').trim().slice(0, 30);
     const mkUrlV = function (p, tv) { return 'https://www.autoscout24.com/lst/' + mk + (md ? '/' + md : '') + '?atype=C&cy=' + cy + '&damaged_listing=exclude&desc=0' + f + (tv ? '&version=' + encodeURIComponent(tv) : '') + '&sort=standard&ustate=N%2CU&page=' + p; };
     const fetchSet = function (tv) { return Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrlV(n, tv), 900).catch(function (e) { return { status: 0, text: '', url: mkUrlV(n, tv) }; }); })); };
@@ -652,7 +663,7 @@ async function hComps(env, q) {
     items = dedupe(items);
     if (/\/lst\//.test(pages[0].url || '') === false || (pages[0].url || '').toLowerCase().indexOf('/lst/' + mk) === -1) return json(env, { ok: false, source: srcName, error: 'not_found', message: 'AutoScout24 redirected away from this make/model.', searchUrl: search });
     if (year && items.length >= 10) {
-      const inY = items.filter(function (i) { return i.year == null || Math.abs(i.year - year) <= 1; }).length;
+      const inY = items.filter(function (i) { return i.year == null || (i.year >= (yf || year - 1) && i.year <= (yt || year + 1)); }).length;
       if (inY / items.length < 0.5) return json(env, { ok: false, source: srcName, error: 'filters_ignored', message: 'AutoScout24 did not apply the model/year filters.', searchUrl: search });
     }
     if (usedTrim) items.forEach(function (i) { i.trimMatch = usedTrim; });
@@ -662,7 +673,7 @@ async function hComps(env, q) {
     let mk = slugify(make); if (mk === 'vw') mk = 'volkswagen'; if (mk === 'mercedes') mk = 'mercedes-benz';
     const md = slugify(model);
     if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
-    const yq = year ? '&make_date_from=' + (year - 1) + '&make_date_to=' + (year + 1) : '';
+    const yq = (yf ? '&make_date_from=' + yf : '') + (yt ? '&make_date_to=' + yt : '');
     const mkUrl = function (p) { return 'https://en.autoplius.lt/ads/used-cars/' + mk + '/' + md + '?' + yq.slice(1) + (p > 1 ? '&page_nr=' + p : ''); };
     const pages = await Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrl(n), 900).catch(function (e) { return { status: 0, text: '', url: mkUrl(n) }; }); }));
     const search = mkUrl(1), b = blockedBy(pages[0]);
@@ -674,6 +685,49 @@ async function hComps(env, q) {
     return json(env, { ok: items.length > 0, source: 'autoplius', region: 'LT', label: 'autoplius.lt', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found on the page.' });
   }
   return json(env, { ok: false, error: 'bad_source', message: 'Unknown source.' }, 400);
+}
+
+/* ss.lv seller: number of views and every other ad with the same phone number.
+   ss.lv puts these into a small script that loads with the page; it needs the page's cookies and browser-like headers. */
+function cookieJar(jar, r) {
+  const all = typeof r.headers.getSetCookie === 'function' ? r.headers.getSetCookie() : (r.headers.get('set-cookie') ? r.headers.get('set-cookie').split(/,(?=\s*[A-Za-z_]+=)/) : []);
+  all.forEach(function (c) { const kv = String(c).split(';')[0].trim(); const i = kv.indexOf('='); if (i > 0) jar[kv.slice(0, i)] = kv.slice(i + 1); });
+  return jar;
+}
+function jarStr(jar) { return Object.keys(jar).map(function (k) { return k + '=' + jar[k]; }).join('; '); }
+async function hSeller(env, q) {
+  const url = q.get('url');
+  if (!url || !allowed(url) || !/(^|\.)ss\.(com|lv)$/.test(new URL(url).hostname) || !/\/msg\//.test(url)) return json(env, { ok: false, error: 'bad_url', message: 'Only ss.lv / ss.com listing links are supported.' }, 400);
+  const origin = new URL(url).origin, jar = {};
+  const H = { 'user-agent': UA, 'accept-language': 'lv,en;q=0.9,ru;q=0.8' };
+  const r1 = await fetch(url, { headers: Object.assign({ accept: 'text/html,application/xhtml+xml,*/*;q=0.8' }, H), redirect: 'follow' });
+  cookieJar(jar, r1); const html = await r1.text();
+  const dt = ssDates(html);
+  const sm = html.match(/id="contacts_js"\s+src="([^"]+)"/);
+  if (!sm) return json(env, { ok: false, error: 'no_contacts', message: 'The seller block was not found on the page.', posted: dt.posted, updated: dt.updated });
+  const js = origin + dec(sm[1]);
+  let txt = '';
+  for (let k = 0; k < 3 && !/ADS_STAT/.test(txt); k++) {
+    const r2 = await fetch(js, { headers: Object.assign({ accept: '*/*', referer: url, cookie: jarStr(jar), 'sec-fetch-dest': 'script', 'sec-fetch-mode': 'no-cors', 'sec-fetch-site': 'same-origin' }, H) });
+    cookieJar(jar, r2); txt = await r2.text();
+  }
+  const st = txt.match(/ADS_STAT=\[([-\d,\s]+)\]/), lk = txt.match(/OPEN_STAT_LNK="([^"]+)"/);
+  if (!st) return json(env, { ok: false, error: 'no_stats', message: 'ss.lv did not return the seller data.', posted: dt.posted, updated: dt.updated });
+  const a = st[1].split(',').map(function (x) { return parseInt(x, 10); });
+  const out = { ok: true, posted: dt.posted, updated: dt.updated, views: a[4] > 0 ? a[4] : null, phoneLinked: a[0] >= 0, emailLinked: a[3] >= 0, items: [], searchUrl: null };
+  if (lk && a[0] >= 0) {
+    const lang = (url.match(/\/msg\/([a-z]{2})\//) || [])[1] || 'lv';
+    const su = origin + '/' + lang + '/search-result/?t=' + encodeURIComponent(lk[1]);
+    out.searchUrl = su;
+    const r3 = await fetch(su, { headers: Object.assign({ accept: 'text/html,*/*;q=0.8', referer: url, cookie: jarStr(jar) }, H) });
+    const sh = await r3.text();
+    const links = {}; (sh.match(/href="\/msg\/[a-z]{2}\/[^"]+\.html"/g) || []).forEach(function (h) { links[h.slice(6, -1)] = 1; });
+    out.adsTotal = Object.keys(links).length;
+    out.carAds = Object.keys(links).filter(function (h) { return /\/transport\/cars\//.test(h); }).length;
+    out.cats = {}; Object.keys(links).forEach(function (h) { const c = (h.match(/^\/msg\/[a-z]{2}\/([^/]+\/[^/]+)\//) || [])[1] || 'other'; out.cats[c] = (out.cats[c] || 0) + 1; });
+    out.items = parseSsList(sh, su).filter(function (i) { return /\/transport\/cars\//.test(i.url || ''); }).map(function (i) { const m = (i.url || '').match(/\/cars\/([^/]+)\/([^/]+)\//); i.mk = m ? m[1] : null; i.md = m ? m[2] : null; return i; }).slice(0, 120);
+  }
+  return json(env, out);
 }
 
 async function hSearch(env, q) {
@@ -712,10 +766,11 @@ export default {
     if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     const u = new URL(request.url);
     try {
-      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/comps', '/api/search', '/api/img', '/api/debug'] });
+      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/seller', '/api/comps', '/api/search', '/api/img', '/api/debug'] });
       if (u.pathname === '/api/listing') return await hListing(env, u.searchParams);
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams);
       if (u.pathname === '/api/search') return await hSearch(env, u.searchParams);
+      if (u.pathname === '/api/seller') return await hSeller(env, u.searchParams);
       if (u.pathname === '/api/debug') return await hDebug(env, u.searchParams);
       if (u.pathname === '/api/img') return await hImg(env, u.searchParams);
       return json(env, { ok: false, error: 'not_found' }, 404);
