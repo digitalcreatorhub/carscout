@@ -1,0 +1,15 @@
+name: probe
+on:
+  push:
+    branches: [probe]
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128 Safari/537.36"
+          curl -sL -A "$UA" https://www.ss.com/msg/en/transport/cars/volkswagen/arteon/cgppgl.html -o ad.html; wc -c ad.html
+          grep -n -i -o '.\{200\}msg_footer.\{300\}' ad.html | head -5
+          grep -n -i -o '.\{300\}phone.\{300\}' ad.html | head -12
+          grep -n -i -o '.\{200\}show_cnt.\{200\}' ad.html | head -3
+          grep -n -i -o '.\{100\}<script[^>]*src=[^>]*>' ad.html | head -10
