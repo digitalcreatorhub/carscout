@@ -1424,7 +1424,7 @@ async function api(path,params,ms){
 function normApi(u){u=String(u||'').trim().replace(/\/+$/,''); if(!u) return ''; if(!/^https?:\/\//i.test(u)) u='https://'+u; return u}
 function errText(j){
   var e=j&&j.error;
-  if(e==='blocked') return L('сайт не отдал страницу серверу','the site refused the server');
+  if(e==='blocked') return L('сайт сейчас закрыт для серверов (проверка «не робот»): откройте поиск по ссылке','the site is closed to servers right now (bot check): open the search via the link','vietne pašlaik ir slēgta serveriem (pārbaude «neesmu robots»): atveriet meklēšanu pēc saites');
   if(e==='filters_ignored') return L('сайт проигнорировал фильтры модели и года, результаты не годятся','the site ignored the model and year filters, the results are not usable');
   if(e==='not_found') return L('не найдено','not found');
   if(e==='parse_failed') return L('страница загрузилась, но объявления не распознаны','page loaded but ads were not recognised');
@@ -2075,7 +2075,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-13.3', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-13.4', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };

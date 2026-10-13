@@ -2,7 +2,7 @@
 // Runs in GitHub Actions (free). On failure it opens or updates an issue, so GitHub e-mails the repo owner.
 const W = process.env.WORKER || 'https://carscout.pmax70095.workers.dev';
 const H = { origin: 'https://digitalcreatorhub.github.io' };
-const fails = [], oks = [];
+const fails = [], oks = [], warns = [];
 const get = async (path, params, ms = 60000) => {
   const u = W + path + '?' + new URLSearchParams(params);
   for (let k = 0; k < 2; k++) {
@@ -62,6 +62,7 @@ for (const [make, model, year, fuel] of MODELS) for (const [source, extra] of SR
   const name = `${source}${extra.cy ? ' ' + extra.cy : ''} ${make} ${model}`;
   const j = await get('/api/comps', Object.assign({ source, make, model, year, fuel }, extra));
   const its = j.items || [];
+  if (j.error === 'blocked' && source === 'autoplius') { warns.push(`- ${name}: the site shows a bot check to servers (not a parsing error)`); continue; }
   if (!j.ok || its.length < 3) { bad(`comps ${name}`, (j.error || '') + ' items ' + its.length); continue; }
   const full = its.filter(i => i.price > 0 && i.year && i.url).length / its.length;
   const km = its.filter(i => i.km != null).length / its.length;
@@ -84,7 +85,7 @@ for (const [source, extra] of [['autoplius', {}], ['as24', { cy: 'D' }]]) {
 }
 
 const date = new Date().toISOString().slice(0, 10);
-const report = `## CarScout self-check ${date}\n\n${fails.length ? `### Problems (${fails.length})\n${fails.join('\n')}\n\n` : '**All checks passed.**\n\n'}### Passed\n${oks.join('\n')}\n`;
+const report = `## CarScout self-check ${date}\n\n${fails.length ? `### Problems (${fails.length})\n${fails.join('\n')}\n\n` : '**All checks passed.**\n\n'}${warns.length ? `### Warnings\n${warns.join('\n')}\n\n` : ''}### Passed\n${oks.join('\n')}\n`;
 console.log(report);
 const fs = await import('node:fs');
 if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
