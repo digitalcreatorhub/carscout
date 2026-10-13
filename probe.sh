@@ -1,6 +1,24 @@
 UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
-V=2C4RC1BG0NR117203
-W=https://carscout.pmax70095.workers.dev; O="Origin: https://digitalcreatorhub.github.io"
-curl -s -H "$O" "$W/api/vinhist?vin=$V" > out/v2.json
-curl -sL -A "$UA" "https://vincheck.it.com/vin/$V" -o out/v2_vc.html -w "vc %{http_code} %{size_download} %{url_effective}\n" > out/v2.txt
-grep -o "$V" out/v2_vc.html | head -1 >> out/v2.txt
+V=2C4RC1BG0NR117203; v=$(echo $V | tr A-Z a-z)
+: > out/v3.txt
+f(){ curl -sL -m 25 -A "$UA" -H "Accept-Language: en" -o "out/v3_$1.html" -w "$1 %{http_code} %{size_download} %{url_effective}" "$2"; echo " vin=$(grep -ci $V out/v3_$1.html) cf=$(grep -c -i 'just a moment\|cf-chl\|captcha' out/v3_$1.html) dmg=$(grep -o -i 'damage[^<]\{0,40\}' out/v3_$1.html | head -1)" >> out/v3.txt; sleep 1; }
+f ahio "https://auctionhistory.io/vin/$V"
+f ahio2 "https://auctionhistory.io/search?q=$V"
+f ucars "https://ucars.pro/vin/$V"
+f ucars2 "https://ucars.pro/search?q=$V"
+f aah "https://autoauctionhistory.com/vin/$V"
+f aah2 "https://autoauctionhistory.com/?s=$V"
+f aauto "https://auctionauto.org/vin/$V"
+f ausa "https://autousa.pro/search?vin=$V"
+f vinsp "https://vininspect.com/vin/$V"
+f ccvin "https://checkcar.vin/us/vin/$V"
+f clearvin "https://www.clearvin.com/en/payment/prepare/$V/"
+f salvagebid "https://www.salvagebid.com/search?q=$V"
+f carsbidfax "https://bidfax.co/?s=$V"
+f vinhub "https://vinhub.io/vin/$V"
+f sautoh "https://salvageautoshistory.com/vin/$V"
+f iaai "https://www.iaai.com/Search?Keyword=$V"
+f copart "https://www.copart.com/lotSearchResults?free=true&query=$V"
+f autobid "https://autobid.de/en/search?vin=$V"
+f vinauct "https://vin-auction.com/vin/$V"
+f carsfromwest "https://carsfromwest.com/en/vin/$V"
