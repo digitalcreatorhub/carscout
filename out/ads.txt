@@ -1,0 +1,12 @@
+/msg/lv/transport/cars/volkswagen/caddy/ccjgbj.html
+/msg/lv/transport/cars/volkswagen/caddy/cedogj.html
+/msg/lv/transport/cars/volkswagen/caddy/fglkj.html
+/msg/lv/transport/cars/volkswagen/caravelle/dbcho.html
+/msg/lv/transport/cars/volkswagen/crafter/cblhon.html
+/msg/lv/transport/cars/volkswagen/crafter/cbljfm.html
+/msg/lv/transport/cars/volkswagen/golf-6/cdxlhd.html
+/msg/lv/transport/cars/volkswagen/golf-plus/cfgxpd.html
+/msg/lv/transport/cars/volkswagen/multivan/gklbf.html
+/msg/lv/transport/cars/volkswagen/passat-b7/bhidkg.html
+/msg/lv/transport/cars/volkswagen/passat-b7/bidnei.html
+/msg/lv/transport/cars/volkswagen/passat-b8/cclgdn.html
