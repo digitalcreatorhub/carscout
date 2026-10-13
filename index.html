@@ -787,6 +787,10 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
 .kpis.k4:has(.kpi:nth-child(2):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
 .kpis.k4:has(.kpi:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
 .hlink{color:var(--accent);white-space:nowrap}
+.cf.cvin{grid-column:span 2}
+.cf.cvin input{letter-spacing:.06em;text-transform:uppercase}
+@media (max-width:760px){.cf.cvin{grid-column:1/-1}}
+.cf.cvin input::placeholder{text-transform:none;letter-spacing:0}
 </style>
 </head>
 <body>
@@ -2109,7 +2113,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-14.1', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-14.2', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2553,15 +2557,18 @@ function pCheck(v){
     '<div class="cgrid">'+inp('c-make',L('Марка','Make'),c.make,'make')+inp('c-model',L('Модель','Model'),c.model,'model')+inp('c-year',L('Год','Year'),c.year,'year','n')+inp('c-km',L('Пробег, км','Mileage, km'),c.km,'km','n')+inp('c-price',L('Цена, €','Price, €'),c.price,'price','n')+
     sel('c-fuel',L('Топливо','Fuel'),fuelVal,'fuel',[['',L('не указано','not set')],['petrol',L('Бензин','Petrol')],['diesel',L('Дизель','Diesel')],['hybrid',L('Гибрид','Hybrid')],['electric',L('Электро','Electric')],['lpg',L('Бензин + газ','Petrol + LPG')]])+
     sel('c-gear',L('Коробка','Gearbox'),c.gear,'gear',[['',L('не указано','not set')],['automatic',L('Автомат','Automatic')],['manual',L('Механика','Manual')]])+
-    inp('c-trim',L('Комплектация','Trim'),(c.trims||[]).map(trimDisplay).join(', '),'trims')+'</div>'+
+    inp('c-trim',L('Комплектация','Trim'),(c.trims||[]).map(trimDisplay).join(', '),'trims')+
+    '<div class="cf cvin"><label for="c-vin">VIN</label><input class="in mono" id="c-vin" type="text" maxlength="20" autocapitalize="characters" spellcheck="false" placeholder="'+esc(L('вставьте VIN из объявления','paste the VIN from the ad','ielīmējiet VIN no sludinājuma'))+'" value="'+esc(c.vin||'')+'" data-orig="'+esc(c.vin||'')+'">'+(c.vin?tag('vin',c.vin):'<span class="stag" id="c-vin-hint">'+esc(/ss\.(com|lv)\//.test(c.url||'')?L('на ss.lv VIN скрыт: нажмите «Показать VIN» в объявлении','on ss.lv the VIN is hidden: press “Show VIN” in the ad','ss.lv VIN ir paslēpts: sludinājumā nospiediet «Parādīt VIN»'):L('не найдено','not found'))+'</span>')+'</div></div>'+
     '<div class="abtns"><button class="btn sm pri" type="button" data-act="recheck">'+esc(L('Пересчитать с исправлениями','Recalculate with corrections'))+'</button><span class="anote" style="align-self:center">'+esc(L('Если всё верно, ничего делать не нужно: сравнение уже выполнено по этим данным.','If everything is right, nothing to do: the comparison already uses these data.'))+'</span></div>');
 }
 function applyCheck(){
   var ch=function(id){ var el=document.getElementById(id); return !!el&&String(el.value||'').trim()!==String(el.getAttribute('data-orig')||'').trim(); };
   var g=function(id){ var el=document.getElementById(id); return el?String(el.value||'').trim():''; };
-  var ids=['c-make','c-model','c-year','c-km','c-price','c-fuel','c-trim','c-gear'];
+  var ids=['c-make','c-model','c-year','c-km','c-price','c-fuel','c-trim','c-gear','c-vin'];
+  if(ch('c-vin')){ var vv=g('c-vin').toUpperCase().replace(/[^A-Z0-9]/g,''); if(vv&&(vv.length!==17||/[IOQ]/.test(vv))){ showStatus('err',function(){return L('VIN должен состоять из 17 символов без букв I, O, Q. Сейчас: '+vv.length+'.','The VIN must have 17 characters without the letters I, O, Q. Now: '+vv.length+'.','VIN jābūt 17 rakstzīmēm bez burtiem I, O, Q. Tagad: '+vv.length+'.')}); var ve=document.getElementById('c-vin'); if(ve) ve.focus(); return; } }
   if(!ids.some(ch)){ showStatus('info',function(){return L('Вы ничего не изменили: эти данные уже учтены.','Nothing changed: these data are already used.')}); return; }
   var set=function(sel,id,num){ if(!ch(id)) return; var el=$(sel); if(!el) return; var val=g(id); el.value=num?val.replace(/[^\d]/g,''):val; el.dataset.auto=''; };
+  if(ch('c-vin')){ var fv0=$('#f-vin'); if(fv0){ fv0.value=g('c-vin').toUpperCase().replace(/[^A-Z0-9]/g,''); fv0.dataset.auto=''; } }
   set('#f-make','c-make'); set('#f-model','c-model'); set('#f-year','c-year',1); set('#f-km','c-km',1); set('#f-price','c-price',1); set('#f-fuel','c-fuel'); set('#f-trim','c-trim');
   if(ch('c-gear')) S.manualGear=g('c-gear')||null;
   window.scrollTo({top:0,behavior:'smooth'}); run();
