@@ -765,6 +765,25 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
 .mapl{display:flex;gap:14px;margin-top:6px;font-size:12.5px}
 .mapl a{color:var(--accent)}
 @media (max-width:760px){.mapb{grid-template-columns:minmax(0,1fr)}.mapf{height:140px}}
+/* compact sources line */
+.srcs{display:block}
+.scs{display:flex;flex-wrap:wrap;gap:6px}
+.sc{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:1;padding:6px 9px;border-radius:999px;border:1px solid var(--line2);background:var(--field);color:var(--ink2);text-decoration:none;white-space:nowrap}
+.sc b{font-weight:600;color:var(--good)}
+.sc.err b,.sc.warn b{color:var(--warn)}
+.sc.err{border-color:rgba(242,181,68,.35)}
+.sc .spin{width:10px;height:10px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);animation:scspin .8s linear infinite;display:inline-block}
+@keyframes scspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.sc .spin{animation:none}}
+.srcsum summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:var(--ink2);padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--field)}
+.srcsum summary::-webkit-details-marker{display:none}
+.srcsum .sok{color:var(--good);font-weight:700}
+.srcsum .sbad{color:var(--warn)}
+.srcsum .smore{margin-left:auto;font-size:12px;color:var(--accent)}
+.srcsum[open] .smore{opacity:.6}
+.srcsum .scs{margin-top:10px}
+.serr{list-style:none;margin:8px 0 0;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.srcsum .mini{margin-top:6px}
 </style>
 </head>
 <body>
@@ -1464,15 +1483,19 @@ function showStatus(kind,msg,stop){
   var el=$('#status'); S.lastStatus=msg?[kind,msg,stop]:null; if(typeof msg==='function') msg=msg(); if(!msg){el.innerHTML='';return}
   el.innerHTML='<div class="st '+kind+'"><span>'+esc(msg)+'</span>'+(stop?'<button class="btn sm" type="button" data-act="stop">'+esc(L('Остановить','Stop'))+'</button><div class="ind"></div>':'')+'</div>';
 }
+function srcShort(l){ return String(l||'').replace(/^AutoScout24\s*\(?([A-Z]{2})\)?.*$/,'AS24 $1').replace(/\s*\([A-Z]{2}\)$/,'').replace(/^ss\.com$/,'ss.lv'); }
 function renderSrcs(){
-  var keys=Object.keys(S.srcRows);
-  $('#srcs').innerHTML=keys.map(function(k){
-    var r=S.srcRows[k];
-    var link=r.url&&safeUrl(r.url)?' <a href="'+esc(safeUrl(r.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть поиск','Open search'))+'</a>':'';
-    return '<div class="src '+r.state+'"><span class="sn">'+esc(r.label)+'</span><span class="ss">'+esc(typeof r.text==='function'?r.text():r.text)+'</span>'+link+'</div>';
-  }).join('');
+  var keys=Object.keys(S.srcRows), box=$('#srcs'); if(!keys.length){ box.innerHTML=''; return; }
+  var rows=keys.map(function(k){return S.srcRows[k]}), run=rows.filter(function(r){return r.state==='run'}).length, ok=rows.filter(function(r){return r.state==='ok'}).length, bad=rows.length-run-ok;
+  var chip=function(r){ var u=r.url&&safeUrl(r.url), t=typeof r.text==='function'?r.text():r.text, v=r.state==='run'?'<i class="spin"></i>':r.state==='ok'?'<b>'+(r.n!=null?r.n:'✓')+'</b>':'<b>!</b>';
+    return (u?'<a':'<span')+' class="sc '+r.state+'"'+(u?' href="'+esc(u)+'" target="_blank" rel="noopener noreferrer"':'')+' title="'+esc(t)+'">'+esc(srcShort(r.label))+' '+v+(u?'</a>':'</span>'); };
+  if(run){ box.innerHTML='<div class="scs">'+rows.map(chip).join('')+'</div>'; return; }
+  var used=S.view&&S.view.totalUsed!=null?S.view.totalUsed:null;
+  var errs=rows.filter(function(r){return r.state!=='ok'}).map(function(r){ var t=typeof r.text==='function'?r.text():r.text; return '<li><b>'+esc(srcShort(r.label))+'</b> — '+esc(t)+'</li>'; }).join('');
+  box.innerHTML='<details class="srcsum"><summary><span class="sok">✓</span> '+esc((used!=null?used+L(' объявлений',' listings',' sludinājumi')+' · ':'')+L('сайты ','sites ','vietnes '))+'<span class="'+(bad?'sbad':'')+'">'+ok+'/'+rows.length+'</span>'+'<span class="smore">'+esc(L('подробнее','details','sīkāk'))+'</span></summary>'+
+    '<div class="scs">'+rows.map(chip).join('')+'</div>'+(errs?'<ul class="serr">'+errs+'</ul>':'')+'<p class="mini">'+esc(L('Нажмите на сайт, чтобы открыть его поиск.','Tap a site to open its search.','Pieskarieties vietnei, lai atvērtu tās meklēšanu.'))+'</p></details>';
 }
-function setSrc(key,label,state,text,url){S.srcRows[key]={label:label,state:state,text:text,url:url};renderSrcs()}
+function setSrc(key,label,state,text,url,n){S.srcRows[key]={label:label,state:state,text:text,url:url,n:n};renderSrcs()}
 
 function renderHints(){
   var v=$('#f-url').value.trim(), box=$('#link-hints');
@@ -1624,7 +1647,7 @@ async function run(){
     await Promise.all(jobs.map(function(p){return p.then(function(r){
       var j=r.j||{}, n=(j.items||[]).length;
       results.push(r);
-      setSrc(r.key,r.label+' ('+r.region+')',j.ok?'ok':'err',function(){ return j.ok?(L('найдено объявлений: ','ads found: ')+n+(j.weak?L(' (грубое чтение)',' (rough reading)'):'')):errText(j); },j.searchUrl||r.url);
+      setSrc(r.key,r.label+' ('+r.region+')',j.ok?'ok':'err',function(){ return j.ok?(L('найдено объявлений: ','ads found: ')+n+(j.weak?L(' (грубое чтение)',' (rough reading)'):'')):errText(j); },j.searchUrl||r.url,j.ok?n:null);
     })}));
     S.lastResults=results;
     S.view=compute(car,results,f,notes);
@@ -1632,7 +1655,7 @@ async function run(){
     histAdd(S.view);
     try{ extrasAfterRun(S.view); }catch(e){}
     try{ var rp=document.getElementById('a-car'); if(rp) setTimeout(function(){ var y=rp.getBoundingClientRect().top+window.pageYOffset-(aMob()?70:20); window.scrollTo({top:Math.max(0,y),behavior:'smooth'}); },60); }catch(e){}
-    showStatus('ok',function(){return L('Готово: ','Done: ')+S.view.totalUsed+L(' реальных объявлений использовано.',' real listings used.')});
+    showStatus(''); renderSrcs();
   }catch(e){
     showStatus('err',function(){return L('Что-то пошло не так: ','Something went wrong: ')+(e&&e.message||e)});
   }finally{
@@ -2083,7 +2106,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-13.8', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-13.9', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
