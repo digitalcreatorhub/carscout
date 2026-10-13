@@ -591,6 +591,7 @@ function parseGenericListing(html, url) {
 
 /* ---------------- photos ---------------- */
 const IMG_HOSTS = [
+  /(^|\.)copart\.com$/, /(^|\.)iaai\.com$/, /(^|\.)vincheck\.it\.com$/,
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoscout24\.(net|com|de)$/, /(^|\.)autoplius\.lt$/, /(^|\.)dgn\.lt$/, /(^|\.)auto24\.(ee|lv|lt)$/,
   /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autovit\.ro$/
 ];
@@ -812,6 +813,39 @@ async function hSeller(env, q) {
   return json(env, out);
 }
 
+/* Salvage / insurance auction history by VIN (Copart, IAAI) from the public pages of vincheck.it.com */
+function vcText(h) { return strip(String(h).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ')).replace(/\s+/g, ' '); }
+function parseVcLot(html, url) {
+  const t = vcText(html);
+  const g = function (re) { const m = t.match(re); return m ? m[1].trim() : null; };
+  const odo = g(/Odometer\s+([\d,]+)\s*mi/i), price = g(/Price\s+Sold for \$([\d,]+)/i) || g(/sold for \$([\d,]+)/i);
+  const photos = []; const re = /img\/auction\?u=([^"'&\s]+)/g; let m;
+  while ((m = re.exec(html)) && photos.length < 24) { try { const u = decodeURIComponent(m[1]); if (/^https:\/\//.test(u) && photos.indexOf(u) < 0) photos.push(u); } catch (e) { } }
+  return { url: url, lot: g(/Lot #\s*(\d+)/i), source: g(/Source\s+([A-Z]{3,10})/), date: g(/Sale date\s+(\d{4}-\d{2}-\d{2})/i), damage: g(/Primary damage\s+([A-Z][A-Z &\/\-]+?)\s+(?:Secondary|Title|Has keys)/), damage2: g(/Secondary damage\s+([A-Z][A-Z &\/\-]+?)\s+(?:Title|Has keys)/),
+    title: g(/Title document\s+(.+?)\s+Has keys/i), keys: g(/Has keys\s+(Yes|No)/i), location: g(/Location\s+(.+?)\s+Sale date/i), odometer_mi: odo ? parseInt(odo.replace(/,/g, ''), 10) : null,
+    price_usd: price ? parseInt(price.replace(/,/g, ''), 10) : null, retail_usd: (function () { const r = g(/estimated retail \(undamaged\) value is \$([\d,]+)/i); return r ? parseInt(r.replace(/,/g, ''), 10) : null; })(), photos: photos };
+}
+async function hVinHistory(env, q) {
+  const vin = String(q.get('vin') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return json(env, { ok: false, error: 'bad_vin' }, 400);
+  const base = 'https://vincheck.it.com';
+  const p = await getPage(base + '/vin/' + vin, 86400).catch(function () { return { status: 0, text: '' }; });
+  if (p.status === 404 || (p.status === 200 && p.text.indexOf(vin) < 0)) return json(env, { ok: true, vin: vin, found: false, source: 'vincheck.it.com' });
+  if (p.status !== 200) return json(env, { ok: false, vin: vin, error: blockedBy(p) ? 'blocked' : 'unavailable', status: p.status });
+  const t = vcText(p.text);
+  const n = parseInt((t.match(/Auction records\s+(\d+)/i) || t.match(/with (\d+) auction record/i) || [])[1] || '0', 10);
+  const lotLinks = []; const re = /href="(\/auctions\/lot\/\d+[^"]*)"/g; let m;
+  while ((m = re.exec(p.text))) if (lotLinks.indexOf(m[1]) < 0) lotLinks.push(m[1]);
+  if (!n && !lotLinks.length) return json(env, { ok: true, vin: vin, found: false, source: 'vincheck.it.com' });
+  const lots = [];
+  for (const l of lotLinks.slice(0, 3)) {
+    const lp = await getPage(base + l, 86400).catch(function () { return { status: 0, text: '' }; });
+    if (lp.status === 200) lots.push(parseVcLot(lp.text, base + l));
+  }
+  const summary = { title: (t.match(/decodes to an? (\d{4} [^,(]+)/) || [])[1] || null, damage: (t.match(/primary damage ([A-Z][A-Z &\/\-]+?),/) || [])[1] || null };
+  return json(env, { ok: true, vin: vin, found: true, records: n || lots.length, summary: summary, lots: lots, page: base + '/vin/' + vin, source: 'vincheck.it.com' });
+}
+
 async function hSearch(env, q) {
   const url = q.get('url');
   if (!url || !allowed(url)) return json(env, { ok: false, error: 'bad_url', message: 'Link missing or site not supported.' }, 400);
@@ -853,6 +887,7 @@ export default {
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams);
       if (u.pathname === '/api/search') return await hSearch(env, u.searchParams);
       if (u.pathname === '/api/seller') return await hSeller(env, u.searchParams);
+      if (u.pathname === '/api/vinhist') return await hVinHistory(env, u.searchParams);
       if (u.pathname === '/api/debug') return await hDebug(env, u.searchParams);
       if (u.pathname === '/api/img') return await hImg(env, u.searchParams);
       return json(env, { ok: false, error: 'not_found' }, 404);
