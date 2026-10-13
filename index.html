@@ -2083,7 +2083,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-13.7', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-13.8', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2650,11 +2650,11 @@ function lvT(en){
 var VAG=/^(volkswagen|vw|skoda|škoda|audi|seat|cupra)$/i;
 var PSA=/^(peugeot|citro[eë]n|ds|opel)$/i;
 var KB=[
- {m:VAG,soft:1,y:[2010,2024],g:'automatic',tx:/dsg|s[\s\-]?tronic|7[\s\-]?(st|speed|ātr|ступ)|dq200/i,el:[0.9,1.6],a:'gearbox',c:'800–2 500 €',
+ {m:VAG,soft:1,notx:/tiptronic|multitronic|8[\s\-]?(st|speed|ātr|ступ)|zf\b/i,y:[2010,2024],g:'automatic',tx:/dsg|s[\s\-]?tronic|7[\s\-]?(st|speed|ātr|ступ)|dq200/i,el:[0.9,1.6],a:'gearbox',c:'800–2 500 €',
   ru:'Сухой 7-ступенчатый DSG (DQ200) на моторах до 1,6 л: рывки при трогании и на малой скорости, износ сцепления и отказы мехатроника. На тест-драйве проверьте плавность в пробке и задним ходом, спросите, меняли ли сцепление и мехатроник',
   en:'Dry 7-speed DSG (DQ200) on engines up to 1.6 l: jerks when pulling away and at low speed, clutch wear and mechatronic failures. On the test drive check smoothness in stop-go traffic and in reverse, ask if the clutch or mechatronic was replaced',
   lv:'Sausā 7 pakāpju DSG (DQ200) ar motoriem līdz 1,6 l: rāvieni, uzsākot braukt un mazā ātrumā, sajūga nolietojums un mehatronika bojājumi. Testa braucienā pārbaudiet vienmērīgumu sastrēgumā un atpakaļgaitā, pajautājiet, vai mainīts sajūgs vai mehatroniks'},
- {m:VAG,soft:1,y:[2004,2024],g:'automatic',tx:/dsg|s[\s\-]?tronic|dq250|dq381|dq500/i,el:[1.8,3.2],a:'gearbox',c:'250–400 € (масло) · 1 500–3 000 € (ремонт)',
+ {m:VAG,soft:1,softm:/^(volkswagen|vw|skoda|škoda|seat|cupra)$/i,notx:/tiptronic|multitronic|bi-?turbo|bi-?tdi|8[\s\-]?(st|speed|ātr|ступ)|zf\b|v6|v8/i,y:[2004,2024],g:'automatic',tx:/dsg|s[\s\-]?tronic|dq250|dq381|dq500/i,el:[1.8,2.0],a:'gearbox',c:'250–400 € (масло) · 1 500–3 000 € (ремонт)',
   ru:'«Мокрый» DSG (DQ250/DQ381/DQ500): масло нужно менять примерно каждые 60 000 км. Спросите чек на замену масла DSG; рывки и удары при переключении — повод для диагностики',
   en:'Wet-clutch DSG (DQ250/DQ381/DQ500): the oil needs changing roughly every 60,000 km. Ask for the DSG oil change receipt; jerks or knocks when shifting call for a diagnostic',
   lv:'«Slapjā» DSG (DQ250/DQ381/DQ500): eļļa jāmaina aptuveni ik pēc 60 000 km. Paprasiet čeku par DSG eļļas maiņu; rāvieni vai sitieni pārslēdzot — iemesls diagnostikai'},
@@ -2674,6 +2674,10 @@ var KB=[
   ru:'Вариатор Multitronic (Audi с передним приводом): дорогие отказы. Рывки, пробуксовка или гул при разгоне — серьёзный сигнал',
   en:'Multitronic CVT (front-wheel-drive Audi): expensive failures. Jerks, slipping or whine on acceleration are a serious warning',
   lv:'Multitronic variators (Audi ar priekšpiedziņu): dārgi bojājumi. Rāvieni, slīdēšana vai dūkoņa paātrinoties — nopietns signāls'},
+ {m:/^(audi|volkswagen|vw|bmw|porsche|land rover|jaguar|alfa romeo|jeep|chrysler|dodge|maserati)$/i,g:'automatic',y:[2004,2025],tx:/tiptronic|steptronic|[68][\s\-]?(st|speed|ātr|ступ)|zf\s?8|8hp|bi-?turbo|bi-?tdi|3[.,]0\s?(tdi|d|bitdi)|\b[3-7]30d\b|\b[3-7]40[di]\b/i,a:'gearbox',c:'400–700 € (масло) · 2 000–4 000 € (ремонт)',
+  ru:'Автомат ZF 6HP/8HP (Tiptronic/Steptronic, гидротрансформатор, без сцеплений DSG): надёжный, но масло завод называет «вечным». На практике его меняют каждые 80–120 тыс. км: спросите, меняли ли; толчки при переключении 2→3 или задержка включения D/R — повод для замены масла и адаптации',
+  en:'ZF 6HP/8HP automatic (Tiptronic/Steptronic, torque converter, no DSG clutches): reliable, but the factory calls the oil “lifetime”. In practice it is changed every 80–120 thousand km: ask whether it was; jolts on the 2→3 shift or a delay engaging D/R call for an oil change and adaptation',
+  lv:'ZF 6HP/8HP automāts (Tiptronic/Steptronic, hidrotransformators, bez DSG sajūgiem): uzticams, bet rūpnīca eļļu sauc par «mūžīgu». Praksē to maina ik pēc 80–120 tūkst. km: pajautājiet, vai mainīta; grūdieni pārslēdzot 2→3 vai aizkave ieslēdzot D/R — iemesls eļļas maiņai un adaptācijai'},
  {m:/^audi$/i,y:[2010,2020],f:'diesel',el:[2.9,3.0],a:'engine',c:'1 500–3 500 €',
   ru:'3.0 TDI: цепи ГРМ расположены сзади мотора, их замена дорогая. Слушайте шум на холодную, спросите историю',
   en:'3.0 TDI: the timing chains sit at the back of the engine and are expensive to replace. Listen from cold, ask for the history',
@@ -2792,7 +2796,7 @@ var KB=[
   lv:'Ķīniešu marka: noskaidrojiet, kur Latvijā ir oficiālais serviss un rezerves daļas, cik ilgi jāgaida virsbūves daļas un kā saglabājas atlikusī vērtība'}
 ];
 function kbFor(c){
-  var mk=String(c.make||''), md=String(c.model||''), tx=[c.title,c.rawModel,c.desc].join(' '), y=c.year||null, el=c.engineL||null;
+  var mk=String(c.make||''), md=String(c.model||''), tx=[c.title,c.rawModel,c.desc].join(' '), y=c.year||null, el=(typeof engineOf==='function'?engineOf(c):null)||c.engineL||null;
   if(!el){ var m=String(tx).match(/(?:^|[^\d])([0-6][.,]\d)\s*(?:l\b|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|jtd|ecoboost|puretech|thp|vti|tce|gdi|d\b|i\b)/i); if(m) el=parseFloat(m[1].replace(',','.')); }
   var mt=md+' '+String(tx).slice(0,200);
   if(!el&&/^bmw$/i.test(mk)){ var b=mt.match(/\b(?:[1-7]|x[1-7])?\s?\d(1[68]|2[05]|3[05]|4[05])(d|i)\b/i)||mt.match(/\b[1-7](1[68]|2[05]|3[05]|4[05])(d|i)?\b/i); if(b){ var n=+b[1]; el=n<=20?2.0:n<=25?(b[2]&&/d/i.test(b[2])?2.0:2.0):3.0; } }
@@ -2806,7 +2810,8 @@ function kbFor(c){
     else if(k.f&&f!==k.f) return false;
     if(k.g&&c.gear!==k.g) return false;
     if(k.el&&(!el||el<k.el[0]-0.05||el>k.el[1]+0.05)) return false;
-    if(k.tx&&!k.tx.test(tx)&&!k.soft) return false;
+    if(k.notx&&k.notx.test(tx)) return false;
+    if(k.tx&&!k.tx.test(tx)&&!(k.soft&&(!k.softm||k.softm.test(mk)))) return false;
     return true;
   });
 }
@@ -2839,7 +2844,7 @@ function lifeOf(v){
     else if(o.cars<=1) o.flags.push(['ok',L('Других объявлений с этим телефоном нет: похоже на частного продавца','No other ads with this phone: looks like a private seller','Citu sludinājumu ar šo tālruni nav: izskatās pēc privātpārdevēja')]);
     var own=listingId(c.url), mk=slugKey(c.make), md=slugKey(c.model);
     o.same=(se.items||[]).filter(function(i){ return listingId(i.url)!==own&&i.mk&&slugKey(i.mk)===mk&&(!md||slugKey(i.md||'').indexOf(md.slice(0,3))===0)&&(!c.year||!i.year||Math.abs(i.year-c.year)<=1); });
-    if(o.same.length) o.flags.push(['w',L('У этого продавца есть ещё '+o.same.length+' объявл. той же модели и года: возможно, это повторная публикация той же машины','This seller has '+o.same.length+' more ad(s) of the same model and year: it may be the same car posted again','Šim pārdevējam ir vēl '+o.same.length+' sludin. ar to pašu modeli un gadu: iespējams, tas pats auto publicēts atkārtoti')]);
+    if(o.same.length&&o.cars<5) o.flags.push(['w',L('У этого продавца есть ещё '+o.same.length+' объявл. той же модели и года: возможно, это повторная публикация той же машины','This seller has '+o.same.length+' more ad(s) of the same model and year: it may be the same car posted again','Šim pārdevējam ir vēl '+o.same.length+' sludin. ar to pašu modeli un gadu: iespējams, tas pats auto publicēts atkārtoti')]);
   }
   o.photo.forEach(function(p){ if(p.i.km!=null&&c.km!=null&&p.i.km-c.km>3000) o.flags.unshift(['b',L('Фото этой машины найдено в другом объявлении ('+p.i.src+') с пробегом '+fmt(p.i.km)+' км — на '+fmt(p.i.km-c.km)+' км больше. Возможна скрутка пробега','The photo of this car was found in another ad ('+p.i.src+') with '+fmt(p.i.km)+' km — '+fmt(p.i.km-c.km)+' km more. The mileage may have been rolled back','Šī auto foto atrasts citā sludinājumā ('+p.i.src+') ar nobraukumu '+fmt(p.i.km)+' km — par '+fmt(p.i.km-c.km)+' km vairāk. Iespējama nobraukuma attīšana')]); });
   return o;
@@ -2896,7 +2901,7 @@ var LV_PLACES=[
  ['ludza|лудза',56.548,27.719],['kraslava|краслав',55.895,27.168],['preili|прейл',56.294,26.725],['madona|мадон',56.853,26.217],['gulbene|гулбене',57.177,26.752],['aluksne|алуксне',57.424,27.047],['balvi|балви',57.131,27.265],
  ['valmiera|валмиер',57.541,25.427],['cesis|цесис',57.312,25.274],['valka|валка',57.775,26.017],['smiltene|смилтене',57.424,25.902],['limbazi|лимбаж',57.513,24.713],['saulkrasti|саулкраст',57.264,24.414],['livani|ливан',56.354,26.176],['kandava|кандав',57.035,22.78]];
 function geoOf(c){
-  if(c.geo&&c.geo.lat) return {lat:c.geo.lat,lon:c.geo.lon,exact:true,label:c.address||c.place||''};
+  if(c.geo&&c.geo.lat){ var ad=c.address||'', pl=String(c.place||'').replace(/\s*(un|и|and)\s+(raj|р-?он|р-н|район|reg)\.?.*$/i,'').trim(); if(pl&&ad.toLowerCase().indexOf(pl.toLowerCase().slice(0,5))<0) ad=ad?ad+', '+pl:pl; return {lat:c.geo.lat,lon:c.geo.lon,exact:true,label:ad||c.place||''}; }
   var p=String(c.place||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); if(!p) return null;
   for(var i=0;i<LV_PLACES.length;i++){ if(new RegExp('^('+LV_PLACES[i][0]+')').test(p)) return {lat:LV_PLACES[i][1],lon:LV_PLACES[i][2],exact:false,region:/raj|р-н|район|reg|distr|novad/.test(p)||/^rigas raj|^рижск/.test(p),label:c.place}; }
   return {lat:null,label:c.place};
