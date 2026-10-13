@@ -867,6 +867,48 @@ body.fx-busy #intake{box-shadow:0 0 0 1px rgba(198,242,78,.35),0 0 30px -6px rgb
 .kpis .kpi dd.up{background:none;color:var(--warn)}.kpis .kpi dd.dn{background:none;color:var(--good)}
 @media (prefers-reduced-motion:reduce){#fxbg .a1,#fxbg .a2,#out>.fx-in,svg circle.fx-dot,svg circle.halo,#a-scatter svg circle,body.fx-busy #intake::after,.sc.ok b,.btn.pri:hover::after{animation:none!important}}
 @media print{#fxbg{display:none}}
+/* ---- data visual details ---- */
+#fxbg .n{position:absolute;inset:0;opacity:.06;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E")}
+.ah .sh::before{content:"";display:inline-block;width:6px;height:6px;border-radius:1px;background:var(--accent);box-shadow:0 0 8px rgba(198,242,78,.8);margin:0 9px 0 0;vertical-align:1px;letter-spacing:0;counter-increment:none}
+.ring .rticks .tk{stroke:rgba(255,255,255,.12);stroke-width:1}
+.ring .rticks .tk.M{stroke:rgba(255,255,255,.28);stroke-width:1.4}
+.ring .rdot{filter:drop-shadow(0 0 6px currentColor);stroke:var(--paper);stroke-width:2;animation:fxdotin .5s 1s both}
+@keyframes fxdotin{from{opacity:0}to{opacity:1}}
+#a-scatter .xhair line{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 4;opacity:.55;animation:fxdash 1.2s .6s both}
+@keyframes fxdash{from{opacity:0}to{opacity:.55}}
+.kmini{position:relative;height:6px;margin:9px 0 2px;border-radius:3px;background:rgba(255,255,255,.06);overflow:visible}
+.kmini .kr{position:absolute;top:0;bottom:0;border-radius:3px;background:linear-gradient(90deg,rgba(122,167,255,.35),rgba(122,167,255,.6))}
+.kmini .km{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#fff;opacity:.7}
+.kmini .kc{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(198,242,78,.8);border:2px solid var(--paper)}
+.kmini .kz{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:rgba(255,255,255,.45)}
+.kmini .kb{position:absolute;top:0;bottom:0;border-radius:3px}
+.kmini .kb.dn{background:linear-gradient(270deg,rgba(61,214,140,.35),var(--good));box-shadow:0 0 10px rgba(61,214,140,.4)}
+.kmini .kb.up{background:linear-gradient(90deg,rgba(242,104,106,.35),var(--bad));box-shadow:0 0 10px rgba(242,104,106,.4)}
+.kmini:has(.k2){height:auto;background:none;display:flex;flex-direction:column;gap:3px}
+.kmini .k2{display:block;height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden}
+.kmini .k2 i{display:block;height:100%;border-radius:2px;background:rgba(122,167,255,.6)}
+.kmini .k2.me i{background:var(--accent);box-shadow:0 0 8px rgba(198,242,78,.6)}
+.kmini .kseg{display:block;height:100%;border-radius:3px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 6px,transparent 6px 8px);overflow:hidden}
+.kmini .kseg i{display:block;height:100%;background:repeating-linear-gradient(90deg,var(--accent) 0 6px,transparent 6px 8px);opacity:.85}
+.kmini i{transform-origin:left center;animation:fxkm .9s .4s cubic-bezier(.2,.8,.2,1) both}
+.kmini .kc,.kmini .km,.kmini .kz{animation:fxdotin .5s .9s both}
+@keyframes fxkm{from{transform:scaleX(0)}to{transform:none}}
+svg rect.fx-bar{transform-box:fill-box;transform-origin:bottom;animation:fxbar .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes fxbar{from{transform:scaleY(0)}to{transform:none}}
+svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow .8s cubic-bezier(.2,.8,.2,1) both}
+@keyframes fxgrow{from{transform:scaleX(0);opacity:0}to{transform:none;opacity:1}}
+/* photo HUD */
+#a-car .ph{position:relative;overflow:hidden}
+#a-car .ph .hud{position:absolute;width:16px;height:16px;border:2px solid rgba(198,242,78,.85);pointer-events:none;z-index:2;filter:drop-shadow(0 0 4px rgba(198,242,78,.6))}
+#a-car .ph .hud.tl{top:8px;left:8px;border-right:0;border-bottom:0;border-top-left-radius:4px}
+#a-car .ph .hud.tr{top:8px;right:8px;border-left:0;border-bottom:0;border-top-right-radius:4px}
+#a-car .ph .hud.bl{bottom:8px;left:8px;border-right:0;border-top:0;border-bottom-left-radius:4px}
+#a-car .ph .hud.br{bottom:8px;right:8px;border-left:0;border-top:0;border-bottom-right-radius:4px}
+#a-car.acc .ph .hud{border-color:rgba(242,104,106,.9);filter:drop-shadow(0 0 4px rgba(242,104,106,.7))}
+#a-car .ph .hscan{position:absolute;left:0;right:0;top:-30%;height:30%;z-index:2;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(198,242,78,.18) 70%,rgba(198,242,78,.6) 99%,transparent);animation:fxphscan 1.6s .3s ease-in-out both}
+@keyframes fxphscan{to{top:100%}}
+@media (prefers-reduced-motion:reduce){.kmini i,svg rect.fx-bar,svg line.fx-grow,.ring .rdot,#a-scatter .xhair line,#a-car .ph .hscan{animation:none!important}}
+@media print{.kmini,#a-car .ph .hud{display:none}}
 </style>
 </head>
 <body>
@@ -2189,7 +2231,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-14.6', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-14.7', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3368,6 +3410,61 @@ if(!FX_RM){
 (function(){ var b=document.getElementById('btn-go'); if(!b||!window.MutationObserver) return; new MutationObserver(function(){ document.body.classList.toggle('fx-busy',b.disabled); }).observe(b,{attributes:true,attributeFilter:['disabled']}); })();
 /* ambient background layer */
 (function(){ if(document.getElementById('fxbg')) return; var d=document.createElement('div'); d.id='fxbg'; d.setAttribute('aria-hidden','true'); d.innerHTML='<i class="g"></i><i class="a1"></i><i class="a2"></i>'; document.body.insertBefore(d,document.body.firstChild); })();
+/* ---------- data visualisation details added after render ---------- */
+var SVGNS='http://www.w3.org/2000/svg';
+function fxEl(tag,attrs,parent){ var e=document.createElementNS(SVGNS,tag); for(var k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+function fxGrad(svg,id,stops,vertical){ var d=svg.querySelector('defs')||fxEl('defs',{},null); if(!d.parentNode) svg.insertBefore(d,svg.firstChild); if(svg.querySelector('#'+id)) return; var g=fxEl('linearGradient',{id:id,x1:'0',y1:'0',x2:vertical?'0':'1',y2:vertical?'1':'0'},d); stops.forEach(function(s){ fxEl('stop',{offset:s[0],'stop-color':s[1]},g); }); }
+/* ring: tick marks, gradient arc and a glowing end point */
+function fxRingDeco(v){
+  var svg=document.querySelector('#a-verdict .ring svg'); if(!svg||svg.dataset.fx) return; svg.dataset.fx='1';
+  var arc=svg.querySelectorAll('circle')[1]; if(!arc) return;
+  var g=fxEl('g',{'class':'rticks'},null); svg.insertBefore(g,svg.firstChild.nextSibling);
+  for(var i=0;i<40;i++){ var a=i/40*Math.PI*2-Math.PI/2, r1=72, r2=i%5===0?66:69; fxEl('line',{x1:(75+r1*Math.cos(a)).toFixed(1),y1:(75+r1*Math.sin(a)).toFixed(1),x2:(75+r2*Math.cos(a)).toFixed(1),y2:(75+r2*Math.sin(a)).toFixed(1),'class':i%5===0?'tk M':'tk'},g); }
+  var sc=v.score==null?0:v.score, id='rg'+Math.random().toString(36).slice(2,6);
+  var cols=v.ver&&/too_cheap/.test(v.ver.key)?['#B79CFF','#F2686A']:sc>=6.5?['#C6F24E','#3DD68C']:sc>=4?['#F2B544','#C6F24E']:['#F2686A','#F2B544'];
+  fxGrad(svg,id,[['0%',cols[0]],['100%',cols[1]]],true); arc.style.stroke='url(#'+id+')';
+  var a2=sc/10*Math.PI*2-Math.PI/2, dot=fxEl('circle',{cx:(75+62*Math.cos(a2)).toFixed(1),cy:(75+62*Math.sin(a2)).toFixed(1),r:'6','class':'rdot'},svg); dot.style.fill=cols[1];
+}
+/* price slider: coloured track (cheap → expensive) and the car marker sliding in */
+function fxSlider(fresh){
+  var svg=document.querySelector('#a-verdict svg.achart'); if(!svg||svg.dataset.fx) return; svg.dataset.fx='1';
+  var rects=svg.querySelectorAll('rect'), track=rects[0], mark=svg.querySelector('circle'); if(!track||!mark) return;
+  fxGrad(svg,'trk'+(svg.id||''),[['0%','#3DD68C'],['50%','#F2B544'],['100%','#F2686A']]); track.style.fill='url(#trk'+(svg.id||'')+')'; track.style.fillOpacity='.35';
+  if(fresh&&!FX_RM){ var x1=parseFloat(mark.getAttribute('cx')), x0=parseFloat(track.getAttribute('x')), t0=performance.now(); mark.setAttribute('cx',x0); (function st(n){ var k=Math.min(1,(n-t0)/1100); mark.setAttribute('cx',(x0+(x1-x0)*fxEase(k)).toFixed(1)); if(k<1) requestAnimationFrame(st); })(t0); }
+}
+/* scatter: crosshair from the car to both axes */
+function fxCross(){
+  var svg=document.querySelector('#a-scatter svg.achart'); if(!svg||svg.dataset.fx) return; svg.dataset.fx='1';
+  var me=[].slice.call(svg.querySelectorAll('circle')).filter(function(c){ return c.getAttribute('r')==='6.5'; })[0]; if(!me) return;
+  var gl=[].slice.call(svg.querySelectorAll('line.gl')); if(!gl.length) return;
+  var x0=parseFloat(gl[0].getAttribute('x1')), ys=gl.map(function(l){return parseFloat(l.getAttribute('y1'))}), yb=Math.max.apply(null,ys);
+  var cx=me.getAttribute('cx'), cy=me.getAttribute('cy'), g=fxEl('g',{'class':'xhair'},null); svg.insertBefore(g,me.previousSibling||me);
+  fxEl('line',{x1:x0,x2:cx,y1:cy,y2:cy},g); fxEl('line',{x1:cx,x2:cx,y1:cy,y2:yb},g);
+}
+/* KPI micro-charts: what each number means at a glance */
+function fxKpis(v){
+  var box=document.getElementById('a-kpis'); if(!box||box.dataset.fx) return; box.dataset.fx='1';
+  var kp=box.querySelectorAll('.kpi'), c=v.car, F=v.fair;
+  var put=function(i,html){ var k=kp[i]; if(!k) return; var d=document.createElement('div'); d.className='kmini'; d.innerHTML=html; var sm=k.querySelector('small'); k.insertBefore(d,sm||null); };
+  if(F&&c.price>0){ var lo=Math.min(F.low,c.price), hi=Math.max(F.high,c.price), sp=(hi-lo)||1, p=function(x){return ((x-lo)/sp*100).toFixed(1)+'%'};
+    put(0,'<i class="kr" style="left:'+p(F.low)+';right:'+(100-parseFloat(p(F.high)))+'%"></i><i class="km" style="left:'+p(F.mid)+'"></i><i class="kc" style="left:'+p(c.price)+'"></i>'); }
+  if(v.ver&&v.ver.delta!=null){ var d=Math.max(-30,Math.min(30,v.ver.delta)), pos=50+d/30*50; put(2,'<i class="kz"></i><i class="kb '+(d<0?'dn':'up')+'" style="'+(d<0?'left:'+pos+'%;right:50%':'left:50%;right:'+(100-pos)+'%')+'"></i>'); }
+  if(v.medKm!=null&&c.km!=null){ var mx=Math.max(v.medKm,c.km)||1; put(3,'<span class="k2"><i style="width:'+(v.medKm/mx*100).toFixed(1)+'%"></i></span><span class="k2 me"><i style="width:'+(c.km/mx*100).toFixed(1)+'%"></i></span>'); }
+  var read=v.regions.reduce(function(a,r){return a+(r.total||0)},0); if(read>0) put(4,'<span class="kseg"><i style="width:'+Math.min(100,v.totalUsed/read*100).toFixed(1)+'%"></i></span>');
+}
+/* car photo: HUD corner brackets + one scan pass */
+function fxPhoto(fresh){
+  var ph=document.querySelector('#a-car .ph'); if(!ph||ph.dataset.fx) return; ph.dataset.fx='1';
+  ['tl','tr','bl','br'].forEach(function(k){ var i=document.createElement('i'); i.className='hud '+k; ph.appendChild(i); });
+  if(fresh&&!FX_RM){ var s=document.createElement('i'); s.className='hscan'; ph.appendChild(s); setTimeout(function(){ s.remove(); },2200); }
+}
+var fxAfterRender0=fxAfterRender;
+fxAfterRender=function(){ var fresh=S.view!==fxLastView; fxAfterRender0(); var v=S.view; if(!v) return;
+  try{ fxRingDeco(v); fxSlider(fresh); fxCross(); fxKpis(v); fxPhoto(fresh); }catch(e){}
+  if(fresh&&!FX_RM){ document.querySelectorAll('#a-hist svg rect').forEach(function(r,i){ r.classList.add('fx-bar'); r.style.animationDelay=(250+i*45)+'ms'; }); document.querySelectorAll('#a-markets svg line').forEach(function(l,i){ l.classList.add('fx-grow'); l.style.animationDelay=(300+i*70)+'ms'; }); }
+};
+/* film grain for depth */
+(function(){ var bg=document.getElementById('fxbg'); if(!bg||bg.querySelector('.n')) return; var n=document.createElement('i'); n.className='n'; bg.appendChild(n); })();
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
