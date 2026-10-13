@@ -47,7 +47,7 @@ async function getPage(url, ttl) {
   const r = await fetch(url, {
     headers: { 'user-agent': UA, 'accept': 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8', 'accept-language': 'en-US,en;q=0.9,lv;q=0.8,ru;q=0.7,de;q=0.6' },
     redirect: 'follow',
-    cf: { cacheTtl: ttl || 900, cacheEverything: true }
+    cf: { cacheTtlByStatus: { '200-299': ttl || 900, '404': ttl || 900, '300-399': 0, '400-403': 0, '405-599': 0 }, cacheEverything: true }
   });
   const buf = await r.text();
   return { status: r.status, url: r.url || url, text: buf.length > 3000000 ? buf.slice(0, 3000000) : buf };
@@ -94,6 +94,8 @@ function slugify(s) {
 }
 function cleanMakeModel(make, model) {
   let mk = String(make || '').trim(), md = String(model || '').trim();
+  const rv = mk.match(/^(?:land[\s\-]*)?rover\s+(range\s+rover.*|discovery.*|defender.*|freelander.*)$/i); if (rv) { mk = 'Land Rover'; if (!md) md = rv[1].trim(); }
+  if (/^(?:land[\s\-]*)?rover$/i.test(mk) && /range|discovery|defender|freelander|evoque|velar/i.test(md)) mk = 'Land Rover';
   let best = null;
   MAKES.forEach(function (m) { if (mk.toLowerCase().indexOf(m.toLowerCase()) === 0 && (!best || m.length > best.length)) best = m; });
   if (best) {
@@ -207,7 +209,7 @@ function normFuel(s) {
 function normGear(s) {
   s = String(s || '').toLowerCase();
   if (/automat|automāt|автомат|dsg|tiptronic|steptronic/.test(s)) return 'automatic';
-  if (/manual|manuāl|механ|handschalt|schalt/.test(s)) return 'manual';
+  if (/manual|manuāl|механ|ручн|handschalt|schalt|mehānisk/.test(s)) return 'manual';
   return null;
 }
 function parseKm(v) {
@@ -319,7 +321,7 @@ function walkListings(node, base, out, depth) {
 /* ---------------- site parsers ---------------- */
 const SS_LABELS = [
   ['make', /^(marka|марка|make|brand)$/], ['model', /^(modelis|модель|model)$/], ['year', /^(izlaiduma gads|год выпуска|year|year of issue|year of manufacture)$/],
-  ['engine', /^(dzin[eē]js|dzin[eē]ja tips|motors|двигатель|мотор|тип двигателя|engine|engine type)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission|gearbox|gear box)$/],
+  ['engine', /^(dzin[eē]js|dzin[eē]ja tips|motors|двигатель|мотор|тип двигателя|engine|engine type|type of engine|motor)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission|gearbox|gear box)$/],
   ['mileage', /^(nobraukums|пробег|mileage|run|odometer)$/], ['color', /^(kr[aā]sa|цвет|colou?r)$/], ['body', /^(virsb[uū]ves tips|тип кузова|body type)$/],
   ['vin', /^(vin|vin kods|vin код|vin code)$/]
 ];
@@ -601,6 +603,10 @@ function filterOthers(items, make, model) {
   if (byModel.length >= 3) return byModel;
   return items.filter(function (i) { return (md && has(i.title, md)) || has(i.title, mk) || (mk === 'gwm' && (has(i.title, 'great wall') || has(i.title, 'ora'))); });
 }
+const SS_GEN = {
+  golf: { 'golf-4': [1997, 2004], 'golf-5': [2003, 2009], 'golf-6': [2008, 2013], 'golf-7': [2012, 2020], 'golf-8': [2019, 2030], 'golf-variant': [1993, 2030] },
+  passat: { 'passat-b5': [1996, 2005], 'passat-b6': [2005, 2011], 'passat-b7': [2010, 2015], 'passat-b8': [2014, 2030], 'passat-variant': [1988, 2030] }
+};
 async function hComps(env, q) {
   const source = q.get('source');
   const cm = cleanMakeModel(q.get('make') || '', q.get('model') || '');
@@ -611,7 +617,7 @@ async function hComps(env, q) {
     let path = q.get('ssPath');
     let others = !!path && /^\/[a-z]{2}\/transport\/cars\/others\/$/i.test(path);
     if (!others && (!path || !/^\/[a-z]{2}\/transport\/cars\/[a-z0-9\-]+\/[a-z0-9\-]+\/$/i.test(path))) {
-      let mk = slugify(make); if (mk === 'mercedes-benz') mk = 'mercedes'; if (mk === 'vw') mk = 'volkswagen';
+      let mk = slugify(make); if (mk === 'mercedes-benz') mk = 'mercedes'; if (mk === 'vw') mk = 'volkswagen'; if (mk === 'land-rover') mk = 'rover';
       let md = slugify(model);
       if (/^bmw$/.test(mk) && /^\d{3}[a-z]*$/.test(md)) md = md.slice(0, 3);
       if (mk === 'toyota' && md === 'rav4') md = 'rav-4';
@@ -620,8 +626,24 @@ async function hComps(env, q) {
       path = '/ru/transport/cars/' + mk + '/' + md + '/';
     }
     let base = 'https://www.ss.com' + path;
-    const fetchSs = function (b, n) { const us = [b]; for (let k = 2; k <= n; k++) us.push(b + 'page' + k + '.html'); return Promise.all(us.map(function (u) { return getPage(u, 900).catch(function (e) { return { status: 0, text: '', url: u, err: String(e) }; }); })); };
+    const fetchSs0 = function (b, n) { const us = [b]; for (let k = 2; k <= n; k++) us.push(b + 'page' + k + '.html'); return Promise.all(us.map(function (u) { return getPage(u, 900).catch(function (e) { return { status: 0, text: '', url: u, err: String(e) }; }); })); };
+    const fetchSs = fetchSs0;
     let pages = await fetchSs(base, others ? 8 : 5);
+    /* ss.lv splits some models into generations (golf-7, passat-b8 ...): pick the ones for this year */
+    if (!others && (pages[0].status === 404 || !/id="tr_\d/.test(pages[0].text))) {
+      const mkPath = path.replace(/[^/]+\/$/, ''), mdSlug = path.split('/').filter(Boolean).pop();
+      const mp = await getPage('https://www.ss.com' + mkPath, 3600).catch(function () { return { status: 0, text: '' }; });
+      const subs = []; const re = new RegExp('href="' + mkPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(' + mdSlug.replace(/[^a-z0-9\-]/g, '') + '-[a-z0-9\-]+)/"', 'g'); let mm;
+      while ((mm = re.exec(mp.text))) if (subs.indexOf(mm[1]) < 0) subs.push(mm[1]);
+      const G = SS_GEN[mdSlug] || {};
+      let pick = subs.filter(function (x) { const g = G[x]; return g ? (!year || (year >= g[0] - 1 && year <= g[1] + 1)) : !/plus|sportsvan|van$|alltrack|cc$/.test(x) && !Object.keys(G).length; });
+      if (!pick.length) pick = subs.filter(function (x) { return !G[x] && !/plus|sportsvan/.test(x); }).slice(0, 3);
+      pick = pick.slice(0, 3);
+      if (pick.length) {
+        const sets = await Promise.all(pick.map(function (x) { return fetchSs('https://www.ss.com' + mkPath + x + '/', 3); }));
+        pages = [].concat.apply([], sets); base = 'https://www.ss.com' + mkPath + pick[0] + '/';
+      }
+    }
     /* A make that ss.com does not have as its own category (for example GWM or other Chinese brands) is listed under "Others". */
     if (!others && pages[0].status === 404) {
       others = true; base = 'https://www.ss.com/ru/transport/cars/others/'; pages = await fetchSs(base, 8);
@@ -676,7 +698,8 @@ async function hComps(env, q) {
     if (!mk || !md) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
     const yq = (yf ? '&make_date_from=' + yf : '') + (yt ? '&make_date_to=' + yt : '');
     const mkUrl = function (p) { return 'https://en.autoplius.lt/ads/used-cars/' + mk + '/' + md + '?' + yq.slice(1) + (p > 1 ? '&page_nr=' + p : ''); };
-    const pages = await Promise.all([1, 2, 3].map(function (n) { return getPage(mkUrl(n), 900).catch(function (e) { return { status: 0, text: '', url: mkUrl(n) }; }); }));
+    let pages = await Promise.all([1, 2].map(function (n) { return getPage(mkUrl(n), 3600).catch(function (e) { return { status: 0, text: '', url: mkUrl(n) }; }); }));
+    if (blockedBy(pages[0])) { await new Promise(function (r) { setTimeout(r, 1200); }); pages = [await getPage(mkUrl(1), 3600).catch(function () { return { status: 0, text: '', url: mkUrl(1) }; })]; }
     const search = mkUrl(1), b = blockedBy(pages[0]);
     if (b) return json(env, { ok: false, source: 'autoplius', error: 'blocked', message: 'autoplius.lt refused the server request (' + b + ').', searchUrl: search });
     if (pages[0].status === 404 || (pages[0].url || '').toLowerCase().indexOf('/' + mk + '/' + md) === -1) return json(env, { ok: false, source: 'autoplius', error: 'not_found', message: 'Make/model not found on autoplius.lt.', searchUrl: search });

@@ -1250,6 +1250,8 @@ function parseText(t){
 
 function cleanMakeModel(make, model) {
   var mk = String(make || '').trim(), md = String(model || '').trim();
+  var rv = mk.match(/^(?:land[\s\-]*)?rover\s+(range\s+rover.*|discovery.*|defender.*|freelander.*)$/i); if (rv) { mk = 'Land Rover'; if (!md) md = rv[1].trim(); }
+  if (/^(?:land[\s\-]*)?rover$/i.test(mk) && /range|discovery|defender|freelander|evoque|velar/i.test(md)) mk = 'Land Rover';
   var best = null;
   MAKES.forEach(function(m){ if (mk.toLowerCase().indexOf(m.toLowerCase()) === 0 && (!best || m.length > best.length)) best = m; });
   if (best) {
@@ -2073,7 +2075,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-13.2', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-13.3', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };

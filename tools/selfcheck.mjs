@@ -58,6 +58,7 @@ good(`ss: ${adsChecked} ad pages read (LV/RU/EN)`);
 const MODELS = [['Volkswagen', 'Golf', 2018, 'petrol'], ['Toyota', 'RAV4', 2019, ''], ['Volkswagen', 'Arteon', 2020, 'diesel']];
 const SRC = [['ss', {}], ['autoplius', {}], ['as24', { cy: 'D' }], ['as24', { cy: 'B' }], ['as24', { cy: 'NL' }], ['as24', { cy: 'F' }]];
 for (const [make, model, year, fuel] of MODELS) for (const [source, extra] of SRC) {
+  if (source === 'autoplius' && model !== 'Golf') continue; // autoplius limits bursts of requests
   const name = `${source}${extra.cy ? ' ' + extra.cy : ''} ${make} ${model}`;
   const j = await get('/api/comps', Object.assign({ source, make, model, year, fuel }, extra));
   const its = j.items || [];
