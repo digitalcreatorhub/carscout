@@ -1146,7 +1146,8 @@ var KEY_API='carscout_api', KEY_LANG='carscout_lang';
 
 var S={lang:'ru',api:'',busy:false,images:[],view:null,srcRows:{},ctl:null};
 var $=function(s){return document.querySelector(s)};
-function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function tx(s){ return typeof s==='function'?s():s; }
+function esc(s){ if(typeof s==='function') s=s(); return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function L(ru,en,lv){return S.lang==='ru'?ru:S.lang==='lv'?(lv!=null?lv:lvT(en)):en}
 function LP(a){ return !a?'':S.lang==='ru'?a[0]:S.lang==='lv'?lvT(a[1]):a[1]; }
 function fmt(n){return n==null||!isFinite(n)?'–':Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ')}
@@ -1453,7 +1454,7 @@ function readForm(){
 }
 function setField(id,v){var el=$(id); if(el&&v!=null&&v!==''&&!el.value) el.value=v}
 function showStatus(kind,msg,stop){
-  var el=$('#status'); if(!msg){el.innerHTML='';return}
+  var el=$('#status'); S.lastStatus=msg?[kind,msg,stop]:null; if(typeof msg==='function') msg=msg(); if(!msg){el.innerHTML='';return}
   el.innerHTML='<div class="st '+kind+'"><span>'+esc(msg)+'</span>'+(stop?'<button class="btn sm" type="button" data-act="stop">'+esc(L('Остановить','Stop'))+'</button><div class="ind"></div>':'')+'</div>';
 }
 function renderSrcs(){
@@ -1461,7 +1462,7 @@ function renderSrcs(){
   $('#srcs').innerHTML=keys.map(function(k){
     var r=S.srcRows[k];
     var link=r.url&&safeUrl(r.url)?' <a href="'+esc(safeUrl(r.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть поиск','Open search'))+'</a>':'';
-    return '<div class="src '+r.state+'"><span class="sn">'+esc(r.label)+'</span><span class="ss">'+esc(r.text)+'</span>'+link+'</div>';
+    return '<div class="src '+r.state+'"><span class="sn">'+esc(r.label)+'</span><span class="ss">'+esc(typeof r.text==='function'?r.text():r.text)+'</span>'+link+'</div>';
   }).join('');
 }
 function setSrc(key,label,state,text,url){S.srcRows[key]={label:label,state:state,text:text,url:url};renderSrcs()}
@@ -1506,9 +1507,9 @@ async function run(){
   if(S.busy) return;
   var f=readForm(), notes=[], car={make:null,model:null,year:null,km:null,price:null,fuel:null,gear:null,vin:null,cc:null,site:null,url:f.url||null,image:null,title:null,hints:{},src:{}};
   var hint=f.url?parseLink(f.url):null;
-  if(!f.url&&!f.text&&!S.images.length&&!f.price&&!(f.make&&f.model)&&!f.vin){ showStatus('err',L('Добавьте ссылку, скриншот, текст объявления или марку и модель.','Add a link, a screenshot, the listing text, or a make and model.')); return; }
+  if(!f.url&&!f.text&&!S.images.length&&!f.price&&!(f.make&&f.model)&&!f.vin){ showStatus('err',function(){return L('Добавьте ссылку, скриншот, текст объявления или марку и модель.','Add a link, a screenshot, the listing text, or a make and model.')}); return; }
   S.busy=true; S.ctl=new AbortController(); S.srcRows={}; renderSrcs(); $('#btn-go').disabled=true;
-  if(S.api&&S.apiOk===false){ showStatus('busy',L('Подключаюсь к серверу…','Connecting to the server…'),false); await connect(); }
+  if(S.api&&S.apiOk===false){ showStatus('busy',function(){return L('Подключаюсь к серверу…','Connecting to the server…')},false); await connect(); }
   var t0=Date.now(), stage=L('Читаю объявление','Reading the listing');
   var timer=setInterval(function(){showStatus('busy',stage+' · '+Math.round((Date.now()-t0)/1000)+' c',true)},500);
   showStatus('busy',stage,true);
@@ -1521,9 +1522,9 @@ async function run(){
       try{
         ocrText=await ocrImages(S.images.map(function(i){return i.file}),function(i,n,p){stage=L('Распознаю скриншот ','Recognising screenshot ')+(i+1)+'/'+n+' · '+Math.round(p*100)+'%'});
         var po=parseText(ocrText);
-        notes.push(L('Со скриншота распознано: ','Read from the screenshot: ')+['make','model','year','km','price','vin'].filter(function(k){return po[k]!=null}).map(function(k){return k+' '+po[k]}).join(', '));
+        notes.push((function(){return L('Со скриншота распознано: ','Read from the screenshot: ')+['make','model','year','km','price','vin'].filter(function(k){return po[k]!=null}).map(function(k){return k+' '+po[k]}).join(', ')}));
         mergeCar(car,{make:po.make,model:po.model,year:po.year,km:po.km,price:po.price,fuel:po.fuel,gear:po.gearbox,vin:po.vin},'photo');
-      }catch(e){ notes.push(L('Не удалось загрузить распознавание текста (нужен интернет).','Text recognition could not be loaded (internet needed).')); }
+      }catch(e){ notes.push((function(){return L('Не удалось загрузить распознавание текста (нужен интернет).','Text recognition could not be loaded (internet needed).')})); }
     }
     /* 2. link */
     if(hint&&!hint.bad){ car.cc=hint.cc; car.site=hint.site||hint.host; }
@@ -1535,11 +1536,11 @@ async function run(){
         var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null;
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
       } else {
-        notes.push(L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.'));
+        notes.push((function(){return L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.')}));
         linkMsg=L('Сайт '+(hint.host||'')+' не отдаёт страницу серверу (защита от роботов). Откройте объявление в своём браузере, нажмите Ctrl+A, затем Ctrl+C и вставьте скопированное в поле «Текст объявления» ниже (на телефоне: выделить всё, копировать). Либо загрузите скриншот. Затем нажмите «Проверить автомобиль» ещё раз.','The site '+(hint.host||'')+' does not give the page to the server (bot protection). Open the listing in your own browser, press Ctrl+A then Ctrl+C and paste it into the “Listing text” field below (on a phone: select all, copy). Or upload a screenshot. Then press “Check this car” again.');
         if(!f.text&&!S.images.length){ $('#intake').classList.add('open'); var tf=$('#f-text'); if(tf){ tf.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){tf.focus()},400); } }
       }
-    }else if(f.url&&!S.api){ notes.push(L('Сервер не подключён, поэтому ссылка использована только как подсказка (кнопка «Сервер»).','The server is not connected, so the link is used only as a hint (the “Server” button).')); }
+    }else if(f.url&&!S.api){ notes.push((function(){return L('Сервер не подключён, поэтому ссылка использована только как подсказка (кнопка «Сервер»).','The server is not connected, so the link is used only as a hint (the “Server” button).')})); }
     /* 3. pasted text */
     if(f.text){ var pt=parseText(f.text); mergeCar(car,{make:pt.make,model:pt.model,year:pt.year,km:pt.km,price:pt.price,fuel:pt.fuel,gear:pt.gearbox,vin:pt.vin},'text'); }
     /* 4. manual fields win */
@@ -1569,10 +1570,10 @@ async function run(){
       try{
         var scan=await scanPhotos(phs,function(i,n){ stage=L('Читаю фото объявления ','Reading listing photos ')+(i+1)+'/'+n+L(' (комплектация, документы)',' (trim, documents)'); },function(){return S.ctl&&S.ctl.signal.aborted});
         var hit=scan.filter(function(x){return x.trims.length})[0], vinHit=scan.filter(function(x){return x.vin})[0];
-        if(hit){ car.trims=hit.trims; car.trimFromPhoto=true; car.src.trims='photo'; notes.push(L('Комплектация найдена на фото №'+(hit.i+1)+': '+hit.trims.join(', ')+'. Распознавание текста на фото неточное: проверьте и при необходимости исправьте в поле «Комплектация».','Trim found on photo #'+(hit.i+1)+': '+hit.trims.join(', ')+'. Text recognition on photos is imprecise: please check it and fix the “Trim” field if needed.')); }
-        else notes.push(L('Просмотрено фото: '+scan.length+', комплектация на них не найдена.','Photos checked: '+scan.length+', no trim found on them.'));
-        if(vinHit&&!car.vin) notes.push(L('На фото виден возможный VIN: '+vinHit.vin+' (проверьте вручную).','A possible VIN is visible on a photo: '+vinHit.vin+' (please check manually).'));
-      }catch(e){ notes.push(L('Фото не удалось прочитать (нужен интернет для загрузки распознавания).','Photos could not be read (internet needed to load text recognition).')); }
+        if(hit){ car.trims=hit.trims; car.trimFromPhoto=true; car.src.trims='photo'; notes.push((function(){return L('Комплектация найдена на фото №'+(hit.i+1)+': '+hit.trims.join(', ')+'. Распознавание текста на фото неточное: проверьте и при необходимости исправьте в поле «Комплектация».','Trim found on photo #'+(hit.i+1)+': '+hit.trims.join(', ')+'. Text recognition on photos is imprecise: please check it and fix the “Trim” field if needed.')})); }
+        else notes.push((function(){return L('Просмотрено фото: '+scan.length+', комплектация на них не найдена.','Photos checked: '+scan.length+', no trim found on them.')}));
+        if(vinHit&&!car.vin) notes.push((function(){return L('На фото виден возможный VIN: '+vinHit.vin+' (проверьте вручную).','A possible VIN is visible on a photo: '+vinHit.vin+' (please check manually).')}));
+      }catch(e){ notes.push((function(){return L('Фото не удалось прочитать (нужен интернет для загрузки распознавания).','Photos could not be read (internet needed to load text recognition).')})); }
     }
     autoSet('#f-trim',(car.trims||[]).map(trimDisplay).join(', '));
     var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1){ car.year=vd.years[0]; car.src.year='vin'; }
@@ -1582,12 +1583,12 @@ async function run(){
     if(!car.make||!car.model||!car.year){
       $('#manual').open=true;
       S.view={car:car,notes:notes,regions:[],needFields:true}; render();
-      showStatus('info',linkMsg||L('Не хватает марки, модели или года. Проверьте поля «Ввести данные вручную» и нажмите кнопку ещё раз.','Make, model or year is missing. Check the manual fields and press the button again.'));
+      showStatus('info',function(){return linkMsg||L('Не хватает марки, модели или года. Проверьте поля «Ввести данные вручную» и нажмите кнопку ещё раз.','Make, model or year is missing. Check the manual fields and press the button again.')});
       return;
     }
     if(!S.api){
       S.view={car:car,notes:notes,regions:[],noApi:true}; render();
-      showStatus('info',L('Подключите сервер, чтобы получить реальные цены (кнопка «Сервер» вверху).','Connect the server to get real prices (the “Server” button above).'));
+      showStatus('info',function(){return L('Подключите сервер, чтобы получить реальные цены (кнопка «Сервер» вверху).','Connect the server to get real prices (the “Server” button above).')});
       return;
     }
     /* 6. comparables */
@@ -1597,26 +1598,26 @@ async function run(){
     var AS_TRIM={'r-line':'R-Line','amg-line':'AMG Line','m-sport':'M Sport','s-line':'S-Line','st-line':'ST-Line','sportline':'Sportline','fr':'FR','monte carlo':'Monte Carlo','black edition':'Black Edition','avantgarde':'Avantgarde','rs':'RS','executive':'Executive','prestige':'Prestige','luxury':'Luxury','premium':'Premium','se':'SE','special edition':'Special Edition','vorsprung':'Vorsprung','competition':'Competition','r-design':'R-Design','inscription':'Inscription','gr sport':'GR Sport','opc line':'OPC Line','highline':'Highline','comfortline':'Comfortline','trendline':'Trendline','elegance':'Elegance'};
     var asTrim=''; (car.trims||[]).some(function(k){ var v=AS_TRIM[k]||MT_NAME[k]; if(v){asTrim=v; return true} });
     if(!asTrim&&car.trimCustom) asTrim=car.trimCustom;
-    setSrc('ss','ss.com (LV)','run',L('загружаю…','loading…'));
+    setSrc('ss','ss.com (LV)','run',function(){return L('загружаю…','loading…')});
     jobs.push(api('/api/comps',Object.assign({source:'ss',ssPath:car.hints&&car.hints.ss_path||''},base),55000).then(function(j){return {key:'ss',region:'LV',label:'ss.com',j:j}}));
-    setSrc('apl','autoplius.lt (LT)','run',L('загружаю…','loading…'));
+    setSrc('apl','autoplius.lt (LT)','run',function(){return L('загружаю…','loading…')});
     jobs.push(api('/api/comps',Object.assign({source:'autoplius'},base),55000).then(function(j){return {key:'apl',region:'LT',label:'autoplius.lt',j:j}}));
     [['D','DE'],['B','BE'],['NL','NL'],['F','FR']].forEach(function(cc){
       var key='as24'+cc[1].toLowerCase();
-      setSrc(key,'AutoScout24 ('+cc[1]+')','run',L('загружаю…','loading…'));
+      setSrc(key,'AutoScout24 ('+cc[1]+')','run',function(){return L('загружаю…','loading…')});
       jobs.push(api('/api/comps',Object.assign({source:'as24',cy:cc[0],trim:asTrim},base),55000).then(function(j){return {key:key,region:cc[1],label:'AutoScout24 '+cc[1],j:j}}));
     });
     f.extra.forEach(function(u,i){
       var key='x'+i, host=''; try{host=new URL(u).hostname.replace(/^www\./,'').replace(/^en\./,'')}catch(e){}
       var reg=/autoplius|autogidas|\.lt$/.test(host)?'LT':/auto24\.ee|\.ee$/.test(host)?'EE':/auto24\.lv|ss\.(com|lv)/.test(host)?'LV':/otomoto|\.pl$/.test(host)?'PL':/mobile\.de|autoscout24|\.de$/.test(host)?'DE':'EU';
-      setSrc(key,host+' ('+reg+')','run',L('загружаю…','loading…'),u);
+      setSrc(key,host+' ('+reg+')','run',function(){return L('загружаю…','loading…')},u);
       jobs.push(api('/api/search',{url:u},55000).then(function(j){return {key:key,region:reg,label:host,j:j,url:u}}));
     });
     var results=[];
     await Promise.all(jobs.map(function(p){return p.then(function(r){
       var j=r.j||{}, n=(j.items||[]).length;
       results.push(r);
-      setSrc(r.key,r.label+' ('+r.region+')',j.ok?'ok':'err',j.ok?(L('найдено объявлений: ','ads found: ')+n+(j.weak?L(' (грубое чтение)',' (rough reading)'):'')):errText(j),j.searchUrl||r.url);
+      setSrc(r.key,r.label+' ('+r.region+')',j.ok?'ok':'err',function(){ return j.ok?(L('найдено объявлений: ','ads found: ')+n+(j.weak?L(' (грубое чтение)',' (rough reading)'):'')):errText(j); },j.searchUrl||r.url);
     })}));
     S.lastResults=results;
     S.view=compute(car,results,f,notes);
@@ -1624,9 +1625,9 @@ async function run(){
     histAdd(S.view);
     try{ extrasAfterRun(S.view); }catch(e){}
     try{ var rp=document.getElementById('a-car'); if(rp) setTimeout(function(){ var y=rp.getBoundingClientRect().top+window.pageYOffset-(aMob()?70:20); window.scrollTo({top:Math.max(0,y),behavior:'smooth'}); },60); }catch(e){}
-    showStatus('ok',L('Готово: ','Done: ')+S.view.totalUsed+L(' реальных объявлений использовано.',' real listings used.'));
+    showStatus('ok',function(){return L('Готово: ','Done: ')+S.view.totalUsed+L(' реальных объявлений использовано.',' real listings used.')});
   }catch(e){
-    showStatus('err',L('Что-то пошло не так: ','Something went wrong: ')+(e&&e.message||e));
+    showStatus('err',function(){return L('Что-то пошло не так: ','Something went wrong: ')+(e&&e.message||e)});
   }finally{
     clearInterval(timer); S.busy=false; S.ctl=null; $('#btn-go').disabled=false;
   }
@@ -1668,7 +1669,7 @@ function compute(car,results,f,notes){
   var regions=[], all=[], totalUsed=0;
   var order={ss:0,apl:1,as24de:2,as24be:3,as24nl:4,as24fr:5}; results.sort(function(a,b){return (order[a.key]!=null?order[a.key]:9)-(order[b.key]!=null?order[b.key]:9)||a.key.localeCompare(b.key)});
   results.forEach(function(r){
-    var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:errText(j),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
+    var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:(function(){return errText(j)}),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
       var pr=pickRelevant((j.items||[]).map(function(i){return Object.assign({src:r.label,region:r.region},i)}),car);
       row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote;
@@ -1679,7 +1680,7 @@ function compute(car,results,f,notes){
         var smp=row.items.slice(0,3).map(function(i){return (i.title?String(i.title).slice(0,40)+' ':'')+(i.year?i.year+' ':'')+eur(i.price)}).join('; ');
         var seenN=row.n, seenMid=row.fair.mid;
         row.ok=false; row.suspect=true; row.fair=null; row.stats=null; row.items=[]; row.n=0;
-        row.err=L('Не учитывается: сайт нашёл '+seenN+' объявл. с типичной ценой '+eur(seenMid)+', это в '+ratio.toFixed(1).replace('.',',')+' раза '+(seenMid>car.price?'выше':'ниже')+' вашей (возможно, показана другая модель, версия или другое топливо). Примеры: '+smp+'. Нажмите «Открыть» и проверьте вручную.','Ignored: the site found '+seenN+' ads with a typical price of '+eur(seenMid)+', '+ratio.toFixed(1)+'× '+(seenMid>car.price?'above':'below')+' yours (it may be another model, version or fuel). Examples: '+smp+'. Press “Open” and check manually.');
+        row.err=(function(){return L('Не учитывается: сайт нашёл '+seenN+' объявл. с типичной ценой '+eur(seenMid)+', это в '+ratio.toFixed(1).replace('.',',')+' раза '+(seenMid>car.price?'выше':'ниже')+' вашей (возможно, показана другая модель, версия или другое топливо). Примеры: '+smp+'. Нажмите «Открыть» и проверьте вручную.','Ignored: the site found '+seenN+' ads with a typical price of '+eur(seenMid)+', '+ratio.toFixed(1)+'× '+(seenMid>car.price?'above':'below')+' yours (it may be another model, version or fuel). Examples: '+smp+'. Press “Open” and check manually.')});
       }
       totalUsed+=row.n; all=all.concat(row.items);
     }
@@ -1689,7 +1690,7 @@ function compute(car,results,f,notes){
   var want=f.market||'LV';
   var solid=function(r){return r.fair&&r.n>=5};
   var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
-  if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push(L('В '+rloc(want)+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку '+rgen(home.region)+(FAR[home.region]?' (цены без учёта ввоза: доставка и регистрация добавят примерно 800–1500 €)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(FAR[home.region]?' (prices before import costs)':'')+'.')); }
+  if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push((function(){return L('В '+rloc(want)+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку '+rgen(home.region)+(FAR[home.region]?' (цены без учёта ввоза: доставка и регистрация добавят примерно 800–1500 €)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(FAR[home.region]?' (prices before import costs)':'')+'.')})); }
   var fair=home?home.fair:null, ver=verdictOf(car.price,fair?fair.mid:null), score=ver.delta!=null?priceScore(ver.delta):null;
   if(home&&home.fair&&!(home.stats&&home.stats.reg)&&car.km!=null){
     var hk=median(home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km}));
@@ -1698,7 +1699,7 @@ function compute(car,results,f,notes){
       var rel=donor.stats.reg.slope/Math.max(1,donor.stats.median), adj=Math.max(-0.25,Math.min(0.25,rel*(car.km-hk)));
       if(Math.abs(adj)>=0.02){ var m0=home.fair.mid, nm=Math.round(m0*(1+adj)/50)*50, sh=nm-m0;
         home.fair={mid:nm,low:Math.round((home.fair.low+sh)/50)*50,high:Math.round((home.fair.high+sh)/50)*50,source:'comps-adj'};
-        notes.push(L('В '+rloc(home.region)+' мало объявлений, чтобы учесть пробег, поэтому поправка на пробег взята из рынка '+rgen(donor.region)+': '+(adj<0?'−':'+')+Math.round(Math.abs(adj)*100)+'% (ваш пробег '+fmt(car.km)+' км против '+fmt(hk)+' км у аналогов).','Too few listings in '+rname(home.region)+' to account for mileage, so the mileage correction comes from the '+rname(donor.region)+' market: '+(adj<0?'−':'+')+Math.round(Math.abs(adj)*100)+'%.'));
+        notes.push((function(){return L('В '+rloc(home.region)+' мало объявлений, чтобы учесть пробег, поэтому поправка на пробег взята из рынка '+rgen(donor.region)+': '+(adj<0?'−':'+')+Math.round(Math.abs(adj)*100)+'% (ваш пробег '+fmt(car.km)+' км против '+fmt(hk)+' км у аналогов).','Too few listings in '+rname(home.region)+' to account for mileage, so the mileage correction comes from the '+rname(donor.region)+' market: '+(adj<0?'−':'+')+Math.round(Math.abs(adj)*100)+'%.')}));
         fair=home.fair; ver=verdictOf(car.price,fair.mid); score=ver.delta!=null?priceScore(ver.delta):null; }
     }
   }
@@ -2061,23 +2062,23 @@ function secHistory(v){
     '<p class="hint" style="margin-top:10px">'+esc(L('Приложение не читает эти сайты, а только открывает их. На csdd.lv сверьте пробег с прошлыми техосмотрами: расхождение — повод для вопросов продавцу.','The app does not read these sites, it only opens them. On csdd.lv compare the mileage with past inspections: a mismatch is a reason to question the seller.'))+'</p></section>';
 }
 function copyText(txt,okMsg){
-  var done=function(){ showStatus('ok',okMsg||L('Скопировано.','Copied.')); };
-  var fb=function(){ var t=document.createElement('textarea'); t.value=txt; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); done(); }catch(e){ showStatus('err',L('Не удалось скопировать: выделите текст вручную.','Could not copy: select the text manually.')); } document.body.removeChild(t); };
+  var done=function(){ showStatus('ok',function(){return okMsg||L('Скопировано.','Copied.')}); };
+  var fb=function(){ var t=document.createElement('textarea'); t.value=txt; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); done(); }catch(e){ showStatus('err',function(){return L('Не удалось скопировать: выделите текст вручную.','Could not copy: select the text manually.')}); } document.body.removeChild(t); };
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done,fb); else fb();
 }
 function reportText(v){
   var c=v.car, o=['CarScout report',new Date().toISOString(),'page: '+location.href.split('#')[0],'link: '+(c.url||'-'),
     'car: '+JSON.stringify({make:c.make,model:c.model,year:c.year,km:c.km,price:c.price,fuel:c.fuel,lpg:!!c.lpg,gear:c.gear,vin:c.vin,trims:c.trims,trimCustom:c.trimCustom||'',title:c.title}),
     'text: '+String(c.desc||'').replace(/\s+/g,' ').slice(0,400)];
-  (v.regions||[]).forEach(function(r){ o.push('region '+r.key+' '+r.region+': ok='+r.ok+' n='+r.n+'/'+r.total+(r.fair?' fair='+Math.round(r.fair.mid):'')+(r.suspect?' SUSPECT':'')+(r.err?' err='+r.err:'')+' '+(r.url||'')); });
-  (v.notes||[]).forEach(function(n){ o.push('note: '+n); });
+  (v.regions||[]).forEach(function(r){ o.push('region '+r.key+' '+r.region+': ok='+r.ok+' n='+r.n+'/'+r.total+(r.fair?' fair='+Math.round(r.fair.mid):'')+(r.suspect?' SUSPECT':'')+(r.err?' err='+tx(r.err):'')+' '+(r.url||'')); });
+  (v.notes||[]).forEach(function(n){ o.push('note: '+tx(n)); });
   return o.join('\n');
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-13.5', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-13.6', KEY_FAVS='carscout_favs';
 function refreshApp(){
-  showStatus('busy',L('Обновляю приложение…','Updating the app…'),false);
+  showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
   var p=[];
   try{ if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations) p.push(navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){return r.unregister()})); })); }catch(e){}
@@ -2116,8 +2117,8 @@ function favFromView(v){
 }
 function favToggle(){
   var v=S.view; if(!v||!v.car) return; var a=favLoad(), id=favId(v.car), i=a.findIndex(function(x){return x.id===id});
-  if(i>-1){ a.splice(i,1); favSave(a); showStatus('info',L('Убрано из избранного.','Removed from favourites.')); }
-  else { a.unshift(favFromView(v)); favSave(a); showStatus('ok',L('Сохранено в избранное (только в этом браузере).','Saved to favourites (in this browser only).')); }
+  if(i>-1){ a.splice(i,1); favSave(a); showStatus('info',function(){return L('Убрано из избранного.','Removed from favourites.')}); }
+  else { a.unshift(favFromView(v)); favSave(a); showStatus('ok',function(){return L('Сохранено в избранное (только в этом браузере).','Saved to favourites (in this browser only).')}); }
   render();
 }
 function favTitle(f){ return [f.make,f.model,f.year].filter(Boolean).join(' ')||L('Автомобиль','Car'); }
@@ -2157,8 +2158,8 @@ function renderFavs(){
 }
 var recheckBusy=false;
 async function favRecheck(silent){
-  if(recheckBusy||!S.api) return; var a=favLoad().filter(function(f){return f.url&&safeUrl(f.url)}); if(!a.length){ if(!silent) showStatus('info',L('У сохранённых машин нет ссылок на объявления.','The saved cars have no listing links.')); return; }
-  recheckBusy=true; var changes=[]; if(!silent) showStatus('busy',L('Проверяю цены в избранном…','Checking favourite prices…'),false);
+  if(recheckBusy||!S.api) return; var a=favLoad().filter(function(f){return f.url&&safeUrl(f.url)}); if(!a.length){ if(!silent) showStatus('info',function(){return L('У сохранённых машин нет ссылок на объявления.','The saved cars have no listing links.')}); return; }
+  recheckBusy=true; var changes=[]; if(!silent) showStatus('busy',function(){return L('Проверяю цены в избранном…','Checking favourite prices…')},false);
   try{
     var all=favLoad(), n=0;
     for(var k=0;k<all.length&&n<8;k++){
@@ -2173,8 +2174,8 @@ async function favRecheck(silent){
     favSave(all); LS.set('carscout_favs_at',String(Date.now()));
   }catch(e){}
   recheckBusy=false; renderFavs();
-  if(changes.length) showStatus('ok',changes.map(function(c){return c.gone?c.f+': '+L('снято с продажи','no longer listed','noņemts no pārdošanas'):c.f+': '+eur(c.from)+' → '+eur(c.to)}).join('; '));
-  else if(!silent) showStatus('ok',L('Цены не изменились.','No price changes.'));
+  if(changes.length) showStatus('ok',function(){return changes.map(function(c){return c.gone?c.f+': '+L('снято с продажи','no longer listed','noņemts no pārdošanas'):c.f+': '+eur(c.from)+' → '+eur(c.to)}).join('; ')});
+  else if(!silent) showStatus('ok',function(){return L('Цены не изменились.','No price changes.')});
 }
 function favAutoCheck(){
   var last=parseInt(LS.get('carscout_favs_at')||'0',10)||0;
@@ -2524,7 +2525,7 @@ function applyCheck(){
   var ch=function(id){ var el=document.getElementById(id); return !!el&&String(el.value||'').trim()!==String(el.getAttribute('data-orig')||'').trim(); };
   var g=function(id){ var el=document.getElementById(id); return el?String(el.value||'').trim():''; };
   var ids=['c-make','c-model','c-year','c-km','c-price','c-fuel','c-trim','c-gear'];
-  if(!ids.some(ch)){ showStatus('info',L('Вы ничего не изменили: эти данные уже учтены.','Nothing changed: these data are already used.')); return; }
+  if(!ids.some(ch)){ showStatus('info',function(){return L('Вы ничего не изменили: эти данные уже учтены.','Nothing changed: these data are already used.')}); return; }
   var set=function(sel,id,num){ if(!ch(id)) return; var el=$(sel); if(!el) return; var val=g(id); el.value=num?val.replace(/[^\d]/g,''):val; el.dataset.auto=''; };
   set('#f-make','c-make'); set('#f-model','c-model'); set('#f-year','c-year',1); set('#f-km','c-km',1); set('#f-price','c-price',1); set('#f-fuel','c-fuel'); set('#f-trim','c-trim');
   if(ch('c-gear')) S.manualGear=g('c-gear')||null;
@@ -2595,6 +2596,11 @@ function applyLang(){
   document.querySelectorAll('[data-ru]').forEach(function(el){ var en=el.getAttribute('data-en'); el.textContent=S.lang==='ru'?el.getAttribute('data-ru'):S.lang==='lv'?(el.getAttribute('data-lv')||lvT(en)):en; });
   document.querySelectorAll('[data-ph-en]').forEach(function(el){ var en=el.getAttribute('data-ph-en'); el.setAttribute('placeholder',S.lang==='ru'?el.getAttribute('data-ph-ru'):S.lang==='lv'?lvT(en):en); });
   document.querySelectorAll('.rail button[data-act]').forEach(function(b){ var r=b.querySelector('.rl'); if(r) b.setAttribute('title',r.textContent); });
+  var av=document.getElementById('app-ver'), au=document.getElementById('app-upd'); if(av) av.textContent=L('Версия приложения: ','App version: ')+APP_VER+' '; if(au) au.textContent=L('Обновить','Update');
+  if(S.lastStatus&&!S.busy){ if(typeof S.lastStatus[1]==='function') showStatus(S.lastStatus[0],S.lastStatus[1],S.lastStatus[2]); else showStatus(''); }
+  var FU={'':['—','—','—'],petrol:['Бензин','Petrol','Benzīns'],diesel:['Дизель','Diesel','Dīzelis'],hybrid:['Гибрид','Hybrid','Hibrīds'],electric:['Электро','Electric','Elektro'],lpg:['Бензин + газ (LPG)','Petrol + LPG','Benzīns + gāze (LPG)']}, li=S.lang==='ru'?0:S.lang==='lv'?2:1;
+  document.querySelectorAll('#f-fuel option').forEach(function(o){ var t=FU[o.value]; if(t) o.textContent=o.value?t[li]:''; });
+  var sg=document.querySelector('.seg[role=group]'); if(sg) sg.setAttribute('aria-label',L('Язык','Language','Valoda'));
   var ld=document.querySelector('.lead'); if(ld) ld.setAttribute('data-over',L('Рига · Балтия · ЕС','Riga · Baltics · EU','Rīga · Baltija · ES'));
   if(S.apiState) apiDot(S.apiState);
   ['ru','en','lv'].forEach(function(k){ var b=document.getElementById('lang-'+k); if(b) b.setAttribute('aria-pressed',S.lang===k?'true':'false'); });
@@ -2626,7 +2632,7 @@ var LVMISS={};
 function lvT(en){
   if(en==null) return en; en=String(en);
   if(Object.prototype.hasOwnProperty.call(LVD,en)) return LVD[en];
-  for(var i=0;i<LVTP.length;i++){ var t=LVTP[i]; if(!t[0]) continue; var m=en.match(t[0]); if(m){ var map={}; t[1].forEach(function(lb,k){ map[lb]=m[k+1]; }); return t[2].replace(/\{(\d+)\}/g,function(_,n){ return map[n]!=null?map[n]:''; }); } }
+  for(var i=0;i<LVTP.length;i++){ var t=LVTP[i]; if(!t[0]) continue; var m=en.match(t[0]); if(m){ var map={}; t[1].forEach(function(lb,k){ var g=m[k+1]; map[lb]=(g!=null&&Object.prototype.hasOwnProperty.call(LVD,g))?LVD[g]:g; }); return t[2].replace(/\{(\d+)\}/g,function(_,n){ return map[n]!=null?map[n]:''; }); } }
   LVMISS[en]=1; return en;
 }
 
@@ -2910,7 +2916,7 @@ async function findPhotoMatches(v){
   await Promise.all([worker(),worker(),worker(),worker(),worker()]);
   return out.sort(function(a,b){return a.d-b.d}).slice(0,6);
 }
-function rePanel(id,html){ var el=document.getElementById(id); if(!el||!html) return; var t=document.createElement('div'); t.innerHTML=html; if(t.firstChild) el.parentNode.replaceChild(t.firstChild,el); }
+function rePanel(id,html){ var el=document.getElementById(id); if(!el||!html) return; var t=document.createElement('div'); t.innerHTML=html; var n=t.firstChild; if(!n) return; var sp=(el.className.match(/\bc(4|5|6|7|8|12)\b/)||[])[0], np=(n.className.match(/\bc(4|5|6|7|8|12)\b/)||[])[0]; if(sp&&np&&sp!==np) n.className=n.className.replace(np,sp); el.parentNode.replaceChild(n,el); }
 async function extrasAfterRun(v){
   var c=v.car; v.dups=findDups(v);
   var isSs=/ss\.(com|lv)\/msg\//.test(c.url||'');
@@ -2946,7 +2952,7 @@ function renderFinder(show){
   if(show!=null) box.hidden=!show; if(box.hidden) return;
   box.innerHTML=aHead(L('Поиск выгодных машин','Find good deals','Izdevīgu auto meklēšana'),'<button class="btn sm" type="button" data-act="nav-find">'+esc(L('Скрыть','Hide','Paslēpt'))+'</button>')+
     '<p class="anote" style="margin-top:0">'+esc(L('Укажите модель, годы и бюджет: приложение просмотрит ss.lv, autoplius.lt и AutoScout24 и покажет машины, которые дешевле своего рынка с учётом года и пробега.','Enter the model, years and budget: the app scans ss.lv, autoplius.lt and AutoScout24 and shows cars priced below their market for the year and mileage.','Norādiet modeli, gadus un budžetu: lietotne pārskatīs ss.lv, autoplius.lt un AutoScout24 un parādīs auto, kas ir lētāki par savu tirgu, ņemot vērā gadu un nobraukumu.'))+'</p>'+
-    finderForm()+'<div id="find-out">'+(S.findHtml||'')+'</div>';
+    finderForm()+'<div id="find-out">'+findOutHtml()+'</div>';
 }
 function fitPrice(items){
   /* price ~ a + b*year + c*km (least squares); falls back to year medians */
@@ -2962,26 +2968,38 @@ function fitPrice(items){
   var all=median(items.map(function(i){return i.price}));
   return function(i){ var a=byY[i.year]; return a&&a.length>=3?median(a):all; };
 }
+function findOutHtml(){
+  var D=S.findData; if(!D) return ''; var rows=D.rows, notes=D.notes, cm=D.cm, res={reduce:function(){return D.scanned}};
+  var sus=rows.filter(function(x){return x.d<-35}), good=rows.filter(function(x){return x.d>=-35&&x.d<-3});
+  var tr=function(x){ var u=safeUrl(x.url), ti=x.img?aImg(x.img):''; return '<tr><td class="thc">'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" tabindex="-1">':'')+'<span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span>'+(u?'</a>':'')+'</td><td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(x.title||cm.make+' '+cm.model).slice(0,52))+'</a>':esc(String(x.title||'').slice(0,52)))+'<div class="rn">'+esc(x.src+(FAR[x.region]?' · '+L('без учёта ввоза','excl. import','bez ievešanas'):''))+'</div><div class="rn fm">'+esc([x.year,x.km!=null?aKmTxt(x.km):''].filter(Boolean).join(' · '))+'</div></td><td class="r">'+(x.year||'–')+'</td><td class="r">'+(x.km!=null?esc(aKmTxt(x.km)):'–')+'</td><td class="r"><b>'+esc(eur(x.price))+'</b><div class="rn">'+esc(L('рынок ','market ','tirgus ')+eur(x.exp))+'</div></td><td class="r" style="color:var(--good)"><b>'+esc(pct(x.d))+'</b></td><td class="r">'+(u?'<button class="btn sm" type="button" data-act="find-check" data-u="'+esc(u)+'">'+esc(L('Проверить','Check','Pārbaudīt'))+'</button>':'')+'</td></tr>'; };
+  var head='<thead><tr><th class="thc"></th><th>'+esc(L('Объявление','Listing','Sludinājums'))+'</th><th class="r">'+esc(L('Год','Year','Gads'))+'</th><th class="r">'+esc(L('Пробег','Mileage','Nobraukums'))+'</th><th class="r">'+esc(L('Цена','Price','Cena'))+'</th><th class="r">'+esc(L('К рынку','vs market','Pret tirgu'))+'</th><th></th></tr></thead>';
+  var h='<p class="anote">'+esc(L('Просмотрено объявлений: ','Listings scanned: ','Pārskatīti sludinājumi: ')+res.reduce(function(a,r){return a+((r.j&&r.j.items)||[]).length},0)+'. '+L('Ниже рынка: ','Below market: ','Zem tirgus: ')+good.length+'.')+'</p>';
+  h+=good.length?'<div class="scroll"><table class="tbl">'+head+'<tbody>'+good.slice(0,15).map(tr).join('')+'</tbody></table></div>':'<p class="anote">'+esc(L('Машин заметно дешевле рынка по этим условиям не найдено. Попробуйте расширить годы, бюджет или рынки.','No cars clearly below the market for these filters. Try wider years, budget or markets.','Auto, kas būtu manāmi lētāki par tirgu, ar šiem nosacījumiem nav atrasti. Mēģiniet paplašināt gadus, budžetu vai tirgus.'))+'</p>';
+  if(sus.length) h+='<div class="shh" style="margin-top:14px"><i style="background:var(--bad)"></i>'+esc(L('Подозрительно дёшево (более 35% ниже рынка): часто битые, без документов или мошенничество','Suspiciously cheap (more than 35% below the market): often damaged, without papers or a scam','Aizdomīgi lēti (vairāk nekā par 35% zem tirgus): bieži bojāti, bez dokumentiem vai krāpšana'))+'</div><div class="scroll"><table class="tbl">'+head+'<tbody>'+sus.slice(0,5).map(tr).join('')+'</tbody></table></div>';
+  if(notes.length) h+='<p class="mini" style="margin-top:8px">'+esc(notes.map(function(n){return typeof n==='function'?n():n}).join(' · '))+'</p>';
+  h+='<p class="hint" style="margin-top:8px">'+esc(L('«Рынок» — ожидаемая цена такой машины на её же сайте по году и пробегу. Комплектацию и состояние список не видит: нажмите «Проверить» для полного разбора.','“Market” is the expected price of such a car on its own site for its year and mileage. The list cannot see trim or condition: press “Check” for the full analysis.','«Tirgus» — gaidāmā šāda auto cena tajā pašā vietnē pēc gada un nobraukuma. Komplektāciju un stāvokli saraksts neredz: nospiediet «Pārbaudīt» pilnai analīzei.'))+'</p>';
+  return h;
+}
 async function runFinder(){
   var g=function(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; }, gi=function(id){ var x=g(id).replace(/[^\d]/g,''); return x?parseInt(x,10):null; };
   var mk={}; document.querySelectorAll('[data-fmk]').forEach(function(x){ mk[x.getAttribute('data-fmk')]=x.checked?1:0; });
   var p={make:g('fd-make'),model:g('fd-model'),yf:gi('fd-yf'),yt:gi('fd-yt'),pmax:gi('fd-pmax'),kmax:gi('fd-kmax'),fuel:g('fd-fuel'),gear:g('fd-gear'),mk:mk};
   LS.set(KEY_FIND,JSON.stringify(p));
-  var cm=cleanMakeModel(p.make,p.model); if(!cm.make||!cm.model){ showStatus('err',L('Укажите марку и модель.','Enter the make and model.','Norādiet marku un modeli.')); return; }
-  if(!S.api){ showStatus('err',L('Нужен сервер (кнопка «Сервер»).','The server is needed (the “Server” button).','Nepieciešams serveris (poga «Serveris»).')); return; }
+  var cm=cleanMakeModel(p.make,p.model); if(!cm.make||!cm.model){ showStatus('err',function(){return L('Укажите марку и модель.','Enter the make and model.','Norādiet marku un modeli.')}); return; }
+  if(!S.api){ showStatus('err',function(){return L('Нужен сервер (кнопка «Сервер»).','The server is needed (the “Server” button).','Nepieciešams serveris (poga «Serveris»).')}); return; }
   var yf=p.yf||(p.yt?p.yt-3:null), yt=p.yt||(p.yf?p.yf+3:null), ymid=yf&&yt?Math.round((yf+yt)/2):(yf||yt||null);
   var base={make:cm.make,model:cm.model,year:ymid||'',yfrom:yf||'',yto:yt||'',fuel:p.fuel||''};
   var jobs=[], AS={DE:'D',BE:'B',NL:'NL',FR:'F'};
   if(mk.LV) jobs.push(api('/api/comps',Object.assign({source:'ss'},base),55000).then(function(j){return {region:'LV',label:'ss.lv',j:j}}));
   if(mk.LT) jobs.push(api('/api/comps',Object.assign({source:'autoplius'},base),55000).then(function(j){return {region:'LT',label:'autoplius.lt',j:j}}));
   Object.keys(AS).forEach(function(r){ if(mk[r]) jobs.push(api('/api/comps',Object.assign({source:'as24',cy:AS[r]},base),55000).then(function(j){return {region:r,label:'AutoScout24 '+r,j:j}})); });
-  if(!jobs.length){ showStatus('err',L('Отметьте хотя бы один рынок.','Tick at least one market.','Atzīmējiet vismaz vienu tirgu.')); return; }
+  if(!jobs.length){ showStatus('err',function(){return L('Отметьте хотя бы один рынок.','Tick at least one market.','Atzīmējiet vismaz vienu tirgu.')}); return; }
   var outEl=document.getElementById('find-out'); if(outEl) outEl.innerHTML='<p class="anote">'+esc(L('Ищу на рынках… Обычно 15–40 секунд.','Searching the markets… Usually 15–40 seconds.','Meklēju tirgos… Parasti 15–40 sekundes.'))+'</p>';
   var res=await Promise.all(jobs), rows=[], notes=[];
   res.forEach(function(r){
-    var j=r.j||{}; if(!j.ok){ notes.push(r.label+': '+errText(j)); return; }
+    var j=r.j||{}; if(!j.ok){ notes.push(function(){ return r.label+': '+errText(j); }); return; }
     var seen={}, its=(j.items||[]).filter(function(i){ var id=listingId(i.url)||i.url; if(seen[id]) return false; seen[id]=1; return i.price>=500&&i.year&&(!yf||i.year>=yf)&&(!yt||i.year<=yt)&&(!p.fuel||!i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===p.fuel); });
-    if(its.length<5){ notes.push(r.label+': '+L('мало объявлений','too few listings','par maz sludinājumu')+' ('+its.length+')'); return; }
+    if(its.length<5){ var nn=its.length; notes.push(function(){ return r.label+': '+L('мало объявлений','too few listings','par maz sludinājumu')+' ('+nn+')'; }); return; }
     var mid=median(its.map(function(i){return i.price})); its=its.filter(function(i){return i.price>mid*0.3&&i.price<mid*3});
     var est=fitPrice(its);
     its.forEach(function(i){ var e=est(i); if(!(e>0)) return; var d=(i.price-e)/e*100;
@@ -2989,16 +3007,10 @@ async function runFinder(){
       rows.push(Object.assign({region:r.region,src:r.label,exp:Math.round(e/50)*50,d:d,n:its.length},i)); });
   });
   rows.sort(function(a,b){return a.d-b.d});
-  var sus=rows.filter(function(x){return x.d<-35}), good=rows.filter(function(x){return x.d>=-35&&x.d<-3});
-  var tr=function(x){ var u=safeUrl(x.url), ti=x.img?aImg(x.img):''; return '<tr><td class="thc">'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" tabindex="-1">':'')+'<span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span>'+(u?'</a>':'')+'</td><td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(x.title||cm.make+' '+cm.model).slice(0,52))+'</a>':esc(String(x.title||'').slice(0,52)))+'<div class="rn">'+esc(x.src+(FAR[x.region]?' · '+L('без учёта ввоза','excl. import','bez ievešanas'):''))+'</div><div class="rn fm">'+esc([x.year,x.km!=null?aKmTxt(x.km):''].filter(Boolean).join(' · '))+'</div></td><td class="r">'+(x.year||'–')+'</td><td class="r">'+(x.km!=null?esc(aKmTxt(x.km)):'–')+'</td><td class="r"><b>'+esc(eur(x.price))+'</b><div class="rn">'+esc(L('рынок ','market ','tirgus ')+eur(x.exp))+'</div></td><td class="r" style="color:var(--good)"><b>'+esc(pct(x.d))+'</b></td><td class="r">'+(u?'<button class="btn sm" type="button" data-act="find-check" data-u="'+esc(u)+'">'+esc(L('Проверить','Check','Pārbaudīt'))+'</button>':'')+'</td></tr>'; };
-  var head='<thead><tr><th class="thc"></th><th>'+esc(L('Объявление','Listing','Sludinājums'))+'</th><th class="r">'+esc(L('Год','Year','Gads'))+'</th><th class="r">'+esc(L('Пробег','Mileage','Nobraukums'))+'</th><th class="r">'+esc(L('Цена','Price','Cena'))+'</th><th class="r">'+esc(L('К рынку','vs market','Pret tirgu'))+'</th><th></th></tr></thead>';
-  var h='<p class="anote">'+esc(L('Просмотрено объявлений: ','Listings scanned: ','Pārskatīti sludinājumi: ')+res.reduce(function(a,r){return a+((r.j&&r.j.items)||[]).length},0)+'. '+L('Ниже рынка: ','Below market: ','Zem tirgus: ')+good.length+'.')+'</p>';
-  h+=good.length?'<div class="scroll"><table class="tbl">'+head+'<tbody>'+good.slice(0,15).map(tr).join('')+'</tbody></table></div>':'<p class="anote">'+esc(L('Машин заметно дешевле рынка по этим условиям не найдено. Попробуйте расширить годы, бюджет или рынки.','No cars clearly below the market for these filters. Try wider years, budget or markets.','Auto, kas būtu manāmi lētāki par tirgu, ar šiem nosacījumiem nav atrasti. Mēģiniet paplašināt gadus, budžetu vai tirgus.'))+'</p>';
-  if(sus.length) h+='<div class="shh" style="margin-top:14px"><i style="background:var(--bad)"></i>'+esc(L('Подозрительно дёшево (более 35% ниже рынка): часто битые, без документов или мошенничество','Suspiciously cheap (more than 35% below the market): often damaged, without papers or a scam','Aizdomīgi lēti (vairāk nekā par 35% zem tirgus): bieži bojāti, bez dokumentiem vai krāpšana'))+'</div><div class="scroll"><table class="tbl">'+head+'<tbody>'+sus.slice(0,5).map(tr).join('')+'</tbody></table></div>';
-  if(notes.length) h+='<p class="mini" style="margin-top:8px">'+esc(notes.join(' · '))+'</p>';
-  h+='<p class="hint" style="margin-top:8px">'+esc(L('«Рынок» — ожидаемая цена такой машины на её же сайте по году и пробегу. Комплектацию и состояние список не видит: нажмите «Проверить» для полного разбора.','“Market” is the expected price of such a car on its own site for its year and mileage. The list cannot see trim or condition: press “Check” for the full analysis.','«Tirgus» — gaidāmā šāda auto cena tajā pašā vietnē pēc gada un nobraukuma. Komplektāciju un stāvokli saraksts neredz: nospiediet «Pārbaudīt» pilnai analīzei.'))+'</p>';
-  S.findHtml=h; var o2=document.getElementById('find-out'); if(o2) o2.innerHTML=h;
-  showStatus('ok',L('Поиск завершён.','Search finished.','Meklēšana pabeigta.'));
+  S.findData={rows:rows,notes:notes,scanned:res.reduce(function(a,r){return a+((r.j&&r.j.items)||[]).length},0),cm:cm};
+  var o2=document.getElementById('find-out'); if(o2) o2.innerHTML=findOutHtml();
+
+  showStatus('ok',function(){return L('Поиск завершён.','Search finished.','Meklēšana pabeigta.')});
 }
 
 /* ======================= on-site inspection checklist ======================= */
@@ -3087,7 +3099,7 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]'); if(!b) return;
   var a=b.getAttribute('data-act');
   if(a==='stop') stopRun();
-  else if(a==='set-trim'){ $('#intake').classList.add('open'); var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')); }
+  else if(a==='set-trim'){ $('#intake').classList.add('open'); var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',function(){return L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')}); }
   else if(a==='fav-toggle') favToggle();
   else if(a==='recheck') applyCheck();
   else if(a==='more'){ var fm=$('#intake'); fm.classList.toggle('open'); b.setAttribute('aria-expanded',fm.classList.contains('open')?'true':'false'); }
@@ -3095,7 +3107,7 @@ document.addEventListener('click',function(e){
   else if(a==='ck-tab'){ var pn=b.closest('.ap'); pn.querySelectorAll('[data-act=ck-tab]').forEach(function(x){x.classList.toggle('on',x===b)}); pn.querySelectorAll('.cklist').forEach(function(x){x.hidden=x.getAttribute('data-t')!==b.getAttribute('data-t')}); }
   else if(a==='go-msg'){ var ms=document.getElementById('sec-msg'); if(ms) ms.scrollIntoView({behavior:'smooth',block:'start'}); }
   else if(a==='nav-top'){ window.scrollTo({top:0,behavior:'smooth'}); }
-  else if(a==='nav-favs'||a==='nav-compare'){ var fv=document.getElementById('favs'); if(fv&&!fv.hidden){ fv.scrollIntoView({behavior:'smooth',block:'start'}); if(a==='nav-compare'&&favLoad().filter(function(x){return x.sel}).length<2) showStatus('info',L('Отметьте в избранном 2–3 машины, чтобы сравнить их рядом.','Tick 2–3 favourites to compare them.')); } else showStatus('info',L('Избранное пусто: нажмите «☆ В избранное» в карточке машины.','No favourites yet: press “☆ Save” on a car card.')); }
+  else if(a==='nav-favs'||a==='nav-compare'){ var fv=document.getElementById('favs'); if(fv&&!fv.hidden){ fv.scrollIntoView({behavior:'smooth',block:'start'}); if(a==='nav-compare'&&favLoad().filter(function(x){return x.sel}).length<2) showStatus('info',function(){return L('Отметьте в избранном 2–3 машины, чтобы сравнить их рядом.','Tick 2–3 favourites to compare them.')}); } else showStatus('info',function(){return L('Избранное пусто: нажмите «☆ В избранное» в карточке машины.','No favourites yet: press “☆ Save” on a car card.')}); }
   else if(a==='nav-hist'){ var hb=document.getElementById('hist'); renderHist(!(hb&&!hb.hidden)); var hb2=document.getElementById('hist'); if(hb2&&!hb2.hidden) hb2.scrollIntoView({behavior:'smooth',block:'start'}); }
 
   else if(a==='hist-open'){ var hx=histLoad()[+b.getAttribute('data-i')]; if(hx&&hx.url){ $('#f-url').value=hx.url; renderHints(); window.scrollTo({top:0,behavior:'smooth'}); run(); } }
@@ -3111,7 +3123,7 @@ document.addEventListener('click',function(e){
   else if(a==='rm-img'){ var im=S.images.splice(+b.getAttribute('data-i'),1)[0]; if(im) URL.revokeObjectURL(im.url); renderThumbs(); }
 });
 document.addEventListener('input',function(e){ if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; var id=e.target.id; if(id&&id.indexOf('k-')===0) updateCalc(); });
-document.addEventListener('change',function(e){ if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-fsel')!=null){ var fl=favLoad(), ix=+e.target.getAttribute('data-fsel'); if(fl[ix]){ fl[ix].sel=e.target.checked; if(fl.filter(function(x){return x.sel}).length>3){ fl[ix].sel=false; showStatus('info',L('Сравнивать можно до 3 машин.','You can compare up to 3 cars.')); } favSave(fl); renderFavs(); } return; } if(e.target&&e.target.id==='msg-lang'&&S.view){ var t=$('#msg-text'); if(t) t.value=msgFor(S.view,e.target.value); } if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; });
+document.addEventListener('change',function(e){ if(e.target&&e.target.getAttribute&&e.target.getAttribute('data-fsel')!=null){ var fl=favLoad(), ix=+e.target.getAttribute('data-fsel'); if(fl[ix]){ fl[ix].sel=e.target.checked; if(fl.filter(function(x){return x.sel}).length>3){ fl[ix].sel=false; showStatus('info',function(){return L('Сравнивать можно до 3 машин.','You can compare up to 3 cars.')}); } favSave(fl); renderFavs(); } return; } if(e.target&&e.target.id==='msg-lang'&&S.view){ var t=$('#msg-text'); if(t) t.value=msgFor(S.view,e.target.value); } if(e.target&&e.target.dataset&&e.target.dataset.auto) e.target.dataset.auto=''; });
 $('#intake').addEventListener('submit',function(e){e.preventDefault(); run();});
 $('#f-url').addEventListener('input',renderHints);
 $('#f-vin').addEventListener('input',renderVinLive);
@@ -3139,7 +3151,7 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   var l=LS.get(KEY_LANG); var nl=(navigator.language||'').toLowerCase(); S.lang=(l==='en'||l==='ru'||l==='lv')?l:(nl.indexOf('ru')===0?'ru':nl.indexOf('lv')===0?'lv':'en');
   S.api=normApi(LS.get(KEY_API)||API_DEFAULT); $('#f-api').value=S.api; S.apiOk=null;
   applyLang(); apiDot('none');
-  (function(){ var ft=document.querySelector('.foot'); if(ft){ var p=document.createElement('p'); p.className='mini'; p.innerHTML=''; var s=document.createElement('span'); s.textContent=L('Версия приложения: ','App version: ')+APP_VER+' '; var bt=document.createElement('button'); bt.type='button'; bt.className='btn sm'; bt.setAttribute('data-act','refresh'); bt.textContent=L('Обновить','Update'); p.appendChild(s); p.appendChild(bt); ft.appendChild(p); } })();
+  (function(){ var ft=document.querySelector('.foot'); if(ft){ var p=document.createElement('p'); p.className='mini'; p.innerHTML=''; var s=document.createElement('span'); s.id='app-ver'; var bt=document.createElement('button'); bt.type='button'; bt.className='btn sm'; bt.id='app-upd'; bt.setAttribute('data-act','refresh'); p.appendChild(s); p.appendChild(bt); ft.appendChild(p); s.textContent=L('Версия приложения: ','App version: ')+APP_VER+' '; bt.textContent=L('Обновить','Update'); } })();
   if(S.api||API_DEFAULT){ connect().then(function(ok){ if(ok) favAutoCheck(); }); }
   /* ---------- install as an app (PWA) ---------- */
 (function(){
@@ -3148,12 +3160,12 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   var ios=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;
   if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
   window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); deferred=e; if(btn&&!standalone) btn.hidden=false; });
-  window.addEventListener('appinstalled',function(){ deferred=null; if(btn) btn.hidden=true; showStatus('ok',L('Приложение установлено.','App installed.')); });
+  window.addEventListener('appinstalled',function(){ deferred=null; if(btn) btn.hidden=true; showStatus('ok',function(){return L('Приложение установлено.','App installed.')}); });
   if(ios&&!standalone&&btn) btn.hidden=false;
   if(btn) btn.addEventListener('click',function(){
     if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; btn.hidden=true; }); }
-    else if(ios) showStatus('info',L('На iPhone: нажмите «Поделиться» в Safari и выберите «На экран “Домой”».','On iPhone: tap “Share” in Safari and choose “Add to Home Screen”.'));
-    else showStatus('info',L('Откройте меню браузера (три точки) и выберите «Установить приложение» или «Добавить на главный экран».','Open the browser menu (three dots) and choose “Install app” or “Add to Home screen”.'));
+    else if(ios) showStatus('info',function(){return L('На iPhone: нажмите «Поделиться» в Safari и выберите «На экран “Домой”».','On iPhone: tap “Share” in Safari and choose “Add to Home Screen”.')});
+    else showStatus('info',function(){return L('Откройте меню браузера (три точки) и выберите «Установить приложение» или «Добавить на главный экран».','Open the browser menu (three dots) and choose “Install app” or “Add to Home screen”.')});
   });
 })();
 window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant};
