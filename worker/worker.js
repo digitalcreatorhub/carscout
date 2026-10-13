@@ -515,6 +515,47 @@ function dedupe(items) {
   const seen = {};
   return items.filter(function (i) { const id = String(i.url || '').match(/\/([a-z0-9]{4,})\.html?(?:$|[?#])/i) || String(i.url || '').match(/\/offers\/([^/?#]+)/i); const k = id ? 'id:' + id[1].toLowerCase() : (i.url || '') + '|' + i.price + '|' + i.km + '|' + i.year; if (seen[k]) return false; seen[k] = 1; return true; });
 }
+/* AutoScout24 detail page: everything is in the __NEXT_DATA__ JSON */
+function parseAs24Listing(html, url) {
+  const nd = nextData(html); const L = nd && pick(nd, ['props', 'pageProps', 'listingDetails']);
+  if (!L || !L.vehicle) return null;
+  const v = L.vehicle, raw = v.rawData || {};
+  const fc = String((v.fuelCategory && v.fuelCategory.raw) || (raw.fuels && raw.fuels.fuelCategory && raw.fuels.fuelCategory.raw) || '').toUpperCase();
+  const ff = String((v.fuelCategory && v.fuelCategory.formatted) || '') + ' ' + String((v.primaryFuel && v.primaryFuel.formatted) || '');
+  let fuel = { B: 'petrol', D: 'diesel', E: 'electric', L: 'lpg', C: 'petrol', '2': 'hybrid', '3': 'hybrid' }[fc] || null;
+  if (/electric\s*\/\s*(gasoline|diesel)|hybrid|elektro\s*\/\s*(benzin|diesel)/i.test(ff)) fuel = 'hybrid';
+  if (!fuel) fuel = normFuel(ff);
+  const tt = String(v.transmissionType || '').toLowerCase();
+  const gearbox = /auto|semi/.test(tt) ? 'automatic' : /manu|schalt/.test(tt) ? 'manual' : normGear(tt);
+  const ccm = parseFloat(v.rawDisplacementInCCM || v.rawCylinderCapacity || 0);
+  const price = (L.prices && L.prices.public && L.prices.public.priceRaw) || (L.prices && L.prices.dealer && L.prices.dealer.priceRaw) || null;
+  const yr = String(v.firstRegistrationDateRaw || (raw.productionDate && raw.productionDate.raw) || '').slice(0, 4);
+  const loc = L.location || {};
+  const dmg = raw.condition && raw.condition.damage || {};
+  const cf = L.vehicleReport && L.vehicleReport.carfax;
+  const desc = strip(String(L.description || '').replace(/<\/(li|p|div|br)>/gi, '. ')).slice(0, 8000);
+  const listing = {
+    make: v.make || null, model: v.modelGroup || v.model || null, model_raw: [v.model, v.modelVersionInput].filter(Boolean).join(' ') || null,
+    year: /^\d{4}$/.test(yr) ? parseInt(yr, 10) : null, mileage_km: v.mileageInKmRaw != null ? Math.round(v.mileageInKmRaw) : null,
+    asking_price: price ? Math.round(price) : null, fuel: fuel === 'lpg' ? 'petrol' : fuel, lpg: fuel === 'lpg', gearbox: gearbox,
+    engine_l: ccm > 400 ? Math.round(ccm / 100) / 10 : null, power_kw: v.rawPowerInKw || null, body: v.bodyType || null, color: null,
+    vin: null, description: desc,
+    posted: L.createdTimestampWithOffset ? String(L.createdTimestampWithOffset).slice(0, 10) : null, updated: null,
+    place: [loc.zip, loc.city].filter(Boolean).join(' ') + (loc.countryCode ? ', ' + loc.countryCode : '') || null,
+    address: [loc.street, [loc.zip, loc.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
+    geo: loc.latitude && loc.longitude ? { lat: Math.round(loc.latitude * 1e5) / 1e5, lon: Math.round(loc.longitude * 1e5) / 1e5 } : null,
+    dealer: !!(L.seller && L.seller.isDealer), seller_name: L.seller && (L.seller.companyName || L.seller.contactName) || null,
+    accident: v.hadAccident === true || dmg.isCurrentlyDamaged === true ? true : (dmg.accidentFree === true || v.hadAccident === false ? false : null),
+    repaired_damage: dmg.hasRepairedDamages === true, owners: v.noOfPreviousOwners || null,
+    warranty: L.warrantyExists ? (L.warranty || true) : null,
+    report_url: cf && (cf.reportUrlEn || cf.reportUrlDe || cf.reportUrlFr) || null, report_name: cf ? 'Carfax' : null
+  };
+  listing.src = { make: 'table', model: 'table', year: listing.year ? 'table' : null, mileage_km: listing.mileage_km != null ? 'table' : null, asking_price: listing.asking_price ? 'table' : null,
+    fuel: listing.fuel ? 'table' : null, gearbox: listing.gearbox ? 'table' : null, vin: null };
+  const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model || listing.model;
+  const images = (L.images || []).filter(function (u) { return typeof u === 'string'; }).map(function (u) { return u.replace(/\/\d+x\d+\.webp$/, '/720x540.webp'); }).slice(0, 30);
+  return { listing: listing, image: images[0] || null, images: images, title: [v.make, v.model, v.modelVersionInput].filter(Boolean).join(' '), hints: {} };
+}
 function parseGenericListing(html, url) {
   const L = { make: null, model: null, year: null, mileage_km: null, asking_price: null, fuel: null, gearbox: null, color: null, body: null, vin: null, description: '' };
   let image = meta(html, 'og:image');
@@ -603,12 +644,13 @@ async function hListing(env, q) {
     const g = parseGenericListing(p.text, p.url);
     res.image = g.image; res.title = g.title;
     Object.keys(g.listing).forEach(function (k) { if (k === 'fuel') return; if (res.listing[k] == null || res.listing[k] === '') res.listing[k] = g.listing[k]; });
+  } else if (/(^|\.)autoscout24\.[a-z.]+$/.test(host) && (res = parseAs24Listing(p.text, p.url))) { parser = 'as24';
   } else { res = parseGenericListing(p.text, p.url); parser = 'generic'; res.hints = {}; }
   const L = res.listing;
   if (parser === 'ss' && L.removed) return json(env, { ok: false, error: 'not_found', removed: true, message: 'The listing was removed or has expired.', source: host, parser: parser, listing: L });
   const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;
   return json(env, { ok: filled >= 2, error: filled >= 2 ? null : 'parse_failed', message: filled >= 2 ? null : 'Could not read the main fields from this page.', source: host, parser: parser,
-    listing: L, image: res.image || null, images: collectImages(p.text, p.url), title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
+    listing: L, image: res.image || null, images: res.images || collectImages(p.text, p.url), title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
 }
 
 function filterOthers(items, make, model) {

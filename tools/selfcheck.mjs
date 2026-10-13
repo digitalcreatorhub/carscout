@@ -79,7 +79,8 @@ for (const [source, extra] of [['autoplius', {}], ['as24', { cy: 'D' }]]) {
   const it = (j.items || [])[0]; if (!it) continue;
   const l = await get('/api/listing', { url: it.url });
   const L = l.listing || {};
-  const miss = ['make', 'year', 'asking_price'].filter(k => L[k] == null);
+  const miss = (source === 'as24' ? ['make', 'model', 'year', 'asking_price', 'mileage_km', 'fuel', 'gearbox', 'engine_l'] : ['make', 'year', 'asking_price']).filter(k => L[k] == null);
+  if (source === 'as24' && L.model && L.make && L.model === L.make) miss.push('model=make');
   if (miss.length) bad(`listing ${source} ${it.url}`, 'not read: ' + miss.join(', ') + (l.error ? ' (' + l.error + ')' : ''));
   else good(`listing ${source}: ok`);
 }

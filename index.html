@@ -784,6 +784,9 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
 .srcsum .scs{margin-top:10px}
 .serr{list-style:none;margin:8px 0 0;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
 .srcsum .mini{margin-top:6px}
+.kpis.k4:has(.kpi:nth-child(2):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpis.k4:has(.kpi:nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
+.hlink{color:var(--accent);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -1563,7 +1566,7 @@ async function run(){
       var lj=await api('/api/listing',{url:f.url});
       if(lj&&lj.listing&&(lj.ok||lj.listing.asking_price||lj.listing.make)){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
-        var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null; car.place=l.place||null; car.address=l.address||null; car.geo=l.geo||null;
+        var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null; car.place=l.place||null; car.address=l.address||null; car.geo=l.geo||null; car.isDealer=!!l.dealer; car.sellerName=l.seller_name||null; car.accident=l.accident; car.repairedDamage=!!l.repaired_damage; car.owners=l.owners||null; car.reportUrl=l.report_url||null; car.reportName=l.report_name||null; car.powerKw=l.power_kw||null; car.warranty=l.warranty||null;
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
       } else {
         notes.push((function(){return L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.')}));
@@ -2106,7 +2109,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-13.9', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-14.1', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2118,7 +2121,7 @@ function refreshApp(){
 function dealerOf(c){
   var tx=String(c.allText||'');
   return {
-    dealer:/d[iī]ler|дилер|dealer|autosalon|auto\s+salon|автосалон|autohaus|h[aä]ndler|(^|[^A-Za-z])SIA([^A-Za-z]|$)|(^|[^А-Яа-я])ООО([^А-Яа-я]|$)/i.test(tx),
+    dealer:!!c.isDealer||/d[iī]ler|дилер|dealer|autosalon|auto\s+salon|автосалон|autohaus|h[aä]ndler|(^|[^A-Za-z])SIA([^A-Za-z]|$)|(^|[^А-Яа-я])ООО([^А-Яа-я]|$)/i.test(tx),
     vat:/pvn\s+iek[lļ]aut|ar\s+pvn|cena\s+ar\s+pvn|цена\s+с\s+ндс|ндс\s+включ|включая\s+ндс|inkl\.?\s*mwst|mwst\.?\s*ausweisbar|vat\s+included|incl\.?\s*vat/i.test(tx),
     warranty:/ražot[aā]ja\s+garantij|garantij[aā]\b|garantija|гарантия|warranty|garantie/i.test(tx),
     leasing:/l[iī]zing|leasing|лизинг|kred[iī]t|рассрочк|part\s+payment|apmai[nņ]a|trade[\s\-]?in|обмен/i.test(tx)
@@ -2323,7 +2326,8 @@ function pCar(v){
   if(dl.leasing) chips.push(['',L('Лизинг / обмен','Leasing / trade-in')]);
   var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
   var eL=engineOf(c), fl=fuelLabel(c);
-  var sub=[c.year,c.km!=null?aKmTxt(c.km):null,(eL&&!isEvCar(c)?eL.toFixed(1)+L(' л ',' l ',' l ')+(fl||''):fl),c.gear?aGear(c.gear):null].filter(Boolean).join(' · ');
+  var hp=c.powerKw?Math.round(c.powerKw*1.36):null;
+  var sub=[c.year,c.km!=null?aKmTxt(c.km):null,(eL&&!isEvCar(c)?eL.toFixed(1)+L(' л ',' l ',' l ')+(fl||''):fl),hp?hp+L(' л.с.',' hp',' ZS'):null,c.gear?aGear(c.gear):null].filter(Boolean).join(' · ');
   var goodImgs=(c.images||[]).filter(function(u){return !/\/img\/m\/|-\d{2,3}x\d{2,3}\.png$|logo|icon/i.test(u)});
   var mainImg=(c.image&&!/logo|icon|\/img\/m\//i.test(c.image)?c.image:'')||goodImgs[0]||'', isrc=mainImg?aImg(mainImg):'';
   var img=aCarSvg()+(isrc?'<img src="'+esc(isrc)+'" alt="'+esc(L('Фото из объявления','Listing photo'))+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">':'');
@@ -2878,16 +2882,18 @@ function lifeTip(o){
   if(o.bargain.lvl===0) return L('Объявление свежее: продавец ещё не торопится, большой скидки сразу не ждите.','The ad is fresh: the seller is in no hurry yet, do not expect a big discount right away.','Sludinājums ir svaigs: pārdevējs vēl nesteidzas, lielu atlaidi uzreiz negaidiet.');
   return L('Аргумент для торга: машина продаётся уже '+nDays(o.days)+'. Можно смело просить на '+o.bargain.pc+' меньше.','Bargaining argument: the car has been for sale for '+nDays(o.days)+'. You can ask for '+o.bargain.pc+' off.','Arguments kaulēšanai: auto tiek pārdots jau '+nDays(o.days)+'. Droši varat lūgt par '+o.bargain.pc+' mazāk.');
 }
+function histBlock(v){ var h=historyFinds(v); if(!h.length) return ''; var ic={b:'warn',w:'info',ok:'ok'};
+  return '<div class="shh"><i style="background:var(--info)"></i>'+esc(L('История машины','Car history','Auto vēsture'))+'</div><ul class="ls">'+h.map(function(x){ return '<li>'+aIcon(ic[x[0]])+'<span>'+esc(x[1])+(x[2]?' <a class="nl hlink" href="'+esc(x[2])+'" target="_blank" rel="noopener noreferrer">'+esc(x[3])+' ↗</a>':'')+'</span></li>'; }).join('')+'</ul>'; }
 function pLife(v){
   var c=v.car, o=lifeOf(v), isSs=/(^|\.)ss\.(com|lv)$/.test(String(c.site||'').replace(/^www\./,''))||/ss\.(com|lv)\//.test(c.url||'');
-  if(!isSs&&!o.dups.length&&!o.photo.length&&o.days==null) return '';
+  if(!isSs&&!o.dups.length&&!o.photo.length&&o.days==null&&!historyFinds(v).length&&!(c.geo||c.place)) return '';
   var k=function(t,val,sm,cls){return '<div class="kpi"><dt>'+esc(t)+'</dt><dd'+(cls?' class="'+cls+'"':'')+'>'+esc(val)+'</dd>'+(sm?'<small>'+esc(sm)+'</small>':'')+'</div>'};
   var loading=isSs&&v.sellerState==='run', failed=isSs&&v.sellerState==='err';
   var kp='<dl class="kpis k4">'+
     k(L('На продаже','On sale','Pārdošanā'),o.days!=null?nDays(o.days):'–',c.posted?L('с ','since ','kopš ')+dFmt(c.posted):'',o.days>=30?'up':'')+
-    k(L('Поднято','Raised','Pacelts'),o.raisedDays!=null?(o.raisedDays===0?L('сегодня','today','šodien'):S.lang==='lv'?'pirms '+o.raisedDays+(o.raisedDays%10===1&&o.raisedDays%100!==11?' dienas':' dienām'):nDays(o.raisedDays)+L(' назад',' ago')):'–',c.updated?dFmt(c.updated,true):'')+
-    k(L('Просмотров','Views','Skatījumi'),o.views!=null?fmt(o.views):(loading?'…':'–'),o.vpd!=null?L('≈ '+o.vpd.toFixed(1).replace('.',',')+' в день','≈ '+o.vpd.toFixed(1)+' a day','≈ '+o.vpd.toFixed(1).replace('.',',')+' dienā'):'')+
-    k(L('Машин у продавца','Seller’s cars','Pārdevēja auto'),o.cars!=null?String(o.cars):(loading?'…':'–'),L('по номеру телефона','by phone number','pēc tālruņa numura'),o.cars>=5?'up':o.cars===1?'dn':'')+'</dl>';
+    (!isSs?'':k(L('Поднято','Raised','Pacelts'),o.raisedDays!=null?(o.raisedDays===0?L('сегодня','today','šodien'):S.lang==='lv'?'pirms '+o.raisedDays+(o.raisedDays%10===1&&o.raisedDays%100!==11?' dienas':' dienām'):nDays(o.raisedDays)+L(' назад',' ago')):'–',c.updated?dFmt(c.updated,true):''))+
+    (!isSs?'':k(L('Просмотров','Views','Skatījumi'),o.views!=null?fmt(o.views):(loading?'…':'–'),o.vpd!=null?L('≈ '+o.vpd.toFixed(1).replace('.',',')+' в день','≈ '+o.vpd.toFixed(1)+' a day','≈ '+o.vpd.toFixed(1).replace('.',',')+' dienā'):'')+
+    k(L('Машин у продавца','Seller’s cars','Pārdevēja auto'),o.cars!=null?String(o.cars):(loading?'…':'–'),L('по номеру телефона','by phone number','pēc tālruņa numura'),o.cars>=5?'up':o.cars===1?'dn':''))+(isSs?'':k(L('Продавец','Seller','Pārdevējs'),c.isDealer?L('дилер','dealer','dīleris'):L('частное лицо','private','privātpersona'),c.sellerName?String(c.sellerName).slice(0,28):''))+'</dl>';
   var ic={b:'warn',w:'info',ok:'ok'};
   var fl=o.flags.map(function(f){ return '<li>'+aIcon(ic[f[0]])+'<span>'+esc(f[1])+'</span></li>'; }).join('');
   var tip=lifeTip(o); if(tip) fl+='<li>'+aIcon('info')+'<span>'+esc(tip)+'</span></li>';
@@ -2903,8 +2909,27 @@ function pLife(v){
     var own=listingId(c.url), others=se.items.filter(function(i){return listingId(i.url)!==own});
     if(others.length) parts+='<div class="shh"><i style="background:var(--muted)"></i>'+esc(L('Другие машины продавца','The seller’s other cars','Citi pārdevēja auto'))+' ('+others.length+')</div><div class="sthumbs">'+others.slice(0,8).map(function(i){ var u=safeUrl(i.url), ti=i.img?aImg(i.img):''; return '<a href="'+esc(u||'#')+'" target="_blank" rel="noopener noreferrer" title="'+esc(String(i.title||'').slice(0,80))+'"><span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span><small>'+esc([(i.mk||'').replace(/-/g,' '),i.year].filter(Boolean).join(' '))+'<br>'+esc(eur(i.price))+'</small></a>'; }).join('')+'</div>'+(se.searchUrl&&safeUrl(se.searchUrl)?'<p class="mini"><a class="nl" href="'+esc(safeUrl(se.searchUrl))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Все объявления продавца на ss.lv','All the seller’s ads on ss.lv','Visi pārdevēja sludinājumi ss.lv'))+'</a></p>':'');
   }
-  return aPanel('a-life','c7',aHead(L('Объявление и продавец','The ad and the seller','Sludinājums un pārdevējs'),aMeta(isSs?L('данные ss.lv','ss.lv data','ss.lv dati'):L('поиск повторов','repost search','atkārtojumu meklēšana'))),
-    (isSs?kp:'')+mapBlock(c)+'<ul class="ls">'+fl+'</ul>'+parts+(v.photoState==='run'?'<p class="anote">'+esc(L('Сравниваю фото с другими объявлениями…','Comparing photos with other ads…','Salīdzinu foto ar citiem sludinājumiem…'))+'</p>':''));
+  return aPanel('a-life','c7',aHead(L('Объявление и продавец','The ad and the seller','Sludinājums un pārdevējs'),aMeta(isSs?L('данные ss.lv','ss.lv data','ss.lv dati'):(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})())),
+    (isSs||o.days!=null?kp:'')+mapBlock(c)+histBlock(v)+'<ul class="ls">'+fl+'</ul>'+parts+(v.photoState==='run'?'<p class="anote">'+esc(L('Сравниваю фото с другими объявлениями…','Comparing photos with other ads…','Salīdzinu foto ar citiem sludinājumiem…'))+'</p>':''));
+}
+
+/* ---- what is known about this car's history: shown only when something was actually found ---- */
+function historyFinds(v){
+  var c=v.car, out=[], src=String(c.site||'').replace(/^www\./,'')||(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})();
+  if(c.reportUrl&&safeUrl(c.reportUrl)) out.push(['ok',L('Продавец открыл бесплатный отчёт '+(c.reportName||'')+' по VIN этой машины: аварии, пробег, владельцы','The seller provides a free '+(c.reportName||'')+' report for this car’s VIN: accidents, mileage, owners','Pārdevējs piedāvā bezmaksas '+(c.reportName||'')+' atskaiti par šī auto VIN: avārijas, nobraukums, īpašnieki'),safeUrl(c.reportUrl),L('Открыть отчёт','Open the report','Atvērt atskaiti')]);
+  if(c.accident===true) out.push(['b',L('На '+src+' машина отмечена как побывавшая в аварии','On '+src+' the car is marked as having had an accident','Vietnē '+src+' auto atzīmēts kā cietis avārijā')]);
+  else if(c.accident===false&&!c.repairedDamage) out.push(['ok',L('На '+src+' продавец указал: без аварий. Это слова продавца, проверьте осмотром','On '+src+' the seller states: no accidents. That is the seller’s word, verify by inspection','Vietnē '+src+' pārdevējs norādījis: bez avārijām. Tie ir pārdevēja vārdi, pārbaudiet apskatē')]);
+  if(c.repairedDamage) out.push(['w',L('Продавец указал отремонтированные повреждения: спросите, что и где чинили','The seller lists repaired damage: ask what was repaired and where','Pārdevējs norādījis salabotus bojājumus: pajautājiet, kas un kur labots')]);
+  if(c.owners) out.push([c.owners>3?'w':'ok',L('Владельцев до вас: '+c.owners,'Previous owners: '+c.owners,'Iepriekšējie īpašnieki: '+c.owners)]);
+  var vin=String(c.vin||'').toUpperCase();
+  if(/^[1-5][A-HJ-NPR-Z0-9]{16}$/.test(vin)) out.push(['w',L('VIN '+(vin.charAt(0)==='2'?'канадский':vin.charAt(0)==='3'?'мексиканский':'американский')+': машина из Северной Америки. Такие часто привозят после аварий с аукционов Copart/IAAI. Посмотрите фото по VIN','The VIN is '+(vin.charAt(0)==='2'?'Canadian':vin.charAt(0)==='3'?'Mexican':'American')+': the car comes from North America. Such cars are often imported after accidents from Copart/IAAI auctions. Look up photos by VIN','VIN ir '+(vin.charAt(0)==='2'?'Kanādas':vin.charAt(0)==='3'?'Meksikas':'ASV')+': auto no Ziemeļamerikas. Tādus bieži ieved pēc avārijām no Copart/IAAI izsolēm. Apskatiet foto pēc VIN'),'https://bid.cars/en/search/results?search-type=typing&query='+vin,L('Фото с аукциона','Auction photos','Izsoles foto')]);
+  if(v.usSpec) out.push(['ok',L('Расшифровка VIN (США): ','VIN decode (USA): ','VIN atšifrējums (ASV): ')+v.usSpec]);
+  return out;
+}
+async function usVinDecode(v){
+  var vin=String(v.car.vin||'').toUpperCase(); if(!/^[1-5][A-HJ-NPR-Z0-9]{16}$/.test(vin)) return;
+  try{ var r=await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/'+vin+'?format=json',{signal:AbortSignal.timeout(8000)}); var j=await r.json(), x=j&&j.Results&&j.Results[0]; if(!x||!x.Make) return;
+    v.usSpec=[x.ModelYear,x.Make,x.Model,x.Trim,x.DisplacementL?(+x.DisplacementL).toFixed(1)+' L':'',x.FuelTypePrimary,x.PlantCountry].filter(Boolean).join(' · '); }catch(e){}
 }
 
 /* ---- engine size: from the listing table, else from the title/text ---- */
@@ -2939,7 +2964,7 @@ function mapBlock(c){
   var km=kmFromRiga(g), q=g.lat+','+g.lon;
   var gm='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(g.exact&&c.address?c.address:q), wz='https://waze.com/ul?ll='+encodeURIComponent(q)+'&navigate=yes';
   return head+'<div class="mapb"><iframe class="mapf" src="'+esc(src)+'" loading="lazy" referrerpolicy="no-referrer" title="'+esc(L('Карта','Map','Karte'))+'" tabindex="-1"></iframe><div class="mapi">'+
-    '<b>'+esc(g.label)+'</b><span class="rn">'+esc(g.exact?L('адрес продавца с карты ss.lv','seller address from the ss.lv map','pārdevēja adrese no ss.lv kartes'):L('примерно: по месту в объявлении','approximate: by the place in the ad','aptuveni: pēc vietas sludinājumā'))+'</span>'+
+    '<b>'+esc(g.label)+'</b><span class="rn">'+esc(g.exact?(/ss\.(com|lv)\//.test(c.url||'')?L('адрес продавца с карты ss.lv','seller address from the ss.lv map','pārdevēja adrese no ss.lv kartes'):L('адрес продавца из объявления','seller address from the ad','pārdevēja adrese no sludinājuma')):L('примерно: по месту в объявлении','approximate: by the place in the ad','aptuveni: pēc vietas sludinājumā'))+'</span>'+
     (km!=null&&km>=10?'<span class="rn">'+esc(L('≈ '+km+' км от центра Риги','≈ '+km+' km from Riga centre','≈ '+km+' km no Rīgas centra'))+'</span>':'')+
     '<span class="mapl"><a class="nl" href="'+esc(gm)+'" target="_blank" rel="noopener noreferrer">Google Maps ↗</a><a class="nl" href="'+esc(wz)+'" target="_blank" rel="noopener noreferrer">Waze ↗</a></span></div></div>';
 }
@@ -2992,6 +3017,7 @@ async function findPhotoMatches(v){
 function rePanel(id,html){ var el=document.getElementById(id); if(!el||!html) return; var t=document.createElement('div'); t.innerHTML=html; var n=t.firstChild; if(!n) return; var sp=(el.className.match(/\bc(4|5|6|7|8|12)\b/)||[])[0], np=(n.className.match(/\bc(4|5|6|7|8|12)\b/)||[])[0]; if(sp&&np&&sp!==np) n.className=n.className.replace(np,sp); el.parentNode.replaceChild(n,el); }
 async function extrasAfterRun(v){
   var c=v.car; v.dups=findDups(v);
+  usVinDecode(v).then(function(){ if(v===S.view&&v.usSpec) rePanel('a-life',pLife(v)); });
   var isSs=/ss\.(com|lv)\/msg\//.test(c.url||'');
   if(isSs&&S.api){ v.sellerState='run'; rePanel('a-life',pLife(v));
     try{ var j=await api('/api/seller',{url:c.url},30000); if(v!==S.view) return; if(j&&j.ok){ v.seller=j; v.sellerState='ok'; if(!c.posted&&j.posted) c.posted=j.posted; if(!c.updated&&j.updated) c.updated=j.updated; v.dups=findDups(v); } else v.sellerState='err'; }catch(e){ v.sellerState='err'; }
