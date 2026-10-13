@@ -374,9 +374,25 @@ function parseSsListing(html, url) {
   if (listing.model && listing.src.make === 'table' && L.make && L.make.toLowerCase().indexOf(String(listing.model).toLowerCase().split(' ')[0]) > -1) listing.src.model = 'table';
   if (!listing.vin) listing.src.vin = null;
   const dt = ssDates(html); listing.posted = dt.posted; listing.updated = dt.updated; listing.ss_id = dt.id;
+  const loc = ssLocation(html); listing.place = loc.place; listing.address = loc.address; listing.geo = loc.geo;
   listing.removed = !price && !L.year && !L.mileage;
   const m3 = url.match(/\/msg\/[a-z]{2}\/transport\/cars\/others\/[^/]+\.html/i);
   return { listing: listing, hints: { ss_others: !!m3, ss_path: m3 ? '/ru/transport/cars/others/' : m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };
+}
+/* ss.lv contacts block: 'Place' (city or region) and, for some sellers, 'Address' with map coordinates */
+function ssLocation(html) {
+  const out = { place: null, address: null, geo: null };
+  const re = /<td[^>]*class="ads_contacts_name"[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/gi; let m;
+  while ((m = re.exec(html))) {
+    const lab = strip(m[1]).replace(/:$/, '').trim().toLowerCase();
+    if (/^(vieta|место|place)$/.test(lab) && !out.place) out.place = strip(m[2]).slice(0, 80) || null;
+    if (/^(adrese|адрес|address)$/.test(lab) && !out.address) {
+      out.address = strip(m[2]).slice(0, 120) || null;
+      const c = m[2].match(/[?&]c=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/);
+      if (c) { const la = parseFloat(c[1]), lo = parseFloat(c[2]); if (la > 50 && la < 60 && lo > 15 && lo < 32) out.geo = { lat: Math.round(la * 1e5) / 1e5, lon: Math.round(lo * 1e5) / 1e5 }; }
+    }
+  }
+  return out;
 }
 /* ss.lv: the contacts script path carries the date the ad was first published; the footer shows the last raise date */
 function ssDates(html) {

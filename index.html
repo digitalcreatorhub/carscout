@@ -758,6 +758,13 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
   #find-out .tbl td:nth-child(7){grid-column:2/4;grid-row:3;text-align:left}
   #find-out .fm{display:block}
 }
+.mapb{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;align-items:center}
+.mapf{width:100%;height:150px;border:1px solid var(--line2);border-radius:12px;background:var(--surface-2);filter:invert(.92) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.7)}
+.mapi{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:13.5px}
+.mapi b{font-weight:600;overflow-wrap:anywhere}
+.mapl{display:flex;gap:14px;margin-top:6px;font-size:12.5px}
+.mapl a{color:var(--accent)}
+@media (max-width:760px){.mapb{grid-template-columns:minmax(0,1fr)}.mapf{height:140px}}
 </style>
 </head>
 <body>
@@ -1533,7 +1540,7 @@ async function run(){
       var lj=await api('/api/listing',{url:f.url});
       if(lj&&lj.listing&&(lj.ok||lj.listing.asking_price||lj.listing.make)){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
-        var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null;
+        var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null; car.place=l.place||null; car.address=l.address||null; car.geo=l.geo||null;
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
       } else {
         notes.push((function(){return L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.')}));
@@ -2076,7 +2083,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-13.6', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-13.7', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2292,7 +2299,8 @@ function pCar(v){
   if(c.lpg) chips.push(['w',L('ГБО','LPG')]);
   if(dl.leasing) chips.push(['',L('Лизинг / обмен','Leasing / trade-in')]);
   var title=[c.make,c.model].filter(Boolean).join(' ')||L('Автомобиль','Car');
-  var sub=[c.year,c.km!=null?aKmTxt(c.km):null,fuelLabel(c),c.gear?aGear(c.gear):null].filter(Boolean).join(' · ');
+  var eL=engineOf(c), fl=fuelLabel(c);
+  var sub=[c.year,c.km!=null?aKmTxt(c.km):null,(eL&&!isEvCar(c)?eL.toFixed(1)+L(' л ',' l ',' l ')+(fl||''):fl),c.gear?aGear(c.gear):null].filter(Boolean).join(' · ');
   var goodImgs=(c.images||[]).filter(function(u){return !/\/img\/m\/|-\d{2,3}x\d{2,3}\.png$|logo|icon/i.test(u)});
   var mainImg=(c.image&&!/logo|icon|\/img\/m\//i.test(c.image)?c.image:'')||goodImgs[0]||'', isrc=mainImg?aImg(mainImg):'';
   var img=aCarSvg()+(isrc?'<img src="'+esc(isrc)+'" alt="'+esc(L('Фото из объявления','Listing photo'))+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">':'');
@@ -2868,7 +2876,44 @@ function pLife(v){
     if(others.length) parts+='<div class="shh"><i style="background:var(--muted)"></i>'+esc(L('Другие машины продавца','The seller’s other cars','Citi pārdevēja auto'))+' ('+others.length+')</div><div class="sthumbs">'+others.slice(0,8).map(function(i){ var u=safeUrl(i.url), ti=i.img?aImg(i.img):''; return '<a href="'+esc(u||'#')+'" target="_blank" rel="noopener noreferrer" title="'+esc(String(i.title||'').slice(0,80))+'"><span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span><small>'+esc([(i.mk||'').replace(/-/g,' '),i.year].filter(Boolean).join(' '))+'<br>'+esc(eur(i.price))+'</small></a>'; }).join('')+'</div>'+(se.searchUrl&&safeUrl(se.searchUrl)?'<p class="mini"><a class="nl" href="'+esc(safeUrl(se.searchUrl))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Все объявления продавца на ss.lv','All the seller’s ads on ss.lv','Visi pārdevēja sludinājumi ss.lv'))+'</a></p>':'');
   }
   return aPanel('a-life','c7',aHead(L('Объявление и продавец','The ad and the seller','Sludinājums un pārdevējs'),aMeta(isSs?L('данные ss.lv','ss.lv data','ss.lv dati'):L('поиск повторов','repost search','atkārtojumu meklēšana'))),
-    (isSs?kp:'')+'<ul class="ls">'+fl+'</ul>'+parts+(v.photoState==='run'?'<p class="anote">'+esc(L('Сравниваю фото с другими объявлениями…','Comparing photos with other ads…','Salīdzinu foto ar citiem sludinājumiem…'))+'</p>':''));
+    (isSs?kp:'')+mapBlock(c)+'<ul class="ls">'+fl+'</ul>'+parts+(v.photoState==='run'?'<p class="anote">'+esc(L('Сравниваю фото с другими объявлениями…','Comparing photos with other ads…','Salīdzinu foto ar citiem sludinājumiem…'))+'</p>':''));
+}
+
+/* ---- engine size: from the listing table, else from the title/text ---- */
+function engineOf(c){
+  if(c.engineL>0.5&&c.engineL<8) return c.engineL;
+  var tx=[c.title,c.rawModel,String(c.desc||'').slice(0,400)].join(' ');
+  var m=tx.match(/(?:^|[^\d.,])([0-7][.,]\d)\s*(?:l\b|л\b|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|jtd|ecoboost|puretech|thp|vti|tce|gdi|mpi|fsi|dīz|benz|diesel|petrol|бенз|диз|d\b|i\b)/i);
+  if(m){ var v=parseFloat(m[1].replace(',','.')); if(v>0.5&&v<8) return v; }
+  return null;
+}
+
+/* ---- where the car is: exact map point from ss.lv, or the centre of the seller's town / region ---- */
+var LV_PLACES=[
+ ['rigas raj|рижск|riga reg|riga distr',56.95,24.30],['jurmala|юрмал',56.968,23.77],['riga|рига',56.9496,24.1052],['adazi|адаж',57.075,24.32],['salaspils|саласпилс',56.86,24.35],['kekava|кекав',56.83,24.23],['marupe|марупе',56.906,24.0],['olaine|олайн',56.785,23.94],
+ ['sigulda|сигулд',57.153,24.86],['ogre|огре',56.816,24.604],['jelgava|елгав',56.651,23.721],['tukums|тукумс',56.967,23.155],['talsi|талси',57.245,22.588],['kuldiga|кулдиг',56.968,21.97],['ventspils|вентспилс',57.39,21.56],['liepaja|лиепа',56.505,21.011],
+ ['saldus|салдус',56.664,22.488],['dobele|добеле',56.625,23.28],['bauska|бауск',56.408,24.193],['aizkraukle|айзкраукле',56.605,25.255],['jekabpils|екабпилс',56.499,25.857],['daugavpils|даугавпилс',55.874,26.536],['rezekne|резекне',56.51,27.33],
+ ['ludza|лудза',56.548,27.719],['kraslava|краслав',55.895,27.168],['preili|прейл',56.294,26.725],['madona|мадон',56.853,26.217],['gulbene|гулбене',57.177,26.752],['aluksne|алуксне',57.424,27.047],['balvi|балви',57.131,27.265],
+ ['valmiera|валмиер',57.541,25.427],['cesis|цесис',57.312,25.274],['valka|валка',57.775,26.017],['smiltene|смилтене',57.424,25.902],['limbazi|лимбаж',57.513,24.713],['saulkrasti|саулкраст',57.264,24.414],['livani|ливан',56.354,26.176],['kandava|кандав',57.035,22.78]];
+function geoOf(c){
+  if(c.geo&&c.geo.lat) return {lat:c.geo.lat,lon:c.geo.lon,exact:true,label:c.address||c.place||''};
+  var p=String(c.place||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); if(!p) return null;
+  for(var i=0;i<LV_PLACES.length;i++){ if(new RegExp('^('+LV_PLACES[i][0]+')').test(p)) return {lat:LV_PLACES[i][1],lon:LV_PLACES[i][2],exact:false,region:/raj|р-н|район|reg|distr|novad/.test(p)||/^rigas raj|^рижск/.test(p),label:c.place}; }
+  return {lat:null,label:c.place};
+}
+function kmFromRiga(g){ if(!g||!g.lat) return null; var R=6371, a=(g.lat-56.9496)*Math.PI/180, b=(g.lon-24.1052)*Math.PI/180, x=Math.sin(a/2)*Math.sin(a/2)+Math.cos(56.9496*Math.PI/180)*Math.cos(g.lat*Math.PI/180)*Math.sin(b/2)*Math.sin(b/2); return Math.round(2*R*Math.asin(Math.sqrt(x))*1.25/5)*5; }
+function mapBlock(c){
+  var g=geoOf(c); if(!g) return '';
+  var head='<div class="shh"><i style="background:var(--accent)"></i>'+esc(L('Где машина','Where the car is','Kur atrodas auto'))+'</div>';
+  if(!g.lat) return head+'<p class="rn" style="margin-bottom:6px">'+esc(g.label)+'</p>';
+  var d=g.exact?0.012:g.region?0.25:0.06, bb=[g.lon-d*1.7,g.lat-d,g.lon+d*1.7,g.lat+d].map(function(x){return x.toFixed(5)}).join(',');
+  var src='https://www.openstreetmap.org/export/embed.html?bbox='+bb+'&layer=mapnik'+(g.exact||!g.region?'&marker='+g.lat+','+g.lon:'');
+  var km=kmFromRiga(g), q=g.lat+','+g.lon;
+  var gm='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(g.exact&&c.address?c.address:q), wz='https://waze.com/ul?ll='+encodeURIComponent(q)+'&navigate=yes';
+  return head+'<div class="mapb"><iframe class="mapf" src="'+esc(src)+'" loading="lazy" referrerpolicy="no-referrer" title="'+esc(L('Карта','Map','Karte'))+'" tabindex="-1"></iframe><div class="mapi">'+
+    '<b>'+esc(g.label)+'</b><span class="rn">'+esc(g.exact?L('адрес продавца с карты ss.lv','seller address from the ss.lv map','pārdevēja adrese no ss.lv kartes'):L('примерно: по месту в объявлении','approximate: by the place in the ad','aptuveni: pēc vietas sludinājumā'))+'</span>'+
+    (km!=null&&km>=10?'<span class="rn">'+esc(L('≈ '+km+' км от центра Риги','≈ '+km+' km from Riga centre','≈ '+km+' km no Rīgas centra'))+'</span>':'')+
+    '<span class="mapl"><a class="nl" href="'+esc(gm)+'" target="_blank" rel="noopener noreferrer">Google Maps ↗</a><a class="nl" href="'+esc(wz)+'" target="_blank" rel="noopener noreferrer">Waze ↗</a></span></div></div>';
 }
 
 /* ---- model weak points ---- */
