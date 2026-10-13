@@ -814,6 +814,7 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
 .accdl div{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;font-size:13.5px;border-bottom:1px solid var(--line);padding-bottom:7px}
 .accdl dt{color:var(--muted)}.accdl dd{margin:0;color:var(--ink)}
 @media (max-width:760px){.accgrid{grid-template-columns:minmax(0,1fr)}.accph{grid-template-columns:repeat(3,minmax(0,1fr))}.accdl div{grid-template-columns:110px minmax(0,1fr)}.accg{display:none}}
+.vinl{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:4px}.vinl a{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -2136,7 +2137,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-14.3', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-14.4', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2581,7 +2582,7 @@ function pCheck(v){
     sel('c-fuel',L('Топливо','Fuel'),fuelVal,'fuel',[['',L('не указано','not set')],['petrol',L('Бензин','Petrol')],['diesel',L('Дизель','Diesel')],['hybrid',L('Гибрид','Hybrid')],['electric',L('Электро','Electric')],['lpg',L('Бензин + газ','Petrol + LPG')]])+
     sel('c-gear',L('Коробка','Gearbox'),c.gear,'gear',[['',L('не указано','not set')],['automatic',L('Автомат','Automatic')],['manual',L('Механика','Manual')]])+
     inp('c-trim',L('Комплектация','Trim'),(c.trims||[]).map(trimDisplay).join(', '),'trims')+
-    '<div class="cf cvin"><label for="c-vin">VIN</label><input class="in mono" id="c-vin" type="text" maxlength="20" autocapitalize="characters" spellcheck="false" placeholder="'+esc(L('вставьте VIN из объявления','paste the VIN from the ad','ielīmējiet VIN no sludinājuma'))+'" value="'+esc(c.vin||'')+'" data-orig="'+esc(c.vin||'')+'">'+(c.vin?tag('vin',c.vin):'<span class="stag" id="c-vin-hint">'+esc(/ss\.(com|lv)\//.test(c.url||'')?L('на ss.lv VIN скрыт: нажмите «Показать VIN» в объявлении','on ss.lv the VIN is hidden: press “Show VIN” in the ad','ss.lv VIN ir paslēpts: sludinājumā nospiediet «Parādīt VIN»'):L('не найдено','not found'))+'</span>')+'</div></div>'+
+    '<div class="cf cvin"><label for="c-vin">VIN</label><input class="in mono" id="c-vin" type="text" maxlength="20" autocapitalize="characters" spellcheck="false" placeholder="'+esc(L('вставьте VIN из объявления','paste the VIN from the ad','ielīmējiet VIN no sludinājuma'))+'" value="'+esc(c.vin||'')+'" data-orig="'+esc(c.vin||'')+'">'+(c.vin?tag('vin',c.vin)+'<span class="vinl">'+esc(L('Проверить VIN: ','Check the VIN: ','Pārbaudīt VIN: '))+'<a href="https://www.google.com/search?q='+encodeURIComponent(c.vin)+'" target="_blank" rel="noopener noreferrer">Google ↗</a> <a href="https://en.bidfax.info/index.php?do=search&subaction=search&story='+encodeURIComponent(c.vin)+'" target="_blank" rel="noopener noreferrer">Bidfax ↗</a></span>':'<span class="stag" id="c-vin-hint">'+esc(/ss\.(com|lv)\//.test(c.url||'')?L('на ss.lv VIN скрыт: нажмите «Показать VIN» в объявлении','on ss.lv the VIN is hidden: press “Show VIN” in the ad','ss.lv VIN ir paslēpts: sludinājumā nospiediet «Parādīt VIN»'):L('не найдено','not found'))+'</span>')+'</div></div>'+
     '<div class="abtns"><button class="btn sm pri" type="button" data-act="recheck">'+esc(L('Пересчитать с исправлениями','Recalculate with corrections'))+'</button><span class="anote" style="align-self:center">'+esc(L('Если всё верно, ничего делать не нужно: сравнение уже выполнено по этим данным.','If everything is right, nothing to do: the comparison already uses these data.'))+'</span></div>');
 }
 function applyCheck(){
