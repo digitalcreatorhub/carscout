@@ -829,11 +829,9 @@ main.wrap{position:relative;z-index:1}
 /* panels: entrance + top highlight + pointer light along the border */
 .ap,.kpis{position:relative}
 .ap::before,.kpis::before{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent);pointer-events:none}
-@media (hover:hover) and (pointer:fine){
   .ap::after,.kpis::after,.sheet::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:radial-gradient(260px circle at var(--mx,50%) var(--my,0),rgba(198,242,78,.85),rgba(122,167,255,.25) 40%,transparent 65%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);opacity:0;transition:opacity .35s;pointer-events:none}
-  .ap:hover::after,.kpis:hover::after,.sheet:hover::after{opacity:1}
+  .ap:hover::after,.kpis:hover::after,.sheet:hover::after,.fx-lit::after{opacity:1}
   .sheet{position:relative}
-}
 #out>.fx-in{animation:fxin .7s cubic-bezier(.2,.8,.2,1) both}
 @keyframes fxin{from{opacity:0;transform:translateY(14px) scale(.985);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
 /* verdict ring glow, key numbers */
@@ -867,7 +865,6 @@ body.fx-busy #intake{box-shadow:0 0 0 1px rgba(198,242,78,.35),0 0 30px -6px rgb
 /* KPI values subtle gradient text */
 .kpis .kpi dd{background:linear-gradient(180deg,#fff,#c9d1db);-webkit-background-clip:text;background-clip:text;color:transparent}
 .kpis .kpi dd.up{background:none;color:var(--warn)}.kpis .kpi dd.dn{background:none;color:var(--good)}
-@media (max-width:760px){#fxbg .a1,#fxbg .a2{filter:blur(70px);opacity:.08}#fxbg .g{background-size:36px 36px}}
 @media (prefers-reduced-motion:reduce){#fxbg .a1,#fxbg .a2,#out>.fx-in,svg circle.fx-dot,svg circle.halo,#a-scatter svg circle,body.fx-busy #intake::after,.sc.ok b,.btn.pri:hover::after{animation:none!important}}
 @media print{#fxbg{display:none}}
 </style>
@@ -2192,7 +2189,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-14.5', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-14.6', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3360,8 +3357,12 @@ function fxAfterRender(){
   }
 }
 /* soft light that follows the pointer along panel borders (desktop only) */
-if(FX_FINE&&!FX_RM){
-  document.addEventListener('pointermove',function(e){ var p=e.target&&e.target.closest&&e.target.closest('.ap,.kpis,.sheet'); if(!p) return; var r=p.getBoundingClientRect(); p.style.setProperty('--mx',(e.clientX-r.left)+'px'); p.style.setProperty('--my',(e.clientY-r.top)+'px'); },{passive:true});
+if(!FX_RM){
+  var fxPos=function(e){ var p=e.target&&e.target.closest&&e.target.closest('.ap,.kpis,.sheet'); if(!p) return null; var r=p.getBoundingClientRect(); p.style.setProperty('--mx',(e.clientX-r.left)+'px'); p.style.setProperty('--my',(e.clientY-r.top)+'px'); return p; };
+  document.addEventListener('pointermove',function(e){ fxPos(e); },{passive:true});
+  /* touch screens: light up the touched card for a moment */
+  var fxLit=null, fxT=0;
+  document.addEventListener('pointerdown',function(e){ if(e.pointerType==='mouse') return; var p=fxPos(e); if(!p) return; if(fxLit&&fxLit!==p) fxLit.classList.remove('fx-lit'); fxLit=p; p.classList.add('fx-lit'); clearTimeout(fxT); fxT=setTimeout(function(){ if(fxLit) fxLit.classList.remove('fx-lit'); },1400); },{passive:true});
 }
 /* scanning beam on the input card while a check is running */
 (function(){ var b=document.getElementById('btn-go'); if(!b||!window.MutationObserver) return; new MutationObserver(function(){ document.body.classList.toggle('fx-busy',b.disabled); }).observe(b,{attributes:true,attributeFilter:['disabled']}); })();
