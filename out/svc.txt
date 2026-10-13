@@ -1,0 +1,22 @@
+ltab 200 22613 https://services.ltab.lv/lv/VehicleInsAndAcc
+statvin 403 48 https://stat.vin/cars/5YJ3E1EA7KF317000
+poctra 403 5717 https://poctra.com/search?q=5YJ3E1EA7KF317000
+bidcars 403 5854 https://bid.cars/en/search/results?search-type=typing&query=5YJ3E1EA7KF317000
+bidfaxinfo 403 1076 https://bidfax.info/index.php?do=search&subaction=search&story=5YJ3E1EA7KF317000
+nhtsa 200 4150 https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/5YJ3E1EA7KF317000?format=json
+rdw 200 2091 https://opendata.rdw.nl/resource/m9d7-ebf2.json?kenteken=G123BB
+== ltab
+ Transportlīdzekļa zaudējumu dati LV EN RU LTAB Mobilā Lietotne Piekļūstamība Fonta izmērs 100% 150% 200% Kontrasts Transportlīdzekļa zaudējumu dati LTAB OCTA aplikācija Šeit varēsi iegūt datus par reģistrētajiem (kopš 1997. gada) OCTA gadījumiem, kas notikuši Latvijas teritorijā vai ārvalstīs, un pieteikti pie Latvijas apdrošinātājiem. Datu iegūšanai nepieciešams zināt transportlīdzekļa reģistrācijas numuru vai šasijas numuru. Pārbaudi datus ērtāk izmantojot LTAB OCTA aplikāciju. Lejupielādē aplikāciju bez maksas App Store vai GooglePlay Store vietnēs un novērtē ērtības un plašo informācijas 
+False False ['<form action="/lv/VehicleInsAndAcc/VpLogin" class="form-horizontal form-vp" method="post">'] []
+== statvin
+Access blocked, contact us at support@stat.vin A
+False False [] []
+== poctra
+ Just a moment... Enable JavaScript and cookies to continue 
+False True [] []
+== bidcars
+ Just a moment... Enable JavaScript and cookies to continue 
+False True [] []
+== bidfaxinfo
+ 403 Forbidden 403 Forbidden nginx 
+False False [] []
