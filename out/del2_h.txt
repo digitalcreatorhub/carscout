@@ -1,0 +1,14 @@
+HTTP/2 200 
+date: Tue, 13 Oct 2026 06:35:28 GMT
+content-type: text/html; charset=UTF-8
+vary: Accept-Encoding
+p3p: CP="NOI ADM DEV PSAi COM NAV OUR OTRo STP IND DEM"
+set-cookie: PHPSESSID=1ad10f5d8642c205bb8e8d6193ebcf54; path=/; SameSite=none; Secure; secure; HttpOnly
+set-cookie: LG=ru; expires=Wed, 13-Oct-2027 06:35:28 GMT; path=/; domain=www.ss.com; SameSite=none; secure; HttpOnly;
+expires: Tue, 13 Oct 2026 06:58:08 GMT
+cache-control: no-cache
+last-modified: Tue, 06 Oct 2026 06:58:08 GMT
+server: SS/2021
+strict-transport-security: max-age=63072000; includeSubdomains; preload
+cache-control: no-cache
+
