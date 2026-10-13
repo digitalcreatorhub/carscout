@@ -535,7 +535,7 @@ function parseAs24Listing(html, url) {
   const cf = L.vehicleReport && L.vehicleReport.carfax;
   const desc = strip(String(L.description || '').replace(/<\/(li|p|div|br)>/gi, '. ')).slice(0, 8000);
   const listing = {
-    make: v.make || null, model: v.modelGroup || v.model || null, model_raw: [v.model, v.modelVersionInput].filter(Boolean).join(' ') || null,
+    make: v.make || null, model: (v.model && v.modelGroup && /er$|series|serie|klasse|class|-reihe/i.test(v.modelGroup) && v.model !== v.modelGroup ? v.model : (v.modelGroup || v.model)) || null, model_raw: [v.model, v.modelVersionInput].filter(Boolean).join(' ') || null,
     year: /^\d{4}$/.test(yr) ? parseInt(yr, 10) : null, mileage_km: v.mileageInKmRaw != null ? Math.round(v.mileageInKmRaw) : null,
     asking_price: price ? Math.round(price) : null, fuel: fuel === 'lpg' ? 'petrol' : fuel, lpg: fuel === 'lpg', gearbox: gearbox,
     engine_l: ccm > 400 ? Math.round(ccm / 100) / 10 : null, power_kw: v.rawPowerInKw || null, body: v.bodyType || null, color: null,
