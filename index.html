@@ -791,6 +791,29 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
 .cf.cvin input{letter-spacing:.06em;text-transform:uppercase}
 @media (max-width:760px){.cf.cvin{grid-column:1/-1}}
 .cf.cvin input::placeholder{text-transform:none;letter-spacing:0}
+/* accident alert */
+#out>.ap.acc{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad),0 0 22px rgba(242,104,106,.45),0 0 60px rgba(242,104,106,.18);animation:accglow 2.4s ease-in-out infinite}
+@keyframes accglow{50%{box-shadow:0 0 0 1px var(--bad),0 0 32px rgba(242,104,106,.65),0 0 80px rgba(242,104,106,.28)}}
+@media (prefers-reduced-motion:reduce){#out>.ap.acc{animation:none}}
+.accb{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid rgba(242,104,106,.55);background:linear-gradient(90deg,rgba(242,104,106,.22),rgba(242,104,106,.08));color:var(--ink);border-radius:12px;padding:11px 14px;cursor:pointer;font:inherit}
+.accb:hover{background:linear-gradient(90deg,rgba(242,104,106,.3),rgba(242,104,106,.12))}
+.accb:focus-visible{outline:2px solid var(--bad);outline-offset:2px}
+.acci{flex:none;width:28px;height:28px;border-radius:50%;background:var(--bad);color:#fff;display:grid;place-items:center;font-weight:800;font-size:16px;box-shadow:0 0 14px rgba(242,104,106,.7)}
+.acct{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.acct b{font-size:14.5px;color:#ffd1d1}
+.acct small{font-size:12px;color:var(--ink2)}
+.accg{flex:none;font-size:12px;color:#ffb3b3;white-space:nowrap}
+#out>.ap.accp{border-color:rgba(242,104,106,.5)}
+.accw{background:var(--bad-soft);border:1px solid var(--bad);color:#ffd1d1;border-radius:10px;padding:10px 12px;font-weight:600;font-size:14px}
+.accgrid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:start}
+.accph{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.accph a{display:block;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background:var(--surface-2)}
+.accph img{width:100%;height:100%;object-fit:cover;display:block}
+.accph a:first-child{grid-column:span 2;grid-row:span 2}
+.accdl{display:flex;flex-direction:column;gap:8px;margin:0}
+.accdl div{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;font-size:13.5px;border-bottom:1px solid var(--line);padding-bottom:7px}
+.accdl dt{color:var(--muted)}.accdl dd{margin:0;color:var(--ink)}
+@media (max-width:760px){.accgrid{grid-template-columns:minmax(0,1fr)}.accph{grid-template-columns:repeat(3,minmax(0,1fr))}.accdl div{grid-template-columns:110px minmax(0,1fr)}.accg{display:none}}
 </style>
 </head>
 <body>
@@ -2113,7 +2136,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-14.2', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-14.3', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2341,7 +2364,7 @@ function pCar(v){
     '<button class="btn sm" type="button" data-act="fav-toggle">'+esc(favHas(c)?L('★ В избранном','★ Saved'):L('☆ В избранное','☆ Save'))+'</button>'+
     (noTrim?'<button class="btn sm" type="button" data-act="set-trim">'+esc(L('Указать комплектацию','Set the trim'))+'</button>':'')+'</div>';
   var notes=v.notes&&v.notes.length?'<ul class="anotes">'+v.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join('')+'</ul>':'';
-  return aPanel('a-car','c7','', '<div class="hero"><div class="ph">'+(src?'<span class="src">'+esc(src)+'</span>':'')+img+(goodImgs.length?'<span class="cnt">'+goodImgs.length+L(' фото',' photos')+'</span>':'')+'</div>'+
+  return aPanel('a-car','c7'+(accInfo(v)?' acc':''),'', accBanner(v)+'<div class="hero"><div class="ph">'+(src?'<span class="src">'+esc(src)+'</span>':'')+img+(goodImgs.length?'<span class="cnt">'+goodImgs.length+L(' фото',' photos')+'</span>':'')+'</div>'+
     '<div class="hmain"><div class="title">'+esc(title)+'</div><div class="sub">'+esc(sub)+'</div>'+
     (chips.length?'<div class="chips">'+chips.map(function(x){return '<span class="chip '+x[0]+'"><i></i>'+esc(x[1])+'</span>'}).join('')+'</div>':'')+
     '<div class="ask">'+(c.price>0?'<b>'+esc(eur(c.price))+'</b><span>'+esc(L('цена в объявлении','asking price'))+'</span>':'<span>'+esc(L('Цена не найдена: введите её вручную (кнопка «Скриншот, текст, вручную»).','No price found: enter it manually.'))+'</span>')+'</div>'+btns+'</div></div>'+notes);
@@ -2580,8 +2603,9 @@ function renderA(v){
   var h=[];
   if(v.noApi) h.push('<div class="c12">'+secNoApi()+'</div>');
   h.push(pCar(v));
+  if(!v.regions.length) h.push(pAcc(v));
   if(v.regions.length){
-    h.push(pVerdict(v)); h.push(pCheck(v)); h.push(pKpis(v));
+    h.push(pVerdict(v)); h.push(pAcc(v)); h.push(pCheck(v)); h.push(pKpis(v));
     var lf=pLife(v), wk=pWeak(v); if(lf&&wk){ h.push(lf); h.push(wk); } else if(lf){ h.push(lf.replace('class="ap c7"','class="ap c12"')); } else if(wk){ h.push(wk.replace('class="ap c5"','class="ap c12"')); }
     var sc=pScatter(v), hi=pHist(v,S.histReg);
     if(sc&&hi){ h.push(sc); h.push(hi); } else if(sc){ h.push(sc.replace('class="ap c8"','class="ap c12"')); } else if(hi){ h.push(hi.replace('class="ap c4"','class="ap c12"')); }
@@ -2923,7 +2947,6 @@ function pLife(v){
 /* ---- what is known about this car's history: shown only when something was actually found ---- */
 function historyFinds(v){
   var c=v.car, out=[], src=String(c.site||'').replace(/^www\./,'')||(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})();
-  if(c.reportUrl&&safeUrl(c.reportUrl)) out.push(['ok',L('Продавец открыл бесплатный отчёт '+(c.reportName||'')+' по VIN этой машины: аварии, пробег, владельцы','The seller provides a free '+(c.reportName||'')+' report for this car’s VIN: accidents, mileage, owners','Pārdevējs piedāvā bezmaksas '+(c.reportName||'')+' atskaiti par šī auto VIN: avārijas, nobraukums, īpašnieki'),safeUrl(c.reportUrl),L('Открыть отчёт','Open the report','Atvērt atskaiti')]);
   if(c.accident===true) out.push(['b',L('На '+src+' машина отмечена как побывавшая в аварии','On '+src+' the car is marked as having had an accident','Vietnē '+src+' auto atzīmēts kā cietis avārijā')]);
   else if(c.accident===false&&!c.repairedDamage) out.push(['ok',L('На '+src+' продавец указал: без аварий. Это слова продавца, проверьте осмотром','On '+src+' the seller states: no accidents. That is the seller’s word, verify by inspection','Vietnē '+src+' pārdevējs norādījis: bez avārijām. Tie ir pārdevēja vārdi, pārbaudiet apskatē')]);
   if(c.repairedDamage) out.push(['w',L('Продавец указал отремонтированные повреждения: спросите, что и где чинили','The seller lists repaired damage: ask what was repaired and where','Pārdevējs norādījis salabotus bojājumus: pajautājiet, kas un kur labots')]);
@@ -2937,6 +2960,53 @@ async function usVinDecode(v){
   var vin=String(v.car.vin||'').toUpperCase(); if(!/^[1-5][A-HJ-NPR-Z0-9]{16}$/.test(vin)) return;
   try{ var r=await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/'+vin+'?format=json',{signal:AbortSignal.timeout(8000)}); var j=await r.json(), x=j&&j.Results&&j.Results[0]; if(!x||!x.Make) return;
     v.usSpec=[x.ModelYear,x.Make,x.Model,x.Trim,x.DisplacementL?(+x.DisplacementL).toFixed(1)+' L':'',x.FuelTypePrimary,x.PlantCountry].filter(Boolean).join(' · '); }catch(e){}
+}
+
+/* ---- accident / salvage auction history ---- */
+var DMG={'FRONT END':['перед','front end','priekša'],'REAR END':['зад','rear end','aizmugure'],'SIDE':['бок','side','sāns'],'ALL OVER':['весь кузов','all over','visa virsbūve'],'HAIL':['град','hail','krusa'],'WATER/FLOOD':['затопление','flood','applūdis'],'FLOOD':['затопление','flood','applūdis'],'MECHANICAL':['механика','mechanical','mehānika'],'ROLLOVER':['переворот','rollover','apgāšanās'],'UNDERCARRIAGE':['днище','undercarriage','apakšdaļa'],'TOP/ROOF':['крыша','roof','jumts'],'ROOF':['крыша','roof','jumts'],'BURN':['пожар','fire','ugunsgrēks'],'BURN - ENGINE':['пожар двигателя','engine fire','dzinēja ugunsgrēks'],'BURN - INTERIOR':['пожар в салоне','interior fire','salona ugunsgrēks'],'VANDALISM':['вандализм','vandalism','vandālisms'],'MINOR DENT/SCRATCHES':['вмятины, царапины','dents, scratches','iespiedumi, skrāpējumi'],'NORMAL WEAR':['обычный износ','normal wear','parasts nolietojums'],'ELECTRICAL':['электрика','electrical','elektrība'],'STRIPPED':['разукомплектована','stripped','izjaukta'],'FRONT & REAR':['перед и зад','front and rear','priekša un aizmugure'],'BIOHAZARD/CHEMICAL':['биологическое/химическое загрязнение','biohazard','bioloģisks piesārņojums'],'THEFT':['кража','theft','zādzība'],'UNKNOWN':['не указано','unknown','nav norādīts']};
+function dmgName(d){ if(!d) return ''; var k=String(d).toUpperCase().trim(), t=DMG[k]; return t?(S.lang==='ru'?t[0]:S.lang==='lv'?t[2]:t[1]):d.toLowerCase(); }
+function accInfo(v){
+  var c=v.car, sv=v.salvage&&v.salvage.found?v.salvage:null, lot=sv&&sv.lots&&sv.lots[0]||null;
+  if(!sv&&c.accident!==true) return null;
+  var o={salvage:sv,lot:lot,seller:c.accident===true,lines:[],rollback:null};
+  if(lot){
+    var km=lot.odometer_mi?Math.round(lot.odometer_mi*1.609344):null;
+    if(km&&c.km!=null&&c.km<km-2000) o.rollback={was:km,now:c.km};
+    o.km=km;
+  }
+  return o;
+}
+function accSub(o){
+  if(o.lot) return [o.lot.source==='COPART'?'Copart':o.lot.source==='IAAI'?'IAAI':(o.lot.source||''),o.lot.date?dFmt(o.lot.date):'',o.lot.damage?L('повреждение: ','damage: ','bojājums: ')+dmgName(o.lot.damage):''].filter(Boolean).join(' · ');
+  return L('продавец сам отметил аварию в объявлении','the seller marked an accident in the ad','pārdevējs pats atzīmējis avāriju sludinājumā');
+}
+function accBanner(v){
+  var o=accInfo(v); if(!o) return '';
+  return '<button type="button" class="accb" data-act="go-acc"><span class="acci" aria-hidden="true">!</span><span class="acct"><b>'+esc(o.rollback?L('Внимание: машина была в аварии, а пробег скручен','Warning: the car was in an accident and the mileage was rolled back','Uzmanību: auto bijis avārijā, un nobraukums attīts'):L('Внимание: машина была в аварии','Warning: this car has been in an accident','Uzmanību: šis auto ir bijis avārijā'))+'</b><small>'+esc(accSub(o))+'</small></span><span class="accg">'+esc(o.lot&&o.lot.photos&&o.lot.photos.length?L('фото и детали ↓','photos and details ↓','foto un detaļas ↓'):L('подробнее ↓','details ↓','sīkāk ↓'))+'</span></button>';
+}
+function pAcc(v){
+  var o=accInfo(v); if(!o) return '';
+  var rows=[], lot=o.lot, usd=function(n){ return n?'$'+fmt(n):'–'; };
+  if(lot){
+    rows.push([L('Аукцион','Auction','Izsole'),[(lot.source==='COPART'?'Copart':lot.source==='IAAI'?'IAAI':lot.source)+L(' (США)',' (USA)',' (ASV)'),lot.location].filter(Boolean).join(' · ')]);
+    if(lot.date) rows.push([L('Дата продажи','Sale date','Pārdošanas datums'),dFmt(lot.date)]);
+    rows.push([L('Повреждения','Damage','Bojājumi'),[dmgName(lot.damage),lot.damage2&&lot.damage2!=='UNKNOWN'?dmgName(lot.damage2):''].filter(Boolean).join(', ')]);
+    if(lot.title) rows.push([L('Документы','Title','Dokumenti'),lot.title+(/salvage|junk|non-repairable|certificate of destruction/i.test(lot.title)?L(' — страховая признала машину тотальной','; the insurer declared it a total loss','; apdrošinātājs atzinis to par totālu zaudējumu'):'')]);
+    if(o.km) rows.push([L('Пробег на аукционе','Mileage at auction','Nobraukums izsolē'),fmt(o.km)+L(' км',' km',' km')+' ('+fmt(lot.odometer_mi)+' mi)']);
+    if(lot.price_usd) rows.push([L('Продана за','Sold for','Pārdots par'),usd(lot.price_usd)+(lot.retail_usd?L(' (целая стоила бы около ',' (undamaged value about ',' (nebojāta vērtība ap ')+usd(lot.retail_usd)+')':'')]);
+    if(lot.keys==='No') rows.push([L('Ключи','Keys','Atslēgas'),L('без ключей','no keys','bez atslēgām')]);
+  }
+  if(o.seller) rows.push([L('Объявление','Listing','Sludinājums'),L('продавец сам отметил, что машина была в аварии','the seller marked that the car was in an accident','pārdevējs pats atzīmējis, ka auto bijis avārijā')]);
+  var warn=o.rollback?'<p class="accw">'+esc(L('Пробег скручен: на аукционе было '+fmt(o.rollback.was)+' км, а в объявлении '+fmt(o.rollback.now)+' км — на '+fmt(o.rollback.was-o.rollback.now)+' км меньше.','Mileage rolled back: '+fmt(o.rollback.was)+' km at auction, but '+fmt(o.rollback.now)+' km in the ad — '+fmt(o.rollback.was-o.rollback.now)+' km less.','Nobraukums attīts: izsolē bija '+fmt(o.rollback.was)+' km, bet sludinājumā '+fmt(o.rollback.now)+' km — par '+fmt(o.rollback.was-o.rollback.now)+' km mazāk.'))+'</p>':'';
+  var ph=lot&&lot.photos||[], gal=ph.length?'<div class="accph">'+ph.slice(0,12).map(function(u){ var src=aImg(u); return '<a href="'+esc(src)+'" target="_blank" rel="noopener noreferrer"><img src="'+esc(src)+'" alt="'+esc(L('Фото с аукциона','Auction photo','Izsoles foto'))+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></a>'; }).join('')+'</div>':'';
+  var srcl=o.salvage&&o.salvage.page&&safeUrl(lot&&lot.url||o.salvage.page)?'<p class="mini">'+esc(L('Источник: ','Source: ','Avots: '))+'<a class="nl" href="'+esc(safeUrl(lot&&lot.url||o.salvage.page))+'" target="_blank" rel="noopener noreferrer">vincheck.it.com ↗</a> · VIN '+esc(v.car.vin||'')+'</p>':'';
+  return aPanel('a-acc','c12 accp',aHead(L('Авария и аукцион битых машин','Accident and salvage auction','Avārija un bojāto auto izsole'),aMeta(lot?L('найдено по VIN','found by VIN','atrasts pēc VIN'):L('по данным объявления','from the listing','pēc sludinājuma datiem'))),
+    warn+'<div class="accgrid">'+gal+'<dl class="accdl">'+rows.map(function(r){return '<div><dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd></div>'}).join('')+'</dl></div>'+
+    '<p class="anote">'+esc(L('Машину после аукциона битых авто часто восстанавливают и продают в Европе. Это не запрет на покупку, но цена должна быть заметно ниже рынка. Обязательно проверьте качество ремонта: геометрию кузова, подушки безопасности, следы сварки.','Cars from salvage auctions are often repaired and resold in Europe. That is not a reason never to buy, but the price must be clearly below the market. Be sure to check the repair quality: body geometry, airbags, welding marks.','Auto no bojāto auto izsolēm bieži salabo un pārdod Eiropā. Tas nav aizliegums pirkt, bet cenai jābūt manāmi zem tirgus. Obligāti pārbaudiet remonta kvalitāti: virsbūves ģeometriju, drošības spilvenus, metināšanas pēdas.'))+'</p>'+srcl);
+}
+async function salvageCheck(v){
+  var vin=String(v.car.vin||'').toUpperCase(); if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)||!S.api) return;
+  try{ var j=await api('/api/vinhist',{vin:vin},30000); if(v!==S.view) return; if(j&&j.ok&&j.found){ v.salvage=j; var y=window.pageYOffset; render(); window.scrollTo(0,y); } }catch(e){}
 }
 
 /* ---- engine size: from the listing table, else from the title/text ---- */
@@ -3024,6 +3094,7 @@ async function findPhotoMatches(v){
 function rePanel(id,html){ var el=document.getElementById(id); if(!el||!html) return; var t=document.createElement('div'); t.innerHTML=html; var n=t.firstChild; if(!n) return; var sp=(el.className.match(/\bc(4|5|6|7|8|12)\b/)||[])[0], np=(n.className.match(/\bc(4|5|6|7|8|12)\b/)||[])[0]; if(sp&&np&&sp!==np) n.className=n.className.replace(np,sp); el.parentNode.replaceChild(n,el); }
 async function extrasAfterRun(v){
   var c=v.car; v.dups=findDups(v);
+  salvageCheck(v);
   usVinDecode(v).then(function(){ if(v===S.view&&v.usSpec) rePanel('a-life',pLife(v)); });
   var isSs=/ss\.(com|lv)\/msg\//.test(c.url||'');
   if(isSs&&S.api){ v.sellerState='run'; rePanel('a-life',pLife(v));
@@ -3211,6 +3282,7 @@ document.addEventListener('click',function(e){
   else if(a==='more'){ var fm=$('#intake'); fm.classList.toggle('open'); b.setAttribute('aria-expanded',fm.classList.contains('open')?'true':'false'); }
   else if(a==='hreg'){ S.histReg=b.getAttribute('data-r'); var hp=document.getElementById('a-hist'); if(hp&&S.view){ var nh=pHist(S.view,S.histReg); var tmp=document.createElement('div'); tmp.innerHTML=nh; hp.parentNode.replaceChild(tmp.firstChild,hp); } }
   else if(a==='ck-tab'){ var pn=b.closest('.ap'); pn.querySelectorAll('[data-act=ck-tab]').forEach(function(x){x.classList.toggle('on',x===b)}); pn.querySelectorAll('.cklist').forEach(function(x){x.hidden=x.getAttribute('data-t')!==b.getAttribute('data-t')}); }
+  else if(a==='go-acc'){ var ac=document.getElementById('a-acc'); if(ac){ var yy=ac.getBoundingClientRect().top+window.pageYOffset-(aMob()?70:16); window.scrollTo({top:Math.max(0,yy),behavior:'smooth'}); } }
   else if(a==='go-msg'){ var ms=document.getElementById('sec-msg'); if(ms) ms.scrollIntoView({behavior:'smooth',block:'start'}); }
   else if(a==='nav-top'){ window.scrollTo({top:0,behavior:'smooth'}); }
   else if(a==='nav-favs'||a==='nav-compare'){ var fv=document.getElementById('favs'); if(fv&&!fv.hidden){ fv.scrollIntoView({behavior:'smooth',block:'start'}); if(a==='nav-compare'&&favLoad().filter(function(x){return x.sel}).length<2) showStatus('info',function(){return L('Отметьте в избранном 2–3 машины, чтобы сравнить их рядом.','Tick 2–3 favourites to compare them.')}); } else showStatus('info',function(){return L('Избранное пусто: нажмите «☆ В избранное» в карточке машины.','No favourites yet: press “☆ Save” on a car card.')}); }

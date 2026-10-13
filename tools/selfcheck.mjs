@@ -85,6 +85,9 @@ for (const [source, extra] of [['autoplius', {}], ['as24', { cy: 'D' }]]) {
   else good(`listing ${source}: ok`);
 }
 
+// 5. salvage auction history by VIN (a known Copart lot)
+{ const j = await get('/api/vinhist', { vin: 'WBA8E1C58JA756430' }); const l = (j.lots || [])[0] || {};
+  if (!j.ok || !j.found || !l.damage || !l.photos || !l.photos.length) bad('vin history', (j.error || 'not found / no damage or photos')); else good('vin history: ' + l.source + ' ' + l.damage + ', photos ' + l.photos.length); }
 const date = new Date().toISOString().slice(0, 10);
 const report = `## CarScout self-check ${date}\n\n${fails.length ? `### Problems (${fails.length})\n${fails.join('\n')}\n\n` : '**All checks passed.**\n\n'}${warns.length ? `### Warnings\n${warns.join('\n')}\n\n` : ''}### Passed\n${oks.join('\n')}\n`;
 console.log(report);
