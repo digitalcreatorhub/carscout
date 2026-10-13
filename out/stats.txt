@@ -1,12 +1,20 @@
-/msg/lv/transport/cars/volkswagen/caddy/ccjgbj.html | S=/js/lv/2026-10-13/668a9c7d1012f574f3e78d61b84fd6a3622ab5f9aa | 40250 | 
-/msg/lv/transport/cars/volkswagen/caddy/cedogj.html | S=/js/lv/2026-10-13/b08bd35c2fea13b9db5a65a224096a27c27c3c2b6d | 26873 | 
-/msg/lv/transport/cars/volkswagen/caddy/fglkj.html | S=/js/lv/2026-10-13/50117a60c9fea54f72e8f359872b33f95c32581457 | 32730 | 
-/msg/lv/transport/cars/volkswagen/caravelle/dbcho.html | S=/js/lv/2025-12-23/fe1820de91dfedbbffab4744681471ca55e6ee2004 | 40149 | 
-/msg/lv/transport/cars/volkswagen/crafter/cblhon.html | S=/js/lv/2026-05-14/93cc049dda9c6fbcd9b8f3b5aa9a5b4a9625f78fd1 | 25735 | 
-/msg/lv/transport/cars/volkswagen/crafter/cbljfm.html | S=/js/lv/2026-10-13/aa8fb0bae5e0aa9f963880dfae321566291af23c18 | 31249 | 
-/msg/lv/transport/cars/volkswagen/golf-6/cdxlhd.html | S=/js/lv/2026-09-02/76e229c79f70c69708228e49c72b9d7900617f528a | 39723 | 
-/msg/lv/transport/cars/volkswagen/golf-6/cdxopf.html | S=/js/lv/2026-03-20/3a1ad13fc726376ec95619e1845b8b126690c5f088 | 38948 | 
-/msg/lv/transport/cars/volkswagen/golf-plus/cfgxpd.html | S=/js/lv/2026-07-07/784c1aef5e5b8d574dcc76e65a1064a1ac38536e91 | 48445 | 
-/msg/lv/transport/cars/volkswagen/multivan/gklbf.html | S=/js/lv/2026-02-23/97afbba91c84f1ec535c6bf2c10018000d9e8cdb55 | 30457 | 
-/msg/lv/transport/cars/volkswagen/passat-b7/bhidkg.html | S=/js/lv/2026-02-21/ab0b30c2c05b42809c5188fcc50ff6ce1b2240abbe | 35124 | 
-/msg/lv/transport/cars/volkswagen/passat-b7/bidnei.html | S=/js/lv/2026-09-26/d3f951b399c946e0f68cccc6a906d09fa2ca751cf7 | 30736 | 
+/msg/lv/transport/cars/bmw/116/bmjel.html | ADS_STAT=[-1,-1,-1,-1,43]; OPEN_STAT_LNK="EFQSHVYTHFM=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
+/msg/lv/transport/cars/bmw/116/cdgkdf.html | retry:ADS_STAT=[-1,-1,-1,-1,76]; OPEN_STAT_LNK="EFUUFVcVFlA=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
+/msg/lv/transport/cars/bmw/118/cchxpe.html | retry:ADS_STAT=[0,0,0,0,12]; OPEN_STAT_LNK="EFsTElobF1M=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{wind
+/msg/lv/transport/cars/bmw/118/cebolp.html | retry:ADS_STAT=[-1,-1,-1,-1,199]; OPEN_STAT_LNK="EFQaFFIQFVU=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else
+/msg/lv/transport/cars/bmw/120/bmglji.html | retry:ADS_STAT=[-1,-1,-1,-1,58]; OPEN_STAT_LNK="EFsSFlUTEVA=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
+/msg/lv/transport/cars/bmw/220/bpdfcm.html | retry:ADS_STAT=[0,0,0,0,7]; OPEN_STAT_LNK="EFsSFVAWHFM=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{windo
+/msg/lv/transport/cars/bmw/220/bpibde.html | retry:ADS_STAT=[0,0,0,0,6]; OPEN_STAT_LNK="EFsSFVAWHFI=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{windo
+/msg/lv/transport/cars/bmw/316/gopik.html | retry:ADS_STAT=[-1,-1,-1,-1,165]; OPEN_STAT_LNK="EFURFFQXEFQ=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else
+/msg/lv/transport/cars/bmw/318/amikx.html | ADS_STAT=[0,0,0,0,38]; OPEN_STAT_LNK="EFQbEloUFlM=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{wind
+/msg/lv/transport/cars/bmw/318/bknnfo.html | retry:ADS_STAT=[-1,-1,-1,-1,40]; OPEN_STAT_LNK="EFsSFlsVFVM=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
+/msg/lv/transport/cars/bmw/318/bkonjc.html | retry:ADS_STAT=[0,0,0,0,5]; OPEN_STAT_LNK="EFsSFVcbFVs=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{windo
+/msg/lv/transport/cars/bmw/318/blcibl.html | retry:ADS_STAT=[0,0,0,0,12]; OPEN_STAT_LNK="EFsTFloWFls=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{wind
+/msg/lv/transport/cars/bmw/318/cgikgm.html | retry:ADS_STAT=[-1,-1,-1,-1,41]; OPEN_STAT_LNK="EFsSFVoXE1U=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
+/msg/lv/transport/cars/bmw/318/cgokfb.html | retry:ADS_STAT=[0,0,0,0,12]; OPEN_STAT_LNK="EFsTFloWFlo=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{wind
+/msg/lv/transport/cars/bmw/318/eimpx.html | ADS_STAT=[-1,-1,-1,-1,42]; OPEN_STAT_LNK="EFsTHVoREVY=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
+/msg/lv/transport/cars/bmw/318/eljfb.html | retry:ADS_STAT=[-1,-1,-1,-1,147]; OPEN_STAT_LNK="EFsSElYSFVc=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else
+/msg/lv/transport/cars/bmw/318/gnknj.html | retry:ADS_STAT=[-1,-1,-1,-1,31]; OPEN_STAT_LNK="EFQQFlISFFs=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
+/msg/lv/transport/cars/bmw/318/gxxjp.html | retry:ADS_STAT=[0,0,0,0,13]; OPEN_STAT_LNK="EFsSFVcbFFM=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{wind
+/msg/lv/transport/cars/bmw/320/abxin.html | retry:ADS_STAT=[-1,-1,-1,-1,78]; OPEN_STAT_LNK="EFsSFFEbE1M=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
+/msg/lv/transport/cars/bmw/320/akmpg.html | retry:ADS_STAT=[-1,-1,-1,-1,62]; OPEN_STAT_LNK="EFsTEVQVHFI=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{
