@@ -7,7 +7,7 @@ while read p; do
   curl -sL -c cj -b cj -A "$UA" -H "Accept-Language: lv,en" $U -o a.html
   S=$(grep -o 'id="contacts_js" src="[^"]*"' a.html | sed 's/.*src="//;s/"$//;s/&amp;/\&/g')
   R=$(curl -sL -c cj -b cj -A "$UA" -H "Accept-Language: lv,en" -H "Accept: */*" -H "Sec-Fetch-Dest: script" -H "Sec-Fetch-Mode: no-cors" -H "Sec-Fetch-Site: same-origin" -e $U "https://www.ss.lv$S" | head -c 200 | tr '\n' ' ')
-  echo "$p | $R" >> out/stats.txt
+  echo "$p | S=${S:0:60} | $(wc -c < a.html) | $R" >> out/stats.txt
   T=$(echo "$R" | grep -o 'OPEN_STAT_LNK="[^"]*"' | sed 's/.*="//;s/"//')
   C=$(echo "$R" | grep -o 'ADS_STAT=\[[0-9]*' | sed 's/.*\[//')
   if [ "$got" = 0 ] && [ "${C:-0}" -gt 1 ]; then got=1; curl -sL -A "$UA" -e $U "https://www.ss.lv/lv/search-result/?t=$T" -o out/sr.html; echo "$p $T" > out/sr.txt; fi
