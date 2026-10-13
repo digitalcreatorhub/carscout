@@ -1,0 +1,13 @@
+HTTP/2 200 
+date: Tue, 13 Oct 2026 06:32:30 GMT
+content-type: text/html; charset=UTF-8
+vary: Accept-Encoding
+p3p: CP="NOI ADM DEV PSAi COM NAV OUR OTRo STP IND DEM"
+set-cookie: PHPSESSID=ed348452fe9edda494e83479ea49e262; path=/; SameSite=none; Secure; secure; HttpOnly
+expires: Thu, 19 Nov 1981 08:52:00 GMT
+cache-control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+set-cookie: LG=lv; expires=Wed, 13-Oct-2027 06:32:30 GMT; path=/; domain=www.ss.lv; SameSite=none; secure; HttpOnly;
+server: SS/2021
+strict-transport-security: max-age=63072000; includeSubdomains; preload
+cache-control: no-cache
+
