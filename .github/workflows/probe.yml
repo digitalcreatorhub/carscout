@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: |
-          mkdir -p out
+          mkdir -p out; npm i --no-save playwright@1.47.2 >/dev/null 2>&1; npx playwright install chromium >/dev/null 2>&1
           bash probe.sh || true
           node rec.mjs || true
           git config user.name probe; git config user.email probe@users.noreply.github.com
