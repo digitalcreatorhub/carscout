@@ -1,0 +1,11 @@
+HTTP/2 200 
+date: Tue, 13 Oct 2026 06:24:29 GMT
+content-type: application/x-javascript
+vary: Accept-Encoding
+cache-control: no-cache, no-store, post-check=0, pre-check=0, max-age=0
+expires: -1
+set-cookie: sid=47b1a23a07a70d8fea985bb059f4212e.1791872669964; expires=Mon, 13-Oct-2036 06:24:29 GMT; path=/; domain=www.ss.lv; SameSite=none; secure; HttpOnly;
+server: SS/2021
+strict-transport-security: max-age=63072000; includeSubdomains; preload
+cache-control: no-cache
+
