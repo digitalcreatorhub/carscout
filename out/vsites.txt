@@ -1,0 +1,15 @@
+vcit 200 45327 https://vincheck.it.com/auctions/lot/47296956 vinInPage=17 cf=0
+vcit2 404 12559 https://vincheck.it.com/search?vin=WBA8E1C58JA756430 vinInPage=0 cf=0
+vcit3 200 36135 https://vincheck.it.com/vin/WBA8E1C58JA756430/2018-bmw-3er vinInPage=17 cf=0
+vinfax 403 5688 https://vinfax.net/vin/WBA8E1C58JA756430 vinInPage=1 cf=1
+vinfax2 403 5696 https://vinfax.net/search?q=WBA8E1C58JA756430 vinInPage=1 cf=1
+autoastat 403 5735 https://autoastat.com/en/search?vin=WBA8E1C58JA756430 vinInPage=1 cf=1
+carfast 403 5489 https://carfast.express/en/vin/WBA8E1C58JA756430 vinInPage=0 cf=1
+ccv 404 69354 https://www.carcheckervin.com/vin/WBA8E1C58JA756430 vinInPage=1 cf=0
+plc 403 73886 https://plc.auction/auction/vin/WBA8E1C58JA756430 vinInPage=1 cf=0
+autohelperbot 403 4553 https://autohelperbot.com/en/vin/WBA8E1C58JA756430 vinInPage=0 cf=1
+bidcars2 403 5854 https://bid.cars/en/search/results?search-type=typing&query=WBA8E1C58JA756430 vinInPage=1 cf=1
+statvin 403 48 https://stat.vin/cars/WBA8E1C58JA756430 vinInPage=0 cf=0
+poctra 403 5696 https://poctra.com/search?q=WBA8E1C58JA756430 vinInPage=1 cf=1
+salvagereseller 200 283580 https://www.salvagereseller.com/search?query=WBA8E1C58JA756430 vinInPage=0 cf=1
+autobidcar 403 5597 https://autobidcar.com/?s=WBA8E1C58JA756430 vinInPage=1 cf=1
