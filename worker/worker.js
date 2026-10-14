@@ -30,7 +30,7 @@ function cors(env) {
   return {
     'access-control-allow-origin': (env && env.ALLOW_ORIGIN) || '*',
     'access-control-allow-methods': 'GET, POST, OPTIONS',
-    'access-control-allow-headers': 'content-type',
+    'access-control-allow-headers': 'content-type, x-carscout-auth',
     'access-control-max-age': '86400'
   };
 }
@@ -961,8 +961,11 @@ async function memInit(env) {
     env.DB.prepare('CREATE INDEX IF NOT EXISTS ads_mm ON ads(mk, md, yr)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS hist(id TEXT, t INT, p INT, km INT)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS hist_id ON hist(id)'),
-    env.DB.prepare('CREATE TABLE IF NOT EXISTS watch(code TEXT PRIMARY KEY, data TEXT, t INT)')
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS watch(code TEXT PRIMARY KEY, data TEXT, t INT)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT)')
   ]);
+  try { await env.DB.prepare('ALTER TABLE watch ADD COLUMN chat INTEGER').run(); } catch (e) { }
+  try { await env.DB.prepare('ALTER TABLE watch ADD COLUMN lang TEXT').run(); } catch (e) { }
   MEM_READY = true; return true;
 }
 function adKey(url) {
@@ -1045,6 +1048,68 @@ async function hWatchGet(env, q) {
   return json(env, Object.assign({ ok: true, t: r.t }, d));
 }
 
+/* Telegram: the worker reads the bot chat (getUpdates) to link "/start CODE" to a chat at once and answers right away.
+   It needs the TG_TOKEN secret (Cloudflare > Worker > Settings > Variables and Secrets). */
+const TGT = {
+  ru: { linked: '✅ CarScout подключён. Буду присылать снижение цен в избранном и новые выгодные машины из ваших сохранённых поисков. Отключить: /stop', stop: 'Уведомления отключены. Подключить снова можно в приложении CarScout.', help: 'Чтобы подключить уведомления, откройте CarScout → «Избранное» или «Выгодные» → «Подключить Telegram».' },
+  lv: { linked: '✅ CarScout pieslēgts. Sūtīšu cenu samazinājumus izlasē un jaunus izdevīgus auto no jūsu saglabātajām meklēšanām. Atslēgt: /stop', stop: 'Paziņojumi atslēgti. Pieslēgt atkal var lietotnē CarScout.', help: 'Lai pieslēgtu paziņojumus, atveriet CarScout → «Izlase» vai «Izdevīgie» → «Pieslēgt Telegram».' },
+  en: { linked: '✅ CarScout is connected. I will send price drops in your favourites and new good deals from your saved searches. To turn off: /stop', stop: 'Alerts are off. You can turn them on again in the CarScout app.', help: 'To turn on alerts, open CarScout → “Favourites” or “Deals” → “Connect Telegram”.' }
+};
+async function tgApi(env, method, body) {
+  const r = await fetch('https://api.telegram.org/bot' + env.TG_TOKEN + '/' + method, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+  return r.json();
+}
+async function kvGet(env, k) { const r = await env.DB.prepare('SELECT v FROM kv WHERE k = ?1').bind(k).first(); return r ? r.v : null; }
+async function kvSet(env, k, v) { await env.DB.prepare('INSERT INTO kv(k, v) VALUES(?1, ?2) ON CONFLICT(k) DO UPDATE SET v = excluded.v').bind(k, String(v)).run(); }
+async function tgPoll(env, force) {
+  if (!env.TG_TOKEN || !(await memInit(env))) return { ok: false, error: 'no_tg' };
+  const now = Date.now(), last = +(await kvGet(env, 'tg_poll_at') || 0);
+  if (!force && now - last < 2500) return { ok: true, skipped: true };
+  await kvSet(env, 'tg_poll_at', now);
+  const off = +(await kvGet(env, 'tg_offset') || 0);
+  const up = await tgApi(env, 'getUpdates', { offset: off + 1, timeout: 0, allowed_updates: ['message'] });
+  if (!up.ok) return { ok: false, error: 'tg', message: up.description };
+  let max = off, n = 0;
+  for (const u of up.result || []) {
+    max = Math.max(max, u.update_id); const m = u.message; if (!m || !m.text || !m.chat) continue;
+    const lc = (m.from && m.from.language_code) || '', lang = /^ru/.test(lc) ? 'ru' : /^lv/.test(lc) ? 'lv' : 'en';
+    const mm = m.text.match(/^\/start(?:\s+([a-z0-9]{16,40}))?/i);
+    if (mm && mm[1]) {
+      const code = mm[1].toLowerCase();
+      await env.DB.prepare("INSERT INTO watch(code, data, t, chat, lang) VALUES(?1, '{}', ?2, ?3, ?4) ON CONFLICT(code) DO UPDATE SET chat = excluded.chat, lang = excluded.lang").bind(code, now, m.chat.id, lang).run();
+      await tgApi(env, 'sendMessage', { chat_id: m.chat.id, text: TGT[lang].linked }); n++;
+    } else if (mm) await tgApi(env, 'sendMessage', { chat_id: m.chat.id, text: TGT[lang].help });
+    else if (/^\/stop/i.test(m.text)) { await env.DB.prepare('UPDATE watch SET chat = NULL WHERE chat = ?1').bind(m.chat.id).run(); await tgApi(env, 'sendMessage', { chat_id: m.chat.id, text: TGT[lang].stop }); }
+  }
+  if (max > off) await kvSet(env, 'tg_offset', max);
+  return { ok: true, linked: n };
+}
+async function tgAuth(env, request) {
+  if (!env.TG_TOKEN) return false;
+  const h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('carscout-subs:' + env.TG_TOKEN)))).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  return (request.headers.get('x-carscout-auth') || '') === h;
+}
+async function hTgStatus(env, q) {
+  const code = watchCode(q); if (!code) return json(env, { ok: false, error: 'bad_code' }, 400);
+  if (!env.TG_TOKEN) return json(env, { ok: false, error: 'no_tg' });
+  await tgPoll(env, false).catch(function () { });
+  const r = await env.DB.prepare('SELECT chat FROM watch WHERE code = ?1').bind(code).first();
+  return json(env, { ok: true, linked: !!(r && r.chat) });
+}
+async function hTgSubs(env, request) {
+  if (!(await tgAuth(env, request))) return json(env, { ok: false, error: 'auth' }, 403);
+  await tgPoll(env, true).catch(function () { });
+  const r = await env.DB.prepare('SELECT code, chat, lang, data FROM watch WHERE chat IS NOT NULL LIMIT 200').all();
+  return json(env, { ok: true, subs: (r.results || []).map(function (x) { let d = {}; try { d = JSON.parse(x.data || '{}'); } catch (e) { } return Object.assign({ code: x.code, chat: x.chat, lang: d.lang || x.lang || 'en' }, d); }) });
+}
+async function hTgLink(env, q, request) {
+  if (!(await tgAuth(env, request))) return json(env, { ok: false, error: 'auth' }, 403);
+  const code = watchCode(q), chat = parseInt(q.get('chat') || '', 10); if (!code || !chat) return json(env, { ok: false, error: 'bad' }, 400);
+  if (!(await memInit(env))) return json(env, { ok: false, error: 'no_db' });
+  await env.DB.prepare("INSERT INTO watch(code, data, t, chat) VALUES(?1, '{}', ?2, ?3) ON CONFLICT(code) DO UPDATE SET chat = excluded.chat").bind(code, Date.now(), chat).run();
+  return json(env, { ok: true });
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
@@ -1057,6 +1122,9 @@ export default {
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams, ctx);
       if (u.pathname === '/api/memory') return await hMemory(env, u.searchParams);
       if (u.pathname === '/api/watch') return await hWatchGet(env, u.searchParams);
+      if (u.pathname === '/api/tg/status') return await hTgStatus(env, u.searchParams);
+      if (u.pathname === '/api/tg/subs') return await hTgSubs(env, request);
+      if (u.pathname === '/api/tg/link') return await hTgLink(env, u.searchParams, request);
       if (u.pathname === '/api/search') return await hSearch(env, u.searchParams);
       if (u.pathname === '/api/seller') return await hSeller(env, u.searchParams, ctx);
       if (u.pathname === '/api/vinhist') return await hVinHistory(env, u.searchParams);
@@ -1066,5 +1134,6 @@ export default {
     } catch (e) {
       return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500);
     }
-  }
+  },
+  async scheduled(event, env, ctx) { ctx.waitUntil(tgPoll(env, true).catch(function () { })); }
 };

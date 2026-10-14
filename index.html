@@ -976,6 +976,7 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .tgb span{font-size:12.5px;color:var(--dim);line-height:1.45}
 .tgb.on b{color:var(--good)}
 @media (max-width:760px){.tgb{grid-template-columns:1fr}}
+.tgb.wait{border-color:color-mix(in srgb,#f5b84b 50%,var(--line));background:color-mix(in srgb,#f5b84b 6%,transparent)}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2322,7 +2323,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.20', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.21', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -4008,7 +4009,8 @@ function tgSync(off,now){
 function tgBlock(){
   if(!TG_BOT) return ''; var t=tgLoad();
   if(!t) return '<div class="tgb"><div><b>'+esc(L('Уведомления в Telegram','Telegram alerts','Paziņojumi Telegram'))+'</b><span>'+esc(L('Снижение цен в избранном и новые выгодные машины из сохранённых поисков — даже когда приложение закрыто.','Price drops in favourites and new good deals from saved searches — even when the app is closed.','Cenu samazinājumi izlasē un jauni izdevīgi auto no saglabātajām meklēšanām — arī tad, kad lietotne aizvērta.'))+'</span></div><button class="btn sm pri" type="button" data-act="tg-on">'+esc(L('Подключить Telegram','Connect Telegram','Pieslēgt Telegram'))+'</button></div>';
-  return '<div class="tgb on"><div><b>✓ '+esc(L('Telegram подключён','Telegram connected','Telegram pieslēgts'))+'</b><span>'+esc(L('Проверка примерно каждые 15 минут. Если бот ещё не ответил, откройте его и нажмите «Start».','Checked about every 15 minutes. If the bot has not replied yet, open it and press “Start”.','Pārbaude aptuveni ik pēc 15 minūtēm. Ja bots vēl nav atbildējis, atveriet to un nospiediet «Start».'))+'</span></div><div class="btns" style="gap:6px;flex-wrap:nowrap"><a class="btn sm" href="https://t.me/'+esc(TG_BOT)+'?start='+esc(t.code)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть бота','Open the bot','Atvērt botu'))+'</a><button class="btn sm" type="button" data-act="tg-off">'+esc(L('Отключить','Turn off','Atslēgt'))+'</button></div></div>';
+  if(!t.linked) return '<div class="tgb wait"><div><b>⏳ '+esc(L('Ждём подтверждения в Telegram','Waiting for Telegram','Gaidām apstiprinājumu Telegram'))+'</b><span>'+esc(L('Откройте бота и нажмите «Start» — подключение произойдёт сразу.','Open the bot and press “Start” — it connects at once.','Atveriet botu un nospiediet «Start» — pieslēgums notiks uzreiz.'))+'</span></div><div class="btns" style="gap:6px;flex-wrap:nowrap"><a class="btn sm pri" href="https://t.me/'+esc(TG_BOT)+'?start='+esc(t.code)+'" target="_blank" rel="noopener noreferrer" data-act="tg-open">'+esc(L('Открыть бота','Open the bot','Atvērt botu'))+'</a><button class="btn sm" type="button" data-act="tg-off">'+esc(L('Отмена','Cancel','Atcelt'))+'</button></div></div>';
+  return '<div class="tgb on"><div><b>✓ '+esc(L('Telegram подключён','Telegram connected','Telegram pieslēgts'))+'</b><span>'+esc(L('Бот пришлёт сообщение, когда цена в избранном снизится или появится новая выгодная машина. Проверка — несколько раз в час.','The bot will message you when a favourite gets cheaper or a new good deal appears. Checked several times an hour.','Bots atsūtīs ziņu, kad izlasē cena samazināsies vai parādīsies jauns izdevīgs auto. Pārbaude — vairākas reizes stundā.'))+'</span></div><div class="btns" style="gap:6px;flex-wrap:nowrap"><a class="btn sm" href="https://t.me/'+esc(TG_BOT)+'?start='+esc(t.code)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть бота','Open the bot','Atvērt botu'))+'</a><button class="btn sm" type="button" data-act="tg-off">'+esc(L('Отключить','Turn off','Atslēgt'))+'</button></div></div>';
 }
 function tgPlace(){
   var f=document.getElementById('favs'); if(f&&!f.hidden){ var o=f.querySelector('.tgb'); if(o) o.remove(); var b=tgBlock(); if(b) f.insertAdjacentHTML('beforeend',b); }
@@ -4025,11 +4027,21 @@ document.addEventListener('click',function(e){
     var t={code:tgCode(),at:Date.now()}; LS.set(KEY_TG,JSON.stringify(t));
     tgSync(false,true).then(function(j){ if(!j||!j.ok) showStatus('err',function(){return L('Не удалось сохранить список на сервере. Попробуйте ещё раз.','Could not save the list on the server. Please try again.','Neizdevās saglabāt sarakstu serverī. Mēģiniet vēlreiz.')}); });
     window.open('https://t.me/'+TG_BOT+'?start='+t.code,'_blank','noopener');
-    showStatus('ok',function(){return L('В Telegram нажмите «Start». Бот подтвердит подключение в течение ~15 минут.','In Telegram press “Start”. The bot will confirm within about 15 minutes.','Telegram nospiediet «Start». Bots apstiprinās pieslēgumu aptuveni 15 minūšu laikā.')});
+    showStatus('ok',function(){return L('В Telegram нажмите «Start» — подключение произойдёт сразу.','In Telegram press “Start” — it connects at once.','Telegram nospiediet «Start» — pieslēgums notiks uzreiz.')});
     try{ gcCount('tg-on','Подключён Telegram',true); }catch(x){}
-    tgPlace();
+    tgPlace(); tgWatchLink();
   } else if(a==='tg-off'){ tgSync(true,true); try{ localStorage.removeItem(KEY_TG); }catch(x){} LS.set(KEY_TG,''); tgPlace(); showStatus('info',function(){return L('Уведомления отключены.','Alerts are off.','Paziņojumi atslēgti.')}); }
 });
+
+var tgPollT=null;
+function tgWatchLink(ms){
+  clearInterval(tgPollT); var t0=Date.now();
+  var tick=function(){ var t=tgLoad(); if(!t||t.linked||!S.api||Date.now()-t0>(ms||240000)){ clearInterval(tgPollT); return; } if(document.visibilityState==='hidden') return;
+    fetch(S.api+'/api/tg/status?code='+t.code).then(function(r){return r.json()}).then(function(j){ if(j&&j.ok&&j.linked){ var c=tgLoad(); if(!c) return; c.linked=true; LS.set(KEY_TG,JSON.stringify(c)); clearInterval(tgPollT); tgPlace(); showStatus('ok',function(){return L('Telegram подключён: бот прислал подтверждение.','Telegram is connected: the bot sent a confirmation.','Telegram pieslēgts: bots atsūtīja apstiprinājumu.')}); } }).catch(function(){}); };
+  tgPollT=setInterval(tick,3000); setTimeout(tick,1500);
+}
+document.addEventListener('visibilitychange',function(){ var t=tgLoad(); if(document.visibilityState==='visible'&&t&&!t.linked) tgWatchLink(120000); });
+setTimeout(function(){ var t=tgLoad(); if(t&&!t.linked) tgWatchLink(60000); },3000);
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){

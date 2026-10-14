@@ -35,16 +35,32 @@ const eur = (x) => (Math.round(x)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '
 const fmt = (x) => (Math.round(x)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 const esc = (s) => String(s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
-/* 1. new links from the bot chat */
-const up = await tg('getUpdates', { offset: (state.offset || 0) + 1, timeout: 0, allowed_updates: ['message'] });
-for (const u of (up.ok && up.result) || []) {
-  state.offset = Math.max(state.offset || 0, u.update_id);
-  const m = u.message; if (!m || !m.text || !m.chat) continue;
-  const lang = /^ru/.test(m.from && m.from.language_code || '') ? 'ru' : /^lv/.test(m.from && m.from.language_code || '') ? 'lv' : 'en';
-  const mm = m.text.match(/^\/start(?:\s+([a-z0-9]{16,40}))?/i);
-  if (mm && mm[1]) { state.subs[mm[1]] = Object.assign(state.subs[mm[1]] || { favs: {}, hunts: {} }, { chat: m.chat.id, lang, since: Date.now() }); await tg('sendMessage', { chat_id: m.chat.id, text: T[lang].linked }); }
-  else if (mm) await tg('sendMessage', { chat_id: m.chat.id, text: T[lang].help });
-  else if (/^\/stop/i.test(m.text)) { for (const k of Object.keys(state.subs)) if (state.subs[k].chat === m.chat.id) delete state.subs[k]; await tg('sendMessage', { chat_id: m.chat.id, text: T[lang].stop }); }
+/* 1. who is linked: from the worker (it reads the bot chat itself once TG_TOKEN is set there too);
+      otherwise the old way, reading the bot chat here */
+import crypto from 'node:crypto';
+const AUTH = crypto.createHash('sha256').update('carscout-subs:' + TOKEN).digest('hex');
+let subs = null;
+try { const r = await fetch(W + '/api/tg/subs', { headers: Object.assign({ 'x-carscout-auth': AUTH }, H) }); const j = await r.json(); if (j.ok) subs = j.subs; } catch (e) { }
+if (subs) {
+  /* move chats linked the old way to the worker once */
+  for (const [code, sub] of Object.entries(state.subs)) if (sub.chat && !sub.moved && !subs.some((x) => x.code === code)) {
+    try { await fetch(W + '/api/tg/link?code=' + code + '&chat=' + sub.chat, { headers: Object.assign({ 'x-carscout-auth': AUTH }, H) }); sub.moved = true; } catch (e) { }
+  }
+  const keep = {};
+  for (const x of subs) keep[x.code] = Object.assign(state.subs[x.code] || { favs: {}, hunts: {} }, { chat: x.chat, lang: x.lang, moved: true, w: Object.assign({ ok: true }, x) });
+  for (const [code, sub] of Object.entries(state.subs)) if (!keep[code] && sub.chat && !sub.moved) keep[code] = sub;
+  state.subs = keep;
+} else {
+  const up = await tg('getUpdates', { offset: (state.offset || 0) + 1, timeout: 0, allowed_updates: ['message'] });
+  for (const u of (up.ok && up.result) || []) {
+    state.offset = Math.max(state.offset || 0, u.update_id);
+    const m = u.message; if (!m || !m.text || !m.chat) continue;
+    const lang = /^ru/.test(m.from && m.from.language_code || '') ? 'ru' : /^lv/.test(m.from && m.from.language_code || '') ? 'lv' : 'en';
+    const mm = m.text.match(/^\/start(?:\s+([a-z0-9]{16,40}))?/i);
+    if (mm && mm[1]) { state.subs[mm[1]] = Object.assign(state.subs[mm[1]] || { favs: {}, hunts: {} }, { chat: m.chat.id, lang, since: Date.now() }); await tg('sendMessage', { chat_id: m.chat.id, text: T[lang].linked }); }
+    else if (mm) await tg('sendMessage', { chat_id: m.chat.id, text: T[lang].help });
+    else if (/^\/stop/i.test(m.text)) { for (const k of Object.keys(state.subs)) if (state.subs[k].chat === m.chat.id) delete state.subs[k]; await tg('sendMessage', { chat_id: m.chat.id, text: T[lang].stop }); }
+  }
 }
 save();
 
@@ -87,7 +103,7 @@ async function deals(p) {
 /* 2. every linked user */
 let sent = 0;
 for (const [code, sub] of Object.entries(state.subs).slice(0, 100)) {
-  const w = await get('/api/watch', { code }, 20000);
+  const w = sub.w || await get('/api/watch', { code }, 20000); delete sub.w;
   if (!w.ok || w.off) continue;
   const lang = w.lang || sub.lang || 'en', t = T[lang] || T.en, msgs = [];
   sub.favs = sub.favs || {}; sub.hunts = sub.hunts || {};
