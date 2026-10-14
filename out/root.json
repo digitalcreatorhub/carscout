@@ -1,0 +1,1 @@
+{"ok":true,"name":"CarScout Live worker","version":"1.0.0","endpoints":["/api/listing","/api/seller","/api/comps","/api/memory","/api/search","/api/img","/api/debug"]}
