@@ -1706,7 +1706,7 @@ async function run(){
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year},'link');
     /* ss.com lists less common brands (GWM, BYD, ...) under "Others": take the real make from the ad text */
-    var OTHER_MK=/^(other|others|cit[sai]s?|citas? marka|citas markas|citi|другая|другие|прочие|прочее|иная)$/i;
+    var OTHER_MK=/^((other|others)( brands?| makes?)?|cit[sai]s?( markas?)?|citi|(другая|другие|прочие|прочее|иная)( марк[аи])?)$/i;
     if(!car.make||OTHER_MK.test(car.make)){ var gm=parseText([car.model,car.title,car.desc,f.text].join(' ')); if(gm.make){ car.make=gm.make; car.model=gm.model||car.model; car.src.make='text'; if(gm.model) car.src.model='text'; } else if(OTHER_MK.test(car.make||'')) car.make=null; }
     var cm=cleanMakeModel(car.make,car.model); car.make=cm.make; car.model=cm.model;
     car.allText=[car.title,car.rawModel,car.desc,f.text,ocrText].join(' ');
@@ -2235,7 +2235,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.9', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.10', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };

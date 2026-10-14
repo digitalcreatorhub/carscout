@@ -361,7 +361,7 @@ function parseSsListing(html, url) {
   if (listing.fuel && listing.fuel !== 'petrol' && listing.fuel !== 'lpg' && !hasLpg(L.engine || '')) listing.lpg = false;
   listing.src = { make: L.make ? 'table' : 'text', model: (L.model || (L.make && listing.model && L.make.toLowerCase().indexOf(String(listing.model).toLowerCase()) > -1)) ? 'table' : 'text', year: L.year ? 'table' : null, mileage_km: L.mileage ? 'table' : null,
     asking_price: price ? 'table' : null, gearbox: L.gearbox ? 'table' : null, fuel: (eng.fuel || normFuel(L.engine)) ? 'table' : (listing.fuel ? 'text' : null), vin: L.vin ? 'table' : (listing.vin ? 'text' : null) };
-  const OTHER_MAKE = /^(other|others|cit[sai]s?|citas? marka|citas markas|citi|другая|другие|прочие|прочее|иная|—|-)$/i;
+  const OTHER_MAKE = /^((other|others)( brands?| makes?)?|cit[sai]s?( markas?)?|citi|(другая|другие|прочие|прочее|иная)( марк[аи])?|—|-)$/i;
   if (!listing.make || OTHER_MAKE.test(listing.make)) {
     const pageTitle = strip((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '');
     let g = guessMakeModel(listing.model || '');
