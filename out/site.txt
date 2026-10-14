@@ -1,4 +1,0 @@
-2026-10-14.12
-data-goatcounter="https://digitalcreatorhub.goatcounter.com/count"
-count.js 200
-counter site 303
