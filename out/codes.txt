@@ -1,0 +1,6 @@
+home 403 301550 https://www.auto24.ee/
+list1 403 301851 https://www.auto24.ee/kasutatud/nimekiri.php?bn=2&a=100&ae=2&af=50&otsi=otsi
+list2 403 301833 https://www.auto24.ee/kasutatud/nimekiri.php?bn=2&a=100&b=4&ae=2&af=50
+rus 403 301806 https://rus.auto24.ee/kasutatud/nimekiri.php?bn=2&a=100&ae=2&af=50
+eng 403 301806 https://eng.auto24.ee/kasutatud/nimekiri.php?bn=2&a=100&ae=2&af=50
+search 403 301631 https://www.auto24.ee/kasutatud/otsing.php
