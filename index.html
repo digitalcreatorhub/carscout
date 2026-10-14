@@ -923,6 +923,46 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .hunt tr.hnew td{background:color-mix(in srgb,var(--good) 7%,transparent)}
 .hunt .hnewt{color:var(--good)}
 .hunt .tbl{margin-top:6px}
+/* ===== seller mode: value my car ===== */
+.modebar{display:inline-flex;gap:4px;margin:18px 0 -4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--field,rgba(255,255,255,.03));max-width:100%;overflow-x:auto}
+.modebar button{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border:0;border-radius:9px;background:transparent;color:var(--dim);font:600 13.5px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.modebar button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.modebar button:hover{color:var(--ink)}
+.modebar button.on{background:var(--accent);color:#0B0E12}
+.sell-only{display:none!important}
+#intake.sell .sell-only{display:grid!important}
+#intake.sell .buy-only{display:none!important}
+#intake.sell>#manual{display:block!important;grid-column:1/-1!important}
+#intake.sell>#manual>summary{display:none}
+#intake.sell>.btns{grid-column:1/-1!important;grid-row:auto!important;justify-content:flex-start}
+@media (max-width:760px){.modebar{display:flex}.modebar button{flex:1;justify-content:center;padding:0 8px;font-size:12.5px}}
+#a-sell .sv-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:end;margin:6px 0 14px}
+#a-sell .sv-car{display:flex;flex-direction:column;gap:3px;min-width:0}
+#a-sell .sv-car b{font-size:20px}
+#a-sell .sv-car span{color:var(--dim);font-size:13px}
+#a-sell .sv-main{text-align:right}
+#a-sell .sv-lab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+#a-sell .sv-big{font-size:40px;font-weight:700;line-height:1.1;color:var(--accent)}
+#a-sell .sv-rng{font-size:13px;color:var(--ink)}
+#a-sell .sv-conf{font-size:12px;color:var(--dim);margin-top:2px}
+#a-sell .sv-scale{position:relative;height:10px;margin:4px 0 16px;border-radius:6px;background:linear-gradient(90deg,var(--good),var(--accent) 55%,var(--bad));opacity:.9}
+#a-sell .sv-mk{position:absolute;top:-4px;width:4px;height:18px;margin-left:-2px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 2px #0B0E12}
+#a-sell .sv-mk.own{background:#fff;width:10px;height:10px;top:0;margin-left:-5px;border-radius:50%}
+#a-sell .sv-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#a-sell .sv-card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:rgba(255,255,255,.02)}
+#a-sell .sv-card.b{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:color-mix(in srgb,var(--accent) 7%,transparent)}
+#a-sell .sv-t{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+#a-sell .sv-p{font-size:24px;font-weight:700;margin:4px 0 2px}
+#a-sell .sv-card.q .sv-p{color:var(--good)} #a-sell .sv-card.b .sv-p{color:var(--accent)}
+#a-sell .sv-s{font-size:12.5px;color:var(--dim);line-height:1.4}
+#a-sell .sv-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
+#a-sell .sv-row>div{border:1px dashed var(--line);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+#a-sell .sv-row span{font-size:12.5px;color:var(--dim)} #a-sell .sv-row b{font-size:18px} #a-sell .sv-row small{font-size:12px;color:var(--dim)}
+@media (max-width:760px){#a-sell .sv-top{grid-template-columns:1fr}#a-sell .sv-main{text-align:left}#a-sell .sv-cards{grid-template-columns:1fr}#a-sell .sv-big{font-size:34px}}
+#a-sellad .sv-lang{display:flex;gap:8px;margin-bottom:8px}
+#a-sellad .sv-lang select{width:auto}
+#a-sellad textarea{width:100%;font-size:13.5px;line-height:1.5;min-height:220px}
+#intake .row3,#intake .row2{align-items:end}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2253,7 +2293,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.14', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.15', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3659,6 +3699,153 @@ document.addEventListener('click',function(e){
   var M={'share-link':'Отправлена ссылка на анализ','fav-toggle':'Избранное','hunt-add':'Сохранён поиск','find-run':'Поиск выгодных','nav-insp':'Чек-лист осмотра','copy-msg':'Скопировано сообщение продавцу','print':'Печать / PDF'};
   if(M[a]) gcCount(a,M[a],true);
 });
+
+/* ======================= "Value my car": seller mode ======================= */
+S.mode='buy';
+var SELL_COND={top:[1.04,'отличное','excellent','izcils'],good:[1,'хорошее','good','labs'],work:[0.9,'нужны вложения','needs work','vajadzīgi ieguldījumi']};
+(function sellSetup(){
+  var form=document.getElementById('intake'), grid=form&&form.parentNode; if(!form||!grid||document.getElementById('modebar')) return;
+  var bar=document.createElement('div'); bar.id='modebar'; bar.className='modebar'; bar.setAttribute('role','tablist');
+  bar.innerHTML='<button type="button" role="tab" data-mode="buy" class="on" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span data-ru="Проверить объявление" data-en="Check a listing" data-lv="Pārbaudīt sludinājumu"></span></button>'+
+    '<button type="button" role="tab" data-mode="sell" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span data-ru="Узнать цену своего авто" data-en="Value my car" data-lv="Uzzināt sava auto cenu"></span></button>';
+  grid.parentNode.insertBefore(bar,grid);
+  /* extra fields shown only when valuing your own car */
+  var mk=document.querySelector('#manual .stack');
+  if(mk){ var row=document.createElement('div'); row.className='row2 sell-only';
+    row.innerHTML='<div class="fld"><label for="f-gear" data-ru="Коробка передач" data-en="Gearbox" data-lv="Ātrumkārba"></label><select class="in" id="f-gear"><option value="" data-ru="не важно" data-en="any" data-lv="nav svarīgi"></option><option value="automatic" data-ru="Автомат" data-en="Automatic" data-lv="Automāts"></option><option value="manual" data-ru="Механика" data-en="Manual" data-lv="Manuāla"></option></select></div>'+
+      '<div class="fld"><label for="f-cond" data-ru="Состояние" data-en="Condition" data-lv="Stāvoklis"></label><select class="in" id="f-cond"><option value="good" data-ru="Хорошее, обычный износ" data-en="Good, normal wear" data-lv="Labs, parasts nolietojums"></option><option value="top" data-ru="Отличное, без вложений, история" data-en="Excellent, no work needed, history" data-lv="Izcils, bez ieguldījumiem, vēsture"></option><option value="work" data-ru="Нужны вложения или ремонт" data-en="Needs work or repair" data-lv="Vajadzīgi ieguldījumi vai remonts"></option></select></div>';
+    mk.appendChild(row);
+    document.getElementById('f-gear').addEventListener('change',function(e){ S.manualGear=e.target.value||null; });
+  }
+  var mark=function(el){ if(el) el.classList.add('buy-only'); };
+  mark(document.getElementById('f-url')&&document.getElementById('f-url').closest('.fld')); mark(document.getElementById('shots-fld'));
+  mark(document.getElementById('f-text')&&document.getElementById('f-text').closest('.fld')); mark(document.getElementById('f-vin')&&document.getElementById('f-vin').closest('.fld'));
+  mark(document.getElementById('extra-d')); mark(document.getElementById('f-photos')&&document.getElementById('f-photos').closest('label')); mark(form.querySelector('[data-act="more"]'));
+  bar.addEventListener('click',function(e){ var b=e.target.closest('[data-mode]'); if(b) setMode(b.getAttribute('data-mode')); });
+})();
+var SELL_SAVE={};
+function setMode(m){
+  if(m===S.mode) return; S.mode=m;
+  var form=$('#intake'), sell=m==='sell';
+  document.querySelectorAll('#modebar [data-mode]').forEach(function(b){ var on=b.getAttribute('data-mode')===m; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
+  form.classList.toggle('sell',sell); document.body.classList.toggle('mode-sell',sell);
+  var go=$('#btn-go'), pl=document.querySelector('label[for="f-price"]');
+  var lh=document.querySelector('.lead h1'), lp=document.querySelector('.lead p');
+  [lh,lp].forEach(function(el){ if(el&&!el.hasAttribute('data-oru')){ el.setAttribute('data-oru',el.getAttribute('data-ru')||''); el.setAttribute('data-oen',el.getAttribute('data-en')||''); el.setAttribute('data-olv',el.getAttribute('data-lv')||''); } });
+  var setT=function(el,ru,en,lv){ if(!el) return; el.setAttribute('data-ru',ru); el.setAttribute('data-en',en); if(lv) el.setAttribute('data-lv',lv); else el.removeAttribute('data-lv'); };
+  if(sell){ setT(lh,'Сколько стоит ваш автомобиль','What is your car worth','Cik maksā jūsu auto');
+    setT(lp,'Укажите марку, модель, год и пробег. Приложение найдёт похожие машины, которые продаются сейчас на ss.lv, autoplius.lt, autoportaal.ee и AutoScout24, и подскажет, за сколько выставить вашу: быстро, оптимально или по максимуму. Плюс готовый текст объявления.',
+      'Enter the make, model, year and mileage. The app finds similar cars on sale now on ss.lv, autoplius.lt, autoportaal.ee and AutoScout24 and tells you what to ask for yours: fast, optimal or maximum. Plus a ready-made ad text.',
+      'Norādiet marku, modeli, gadu un nobraukumu. Lietotne atradīs līdzīgus auto, kas tagad tiek pārdoti ss.lv, autoplius.lt, autoportaal.ee un AutoScout24, un ieteiks, par cik izlikt jūsējo: ātri, optimāli vai maksimāli. Plus gatavs sludinājuma teksts.'); }
+  else [lh,lp].forEach(function(el){ if(el) setT(el,el.getAttribute('data-oru'),el.getAttribute('data-oen'),el.getAttribute('data-olv')); });
+  if(sell){
+    SELL_SAVE={url:$('#f-url').value,text:$('#f-text').value,price:$('#f-price').value}; $('#f-url').value=''; $('#f-text').value=''; $('#f-price').value='';
+    S.images.forEach(function(i){URL.revokeObjectURL(i.url)}); S.images=[]; renderThumbs();
+    $('#manual').open=true;
+    go.setAttribute('data-ru','Оценить мой автомобиль'); go.setAttribute('data-en','Value my car'); go.setAttribute('data-lv','Novērtēt manu auto');
+    if(pl){ pl.setAttribute('data-ru','Ваша цена (если есть)'); pl.setAttribute('data-en','Your price (optional)'); pl.setAttribute('data-lv','Jūsu cena (ja ir)'); }
+    S.view=null; S.srcRows={}; renderSrcs(); render(); showStatus('');
+    try{ gcCount('sell-mode','Режим «Узнать цену своего авто»',true); }catch(e){}
+    setTimeout(function(){ var f=$('#f-make'); if(f&&!f.value) f.focus(); },60);
+  } else {
+    if(SELL_SAVE.url!=null){ $('#f-url').value=SELL_SAVE.url; $('#f-text').value=SELL_SAVE.text||''; }
+    go.setAttribute('data-ru','Проверить автомобиль'); go.setAttribute('data-en','Check this car'); go.removeAttribute('data-lv');
+    if(pl){ pl.setAttribute('data-ru','Цена, €'); pl.setAttribute('data-en','Price, €'); pl.removeAttribute('data-lv'); }
+    if(S.view&&S.view.sell){ S.view=null; S.srcRows={}; renderSrcs(); render(); }
+  }
+  applyLang(); renderHints();
+}
+/* mark the result as a valuation */
+var sellCompute0=compute;
+compute=function(car,results,f,notes){
+  var v=sellCompute0(car,results,f,notes);
+  if(S.mode==='sell'){ var ce=document.getElementById('f-cond'); v.sell={cond:ce&&SELL_COND[ce.value]?ce.value:'good'}; try{ gcCount('sell-check','Оценка своего авто',true); }catch(e){} }
+  return v;
+};
+var sellRender0=renderA;
+renderA=function(v){ return v&&v.sell&&v.regions&&v.regions.length?renderSell(v):sellRender0(v); };
+
+function sellRound(x){ if(!(x>0)) return null; if(x<1500) return Math.round(x/50)*50; var r=Math.round(x/100)*100; return r>=3000?r-10:r; }
+function sellCalc(v){
+  var F=v.fair; if(!F||!(F.mid>0)) return null;
+  var cf=SELL_COND[(v.sell||{}).cond||'good'][0], mid=F.mid*cf, low=Math.min(F.low,F.mid)*cf, high=Math.max(F.high,F.mid)*cf;
+  if(high<mid*1.04) high=mid*1.08; if(low>mid*0.96) low=mid*0.92;
+  return {mid:mid,low:low,high:high,cf:cf,
+    quick:sellRound(low+(mid-low)*0.35), best:sellRound(mid*1.04), max:sellRound(Math.min(high,mid*1.12)),
+    deal:Math.round(mid/50)*50, dlo:Math.round(mid*0.78/100)*100, dhi:Math.round(mid*0.86/100)*100};
+}
+function sellCompetitors(v,P){
+  var c=v.car, its=(v.home&&v.home.items)||[];
+  var cl=its.slice().sort(function(a,b){ var da=Math.abs((a.year||c.year)-c.year)*25000+Math.abs((a.km!=null?a.km:c.km||0)-(c.km||0)), db=Math.abs((b.year||c.year)-c.year)*25000+Math.abs((b.km!=null?b.km:c.km||0)-(c.km||0)); return da-db; });
+  var cheaper=P?its.filter(function(i){return i.price<P.best}).length:0;
+  return {all:its.length,cheaper:cheaper,list:cl.slice(0,6)};
+}
+function sellText(v,P,lang){
+  var c=v.car, t=function(ru,en,lv){ return lang==='ru'?ru:lang==='lv'?lv:en; };
+  var fu={petrol:t('бензин','petrol','benzīns'),diesel:t('дизель','diesel','dīzelis'),hybrid:t('гибрид','hybrid','hibrīds'),electric:t('электро','electric','elektro'),lpg:t('бензин + газ','petrol + LPG','benzīns + gāze')}[c.lpg?'lpg':c.fuel]||'';
+  var gr=c.gear==='automatic'?t('автомат','automatic','automāts'):c.gear==='manual'?t('механика','manual','manuāla'):'';
+  var eng=c.engineL?Number(c.engineL).toFixed(1):'';
+  var trim=(c.trims||[]).map(trimDisplay).join(', ')||c.trimCustom||'';
+  var head=t('Продаю ','For sale: ','Pārdodu ')+[c.make,c.model].filter(Boolean).join(' ')+(trim?' '+trim:'')+', '+c.year+t(' г.','',' g.');
+  var spec=[eng&&fu?eng+' '+fu:(eng||fu),gr,c.km!=null?t('пробег ','mileage ','nobraukums ')+fmt(c.km)+' km':''].filter(Boolean).join(', ');
+  return [head,spec?spec.charAt(0).toUpperCase()+spec.slice(1)+'.':'','',
+    t('Состояние: [опишите честно: кузов, салон, что недавно меняли]','Condition: [describe honestly: body, interior, recent work]','Stāvoklis: [aprakstiet godīgi: virsbūve, salons, kas nesen mainīts]'),
+    t('Обслуживание: [сервисная книжка / чеки, последнее ТО]','Service: [service book / receipts, last service]','Apkope: [servisa grāmatiņa / čeki, pēdējā apkope]'),
+    t('Техосмотр до: [дата]. Шины: [лето / зима, комплекты].','Roadworthiness test valid until: [date]. Tyres: [summer / winter, sets].','Tehniskā apskate līdz: [datums]. Riepas: [vasaras / ziemas, komplekti].'),
+    c.vin?'VIN: '+c.vin:t('VIN: [укажите — покупатели больше доверяют]','VIN: [add it — buyers trust it more]','VIN: [norādiet — pircēji vairāk uzticas]'),'',
+    t('Цена: ','Price: ','Cena: ')+eur(P.best)+t(', небольшой торг у машины.',', small discount possible on viewing.',', neliela atlaide pie apskates.')].filter(function(x,i,a){ return x!==''||a[i-1]!==''; }).join('\n');
+}
+function renderSell(v){
+  var c=v.car, P=sellCalc(v); if(!P) return sellRender0(Object.assign({},v,{sell:null}));
+  var cond=SELL_COND[v.sell.cond], home=v.home, n=home?home.n:0, conf=n>=25?L('высокая','high','augsta'):n>=10?L('средняя','medium','vidēja'):L('низкая','low','zema');
+  var spec=[c.km!=null?fmt(c.km)+' km':null,c.engineL?Number(c.engineL).toFixed(1)+' l':null,fuelLabel(c)||null,c.gear==='automatic'?L('автомат','automatic','automāts'):c.gear==='manual'?L('механика','manual','manuāla'):null,(c.trims||[]).map(trimDisplay).join(', ')||null].filter(Boolean).join(' · ');
+  var h=[];
+  /* 1. the valuation */
+  var own=c.price>0?(c.price-P.mid)/P.mid*100:null;
+  var card=function(cls,t,price,sub){ return '<div class="sv-card '+cls+'"><div class="sv-t">'+esc(t)+'</div><div class="sv-p num">'+esc(eur(price))+'</div><div class="sv-s">'+esc(sub)+'</div></div>'; };
+  h.push(aPanel('a-sell','c12',aHead(L('Оценка вашего автомобиля','Your car’s value','Jūsu auto vērtība'),aMeta(L('по реальным объявлениям · ','from real listings · ','pēc reāliem sludinājumiem · ')+rname(home?home.region:'LV'))),
+    '<div class="sv-top"><div class="sv-car"><b>'+esc([c.make,c.model,c.year].filter(Boolean).join(' '))+'</b><span>'+esc(spec)+'</span><span>'+esc(L('Состояние: ','Condition: ','Stāvoklis: ')+L(cond[1],cond[2],cond[3])+(cond[0]!==1?' ('+(cond[0]>1?'+':'−')+Math.round(Math.abs(cond[0]-1)*100)+'%)':''))+'</span></div>'+
+      '<div class="sv-main"><div class="sv-lab">'+esc(L('Рыночная стоимость','Market value','Tirgus vērtība'))+'</div><div class="sv-big num">'+esc(eur(Math.round(P.mid/50)*50))+'</div><div class="sv-rng">'+esc(L('обычно продаются за ','usually sell for ','parasti pārdod par ')+fmt(Math.round(P.low/100)*100)+'–'+eur(Math.round(P.high/100)*100))+'</div><div class="sv-conf">'+esc(L('Точность: ','Accuracy: ','Precizitāte: ')+conf+' · '+n+L(' похожих объявлений',' similar listings',' līdzīgi sludinājumi'))+'</div></div></div>'+
+    '<div class="sv-scale"><span class="sv-band" style="left:0;width:100%"></span>'+(function(){ var lo=P.low*0.97, hi=P.high*1.03, X=function(x){ return vzc((x-lo)/(hi-lo)*100); }; function vzc(x){ return Math.max(0,Math.min(100,x)); }
+      return '<i class="sv-mk q" style="left:'+X(P.quick)+'%"></i><i class="sv-mk b" style="left:'+X(P.best)+'%"></i><i class="sv-mk m" style="left:'+X(P.max)+'%"></i>'+(own!=null?'<i class="sv-mk own" style="left:'+X(c.price)+'%" title="'+esc(L('ваша цена','your price','jūsu cena'))+'"></i>':''); })()+'</div>'+
+    '<div class="sv-cards">'+card('q',L('Продать быстро','Sell fast','Pārdot ātri'),P.quick,L('ниже большинства похожих — звонки в первые дни','below most similar cars — calls in the first days','zem vairuma līdzīgo — zvani pirmajās dienās'))+
+      card('b',L('Оптимальная цена в объявлении','Best asking price','Optimālā cena sludinājumā'),P.best,L('≈ 4% запаса на торг, сделка около ','≈ 4% room to negotiate, deal around ','≈ 4% rezerve kaulēšanai, darījums ap ')+eur(P.deal))+
+      card('m',L('Максимум, если не спешите','Maximum if you are not in a hurry','Maksimums, ja nesteidzaties'),P.max,L('верх рынка: дольше продаётся, нужен идеальный вид','top of the market: takes longer, needs perfect looks','tirgus augša: pārdod ilgāk, vajadzīgs ideāls izskats'))+'</div>'+
+    '<div class="sv-row"><div><span>'+esc(L('Выкуп или trade-in у дилера, ориентир','Dealer buyout or trade-in, rough guide','Dīlera izpirkšana vai trade-in, orientieris'))+'</span><b class="num">'+esc(fmt(P.dlo)+'–'+eur(P.dhi))+'</b><small>'+esc(L('быстро и без хлопот, но дилеру нужна наценка','fast and easy, but the dealer needs a margin','ātri un bez raizēm, bet dīlerim vajadzīgs uzcenojums'))+'</small></div>'+
+      (own!=null?'<div><span>'+esc(L('Ваша цена','Your price','Jūsu cena'))+' '+esc(eur(c.price))+'</span><b class="num" style="color:var(--'+(own>12?'bad':own<-8?'good':'ink')+')">'+esc(pct(own)+L(' к рынку',' vs market',' pret tirgu'))+'</b><small>'+esc(own>12?L('дороже большинства — продажа может затянуться','dearer than most — the sale may take long','dārgāk par vairumu — pārdošana var ievilkties'):own<-8?L('дешевле рынка — можно поднять цену','below the market — you could ask more','zem tirgus — var prasīt vairāk'):L('в рынке','in line with the market','atbilst tirgum'))+'</small></div>':'')+'</div>'+
+    '<p class="anote">'+esc(L('Это цены предложений на сайтах сейчас, с поправкой на пробег. Реальная сделка обычно на 3–5% ниже цены в объявлении. Выкуп дилером — грубый ориентир, а не предложение.','These are current asking prices on the sites, adjusted for mileage. The real deal is usually 3–5% below the asking price. The dealer buyout is a rough guide, not an offer.','Tās ir pašreizējās piedāvājumu cenas vietnēs ar nobraukuma korekciju. Reālais darījums parasti ir par 3–5% zem sludinājuma cenas. Dīlera izpirkšana — aptuvens orientieris, nevis piedāvājums.'))+'</p>'));
+  /* 2. competitors + markets */
+  var C=sellCompetitors(v,P);
+  var rows=C.list.map(function(i){ var u=safeUrl(i.url), d=(i.price-P.best)/P.best*100;
+    return '<tr><td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(i.title||[c.make,c.model].join(' ')).slice(0,48))+'</a>':esc(String(i.title||'').slice(0,48)))+'<div class="rn">'+esc(i.src||'')+'</div></td><td class="r">'+(i.year||'–')+'</td><td class="r">'+(i.km!=null?esc(aKmTxt(i.km)):'–')+'</td><td class="r"><b>'+esc(eur(i.price))+'</b><div class="rn" style="color:var(--'+(d<0?'good':'bad')+')">'+esc(pct(d))+'</div></td></tr>'; }).join('');
+  var comp=aPanel('a-sellcomp','c7',aHead(L('С кем вы будете конкурировать','Your competition','Ar ko jūs konkurēsiet'),aMeta(C.all+L(' объявл. сейчас',' listings now',' sludin. tagad'))),
+    '<p class="anote" style="margin-top:0">'+esc(L('При цене ','At ','Ar cenu ')+eur(P.best)+L(' ваша машина будет дешевле ',' your car is cheaper than ',' jūsu auto būs lētāks par ')+(C.all-C.cheaper)+L(' из ',' of ',' no ')+C.all+L(' похожих. Самые близкие по году и пробегу:',' similar ones. The closest by year and mileage:',' līdzīgiem. Tuvākie pēc gada un nobraukuma:'))+'</p>'+
+    (rows?'<div class="scroll"><table class="tbl"><thead><tr><th>'+esc(L('Объявление','Listing','Sludinājums'))+'</th><th class="r">'+esc(L('Год','Year','Gads'))+'</th><th class="r">'+esc(L('Пробег','Mileage','Nobraukums'))+'</th><th class="r">'+esc(L('Цена · к вашей','Price · vs yours','Cena · pret jūsējo'))+'</th></tr></thead><tbody>'+rows+'</tbody></table></div>':''));
+  var mk=pMarkets(v);
+  if(mk){ h.push(comp); h.push(mk.replace('class="ap c7"','class="ap c5"')); } else h.push(comp.replace('class="ap c7"','class="ap c12"'));
+  /* 3. where it sells higher */
+  var hr=home&&home.fair?home.fair.mid:null, higher=v.regions.filter(function(r){ return r.fair&&hr&&r!==home&&!FAR[r.region]&&r.fair.mid>hr*1.05; });
+  /* 4. ad text + tips */
+  var lang=S.lang==='ru'?'ru':S.lang==='lv'?'lv':'en';
+  var ad=aPanel('a-sellad','c7',aHead(L('Готовый текст объявления','Ready-made ad text','Gatavs sludinājuma teksts'),aMeta(L('заполните [скобки]','fill in the [brackets]','aizpildiet [iekavas]'))),
+    '<div class="sv-lang"><select class="in" id="sell-lang"><option value="lv"'+(lang==='lv'?' selected':'')+'>Latviski</option><option value="ru"'+(lang==='ru'?' selected':'')+'>По-русски</option><option value="en"'+(lang==='en'?' selected':'')+'>English</option></select><button class="btn sm pri" type="button" data-act="sell-copy">'+esc(L('Копировать','Copy','Kopēt'))+'</button></div>'+
+    '<textarea class="in" id="sell-text" rows="11" spellcheck="false">'+esc(sellText(v,P,lang))+'</textarea>');
+  var tips=[L('15–25 фото при дневном свете: все стороны, салон, приборная панель с пробегом, мотор, шины, документы обслуживания.','15–25 photos in daylight: every side, interior, dashboard with mileage, engine, tyres, service papers.','15–25 foto dienasgaismā: visas puses, salons, panelis ar nobraukumu, motors, riepas, apkopes dokumenti.'),
+    L('Укажите VIN: покупатель сам проверит историю и пробег на csdd.lv, и доверие выше.','Add the VIN: buyers can check the history and mileage on csdd.lv themselves, which builds trust.','Norādiet VIN: pircējs pats pārbaudīs vēsturi un nobraukumu csdd.lv, un uzticība ir lielāka.'),
+    L('Мойка, химчистка салона и мелочи (лампы, дворники, ошибки на панели) обычно окупаются.','A wash, interior cleaning and small fixes (bulbs, wipers, warning lights) usually pay off.','Mazgāšana, salona ķīmiskā tīrīšana un sīkumi (spuldzes, slotiņas, kļūdas panelī) parasti atmaksājas.'),
+    L('Действующий техосмотр и чеки обслуживания — главные аргументы, чтобы не уступать в цене.','A valid roadworthiness test and service receipts are your main arguments not to drop the price.','Derīga tehniskā apskate un apkopes čeki ir galvenie argumenti nepazemināt cenu.'),
+    L('Не снижайте цену в первую неделю; если звонков мало, снижайте шагами по 2–3%.','Do not cut the price in the first week; if there are few calls, lower it in 2–3% steps.','Nesamaziniet cenu pirmajā nedēļā; ja zvanu maz, samaziniet soļos pa 2–3%.')];
+  if(higher.length) tips.unshift(L('Такие машины дороже в: ','Such cars cost more in: ','Šādi auto ir dārgāki: ')+higher.map(function(r){ return rname(r.region)+' (+'+Math.round((r.fair.mid/hr-1)*100)+'%)'; }).join(', ')+L(' — можно разместить объявление и там.',' — you can list it there too.',' — var ievietot sludinājumu arī tur.'));
+  var tp=aPanel('a-selltips','c5',aHead(L('Как продать дороже','How to sell for more','Kā pārdot dārgāk'),''),'<ul class="ls">'+tips.map(function(t){ return '<li>'+aIcon('ok')+'<span>'+esc(t)+'</span></li>'; }).join('')+'</ul>');
+  h.push(ad); h.push(tp);
+  var sc=pScatter(v), hi=pHist(v,S.histReg);
+  if(sc&&hi){ h.push(sc); h.push(hi); } else if(sc) h.push(sc.replace('class="ap c8"','class="ap c12"')); else if(hi) h.push(hi.replace('class="ap c4"','class="ap c12"'));
+  h.push(pTrims(v));
+  h.push(aWrap(secSources(v),'c6')); h.push(aWrap(secSearchLinks(v),'c6'));
+  return h.filter(Boolean).join('');
+}
+document.addEventListener('change',function(e){ if(e.target&&e.target.id==='sell-lang'&&S.view&&S.view.sell){ var P=sellCalc(S.view), t=$('#sell-text'); if(P&&t) t.value=sellText(S.view,P,e.target.value); } });
+document.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-act="sell-copy"]'); if(!b) return; var t=$('#sell-text'); if(t) copyText(t.value,L('Текст объявления скопирован.','Ad text copied.','Sludinājuma teksts nokopēts.')); });
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
