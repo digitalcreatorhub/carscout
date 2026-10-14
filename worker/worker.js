@@ -29,7 +29,7 @@ const MAKES = ['Alfa Romeo', 'Aston Martin', 'Audi', 'Bentley', 'BMW', 'Citroën
 function cors(env) {
   return {
     'access-control-allow-origin': (env && env.ALLOW_ORIGIN) || '*',
-    'access-control-allow-methods': 'GET, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
     'access-control-allow-headers': 'content-type',
     'access-control-max-age': '86400'
   };
@@ -1020,16 +1020,43 @@ async function hMemory(env, q) {
   return json(env, out);
 }
 
+/* Telegram alerts: the app stores its watch list (favourite ads and saved searches) under a random code;
+   the scheduled GitHub job reads it by that code and sends the messages. */
+function watchCode(q) { const c = String(q.get('code') || ''); return /^[a-z0-9]{16,40}$/.test(c) ? c : null; }
+async function hWatchSave(env, q, request) {
+  const code = watchCode(q); if (!code) return json(env, { ok: false, error: 'bad_code' }, 400);
+  if (!(await memInit(env))) return json(env, { ok: false, error: 'no_db' });
+  const txt = await request.text(); if (txt.length > 30000) return json(env, { ok: false, error: 'too_big' }, 413);
+  let d; try { d = JSON.parse(txt); } catch (e) { return json(env, { ok: false, error: 'bad_json' }, 400); }
+  const clean = {
+    lang: /^(ru|en|lv)$/.test(d.lang) ? d.lang : 'en', off: !!d.off,
+    favs: (Array.isArray(d.favs) ? d.favs : []).filter(function (f) { return f && allowed(f.url); }).slice(0, 20).map(function (f) { return { url: String(f.url).slice(0, 400), title: String(f.title || '').slice(0, 80), price: +f.price || null }; }),
+    hunts: (Array.isArray(d.hunts) ? d.hunts : []).slice(0, 5).map(function (h) { return { key: String(h.key || '').slice(0, 300), name: String(h.name || '').slice(0, 120), p: h.p && typeof h.p === 'object' ? h.p : {} }; })
+  };
+  await env.DB.prepare('INSERT INTO watch(code, data, t) VALUES(?1, ?2, ?3) ON CONFLICT(code) DO UPDATE SET data = excluded.data, t = excluded.t').bind(code, JSON.stringify(clean), Date.now()).run();
+  return json(env, { ok: true, favs: clean.favs.length, hunts: clean.hunts.length });
+}
+async function hWatchGet(env, q) {
+  const code = watchCode(q); if (!code) return json(env, { ok: false, error: 'bad_code' }, 400);
+  if (!(await memInit(env))) return json(env, { ok: false, error: 'no_db' });
+  const r = await env.DB.prepare('SELECT data, t FROM watch WHERE code = ?1').bind(code).first();
+  if (!r) return json(env, { ok: false, error: 'not_found' });
+  let d = {}; try { d = JSON.parse(r.data); } catch (e) { }
+  return json(env, Object.assign({ ok: true, t: r.t }, d));
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
-    if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     const u = new URL(request.url);
+    if (request.method === 'POST' && u.pathname === '/api/watch') { try { return await hWatchSave(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
+    if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     try {
       if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/seller', '/api/comps', '/api/memory', '/api/search', '/api/img', '/api/debug'] });
       if (u.pathname === '/api/listing') return await hListing(env, u.searchParams, ctx);
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams, ctx);
       if (u.pathname === '/api/memory') return await hMemory(env, u.searchParams);
+      if (u.pathname === '/api/watch') return await hWatchGet(env, u.searchParams);
       if (u.pathname === '/api/search') return await hSearch(env, u.searchParams);
       if (u.pathname === '/api/seller') return await hSeller(env, u.searchParams, ctx);
       if (u.pathname === '/api/vinhist') return await hVinHistory(env, u.searchParams);

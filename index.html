@@ -971,6 +971,11 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .ap.fraud .fr-tips ul{margin:6px 0 0;padding-left:18px;color:var(--dim);font-size:13px;line-height:1.5}
 .ap.mem.bad{border-color:color-mix(in srgb,var(--bad) 60%,var(--line))}
 .ap.mem.bad li b{color:var(--bad)}
+.tgb{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:14px;padding:12px 14px;border-radius:12px;border:1px solid color-mix(in srgb,#2AABEE 45%,var(--line));background:color-mix(in srgb,#2AABEE 7%,transparent)}
+.tgb>div:first-child{display:flex;flex-direction:column;gap:3px;min-width:0}
+.tgb span{font-size:12.5px;color:var(--dim);line-height:1.45}
+.tgb.on b{color:var(--good)}
+@media (max-width:760px){.tgb{grid-template-columns:1fr}}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -3975,6 +3980,47 @@ var memExtras0=extrasAfterRun;
 extrasAfterRun=function(v){ var r=memExtras0(v); setTimeout(function(){ memLoad(v); },400); return r; };
 var memRender0=renderA;
 renderA=function(v){ var h=memRender0(v); if(!v||!v.mem||v.sell) return h; var m=pMem(v); if(!m) return h; var at=h.indexOf('id="a-check"'); if(at<0) return h+m; var s=h.lastIndexOf('<section',at); return s<0?h+m:h.slice(0,s)+m+h.slice(s); };
+
+/* ======================= Telegram alerts: link this browser's favourites and saved searches to a bot chat ======================= */
+var TG_BOT='', KEY_TG='carscout_tg', tgTimer=null;
+function tgLoad(){ try{ var o=JSON.parse(LS.get(KEY_TG)||'null'); return o&&o.code?o:null; }catch(e){ return null; } }
+function tgCode(){ var a=new Uint8Array(20); try{ crypto.getRandomValues(a); }catch(e){ for(var i=0;i<20;i++) a[i]=Math.floor(Math.random()*256); } return Array.prototype.map.call(a,function(b){ return 'abcdefghijklmnopqrstuvwxyz0123456789'[b%36]; }).join(''); }
+function tgData(off){
+  return {lang:S.lang,off:!!off,
+    favs:favLoad().filter(function(f){ return f.url&&safeUrl(f.url); }).slice(0,20).map(function(f){ return {url:f.url,title:favTitle(f),price:f.price||null}; }),
+    hunts:huntLoad().slice(0,5).map(function(h){ return {key:h.key,name:huntName(h.p),p:h.p}; })};
+}
+function tgSync(off,now){
+  var t=tgLoad(); if(!t||!S.api) return Promise.resolve(null);
+  clearTimeout(tgTimer);
+  var go=function(){ return fetch(S.api+'/api/watch?code='+t.code,{method:'POST',headers:{'content-type':'text/plain'},body:JSON.stringify(tgData(off))}).then(function(r){return r.json()}).catch(function(){ return null; }); };
+  if(now) return go(); tgTimer=setTimeout(go,1500); return Promise.resolve(null);
+}
+function tgBlock(){
+  if(!TG_BOT) return ''; var t=tgLoad();
+  if(!t) return '<div class="tgb"><div><b>'+esc(L('Уведомления в Telegram','Telegram alerts','Paziņojumi Telegram'))+'</b><span>'+esc(L('Снижение цен в избранном и новые выгодные машины из сохранённых поисков — даже когда приложение закрыто.','Price drops in favourites and new good deals from saved searches — even when the app is closed.','Cenu samazinājumi izlasē un jauni izdevīgi auto no saglabātajām meklēšanām — arī tad, kad lietotne aizvērta.'))+'</span></div><button class="btn sm pri" type="button" data-act="tg-on">'+esc(L('Подключить Telegram','Connect Telegram','Pieslēgt Telegram'))+'</button></div>';
+  return '<div class="tgb on"><div><b>✓ '+esc(L('Telegram подключён','Telegram connected','Telegram pieslēgts'))+'</b><span>'+esc(L('Проверка примерно каждые 15 минут. Если бот ещё не ответил, откройте его и нажмите «Start».','Checked about every 15 minutes. If the bot has not replied yet, open it and press “Start”.','Pārbaude aptuveni ik pēc 15 minūtēm. Ja bots vēl nav atbildējis, atveriet to un nospiediet «Start».'))+'</span></div><div class="btns" style="gap:6px;flex-wrap:nowrap"><a class="btn sm" href="https://t.me/'+esc(TG_BOT)+'?start='+esc(t.code)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть бота','Open the bot','Atvērt botu'))+'</a><button class="btn sm" type="button" data-act="tg-off">'+esc(L('Отключить','Turn off','Atslēgt'))+'</button></div></div>';
+}
+function tgPlace(){
+  var f=document.getElementById('favs'); if(f&&!f.hidden){ var o=f.querySelector('.tgb'); if(o) o.remove(); var b=tgBlock(); if(b) f.insertAdjacentHTML('beforeend',b); }
+  var d=document.getElementById('finder'); if(d&&!d.hidden){ var o2=d.querySelector('.tgb'); if(o2) o2.remove(); var b2=tgBlock(); if(b2){ var h=d.querySelector('.hunt'); if(h) h.insertAdjacentHTML('afterend',b2); } }
+}
+var tgRF0=renderFavs; renderFavs=function(){ tgRF0.apply(this,arguments); try{ tgPlace(); }catch(e){} };
+var tgFi0=renderFinder; renderFinder=function(){ tgFi0.apply(this,arguments); try{ tgPlace(); }catch(e){} };
+var tgFS0=favSave; favSave=function(a){ tgFS0(a); if(tgLoad()) tgSync(); };
+var tgHS0=huntSave; huntSave=function(a){ tgHS0(a); if(tgLoad()) tgSync(); };
+document.addEventListener('click',function(e){
+  var b=e.target.closest&&e.target.closest('[data-act]'); if(!b) return; var a=b.getAttribute('data-act');
+  if(a==='tg-on'){
+    if(!favLoad().length&&!huntLoad().length){ showStatus('info',function(){return L('Сначала добавьте машину в избранное или сохраните поиск в «Выгодных» — о них и будут уведомления.','First add a car to favourites or save a search in “Deals” — the alerts are about them.','Vispirms pievienojiet auto izlasei vai saglabājiet meklēšanu «Izdevīgie» — paziņojumi būs par tiem.')}); return; }
+    var t={code:tgCode(),at:Date.now()}; LS.set(KEY_TG,JSON.stringify(t));
+    tgSync(false,true).then(function(j){ if(!j||!j.ok) showStatus('err',function(){return L('Не удалось сохранить список на сервере. Попробуйте ещё раз.','Could not save the list on the server. Please try again.','Neizdevās saglabāt sarakstu serverī. Mēģiniet vēlreiz.')}); });
+    window.open('https://t.me/'+TG_BOT+'?start='+t.code,'_blank','noopener');
+    showStatus('ok',function(){return L('В Telegram нажмите «Start». Бот подтвердит подключение в течение ~15 минут.','In Telegram press “Start”. The bot will confirm within about 15 minutes.','Telegram nospiediet «Start». Bots apstiprinās pieslēgumu aptuveni 15 minūšu laikā.')});
+    try{ gcCount('tg-on','Подключён Telegram',true); }catch(x){}
+    tgPlace();
+  } else if(a==='tg-off'){ tgSync(true,true); try{ localStorage.removeItem(KEY_TG); }catch(x){} LS.set(KEY_TG,''); tgPlace(); showStatus('info',function(){return L('Уведомления отключены.','Alerts are off.','Paziņojumi atslēgti.')}); }
+});
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
