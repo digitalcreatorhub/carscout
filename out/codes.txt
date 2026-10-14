@@ -1,6 +1,0 @@
-golf 200 577038 https://autoportaal.ee/et/kasutatud-autod?make=Volkswagen&model=Golf&year_min=2015&year_max=2020
-golf2 200 690849 https://autoportaal.ee/et/kasutatud-autod?make=Volkswagen&model=Golf&year_min=2015&year_max=2020&page=2
-rav 200 604081 https://autoportaal.ee/et/kasutatud-autod?make=Toyota&model=RAV4
-a6 200 575445 https://autoportaal.ee/et/kasutatud-autod?make=Audi&model=A6
-ad 200 322279 https://autoportaal.ee/et/kasutatud-autod/27687
-ru 200 439247 https://autoportaal.ee/ru/kasutatud-autod?make=Volkswagen&model=Golf

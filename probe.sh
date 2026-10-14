@@ -1,9 +1,6 @@
-UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36'
-g(){ curl -sL -A "$UA" -o "out/$1.html" -w "$1 %{http_code} %{size_download} %{url_effective}\n" "$2" >> out/codes.txt; }
-B="https://autoportaal.ee/et/kasutatud-autod"
-g golf "$B?make=Volkswagen&model=Golf&year_min=2015&year_max=2020"
-g golf2 "$B?make=Volkswagen&model=Golf&year_min=2015&year_max=2020&page=2"
-g rav "$B?make=Toyota&model=RAV4"
-g a6 "$B?make=Audi&model=A6"
-g ad "https://autoportaal.ee/et/kasutatud-autod/27687"
-g ru "https://autoportaal.ee/ru/kasutatud-autod?make=Volkswagen&model=Golf"
+W=https://carscout.pmax70095.workers.dev; O="Origin: https://digitalcreatorhub.github.io"
+curl -s -H "$O" "$W/api/comps?source=autoportaal&make=Volkswagen&model=Golf&year=2018&fuel=petrol" > out/c1.json
+curl -s -H "$O" "$W/api/comps?source=autoportaal&make=Toyota&model=RAV4&year=2019" > out/c2.json
+curl -s -H "$O" "$W/api/comps?source=autoportaal&make=Mercedes-Benz&model=E-Class&year=2017" > out/c3.json
+U=$(python3 -c "import json;print(json.load(open('out/c1.json'))['items'][0]['url'])")
+curl -s -H "$O" "$W/api/listing?url=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$U")" > out/l1.json
