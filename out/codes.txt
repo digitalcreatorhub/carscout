@@ -1,4 +1,0 @@
-list 200 571326 https://autoportaal.ee/et/kasutatud-autod
-vw 200 568071 https://autoportaal.ee/et/kasutatud-autod/volkswagen
-golf 200 568146 https://autoportaal.ee/et/kasutatud-autod/volkswagen/golf
-marks 200 293656 https://autoportaal.ee/et/populaarsed-automargid
