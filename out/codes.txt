@@ -1,4 +1,0 @@
-oki 403 5656 https://www.okidoki.ee/buy/1601/
-oki2 403 5779 https://www.okidoki.ee/buy/1601/?query=volkswagen+golf
-soov 403 5632 https://soov.ee/32-soidukid/listings.html
-ap 200 425302 https://autoportaal.ee/
