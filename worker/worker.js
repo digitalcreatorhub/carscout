@@ -23,7 +23,7 @@ const HOSTS = [
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const MAKES = ['Alfa Romeo', 'Aston Martin', 'Audi', 'Bentley', 'BMW', 'Citroën', 'Citroen', 'Cupra', 'Dacia', 'DS', 'Fiat', 'Ford', 'Honda', 'Hyundai', 'Infiniti',
   'Jaguar', 'Jeep', 'Kia', 'Land Rover', 'Lexus', 'Mazda', 'Mercedes-Benz', 'Mercedes', 'MINI', 'Mini', 'Mitsubishi', 'Nissan', 'Opel', 'Peugeot', 'Polestar', 'Porsche',
-  'Renault', 'SEAT', 'Seat', 'Škoda', 'Skoda', 'Smart', 'Subaru', 'Suzuki', 'Tesla', 'Toyota', 'Volkswagen', 'VW', 'Volvo', 'Chevrolet', 'Chrysler', 'Dodge', 'Saab', 'Lancia', 'GWM','Great Wall','Ora','BYD','Chery','Geely','MG','Lynk & Co','NIO','XPeng','Zeekr','Leapmotor','Haval','Omoda','Jaecoo','Dongfeng','Voyah','Maxus','Lotus'];
+  'Renault', 'SEAT', 'Seat', 'Škoda', 'Skoda', 'Smart', 'Subaru', 'Suzuki', 'Tesla', 'Toyota', 'Volkswagen', 'VW', 'Volvo', 'Chevrolet', 'Chrysler', 'Dodge', 'Saab', 'Lancia', 'GWM','Great Wall','Ora','BYD','Chery','Geely','MG','Lynk & Co','NIO','XPeng','Zeekr','Leapmotor','Haval','Omoda','Jaecoo','Dongfeng','Voyah','Maxus','Lotus','SsangYong','KGM','Isuzu','Lada','UAZ','GAZ','Iveco','Cadillac','Lincoln','Buick','GMC','RAM','Hummer','Abarth','Alpine','Maserati','Ferrari','Lamborghini','Rolls-Royce','McLaren','Genesis','Daihatsu','Daewoo','Rover','Aiways','Fisker','Lucid','Rivian','Seres','Skywell','Togg','ZAZ','Moskvich','Tata','Mahindra','Proton','Bugatti','Pontiac','Plymouth','Mercury','Acura','Scion','Datsun','Morgan','Tatra','Wartburg','Trabant','Iran Khodro','DR','Xev','Microcar','Aixam','Ligier','Piaggio','Vauxhall','Holden','BAIC','JAC'];
 
 /* ---------------- HTTP helpers ---------------- */
 function cors(env) {
@@ -370,6 +370,7 @@ function parseSsListing(html, url) {
     if (g.make) { listing.make = g.make; listing.model = g.model || listing.model; } else listing.make = null;
   }
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model;
+  if (listing.make && !listing.model && /\s/.test(listing.make)) { const sp = listing.make.trim().split(/\s+/); listing.make = sp[0]; listing.model = sp.slice(1).join(' '); }
   /* ss.lv puts make and model together in the 'Marka' row, so a model taken from it is table data */
   if (listing.model && listing.src.make === 'table' && L.make && L.make.toLowerCase().indexOf(String(listing.model).toLowerCase().split(' ')[0]) > -1) listing.src.model = 'table';
   if (!listing.vin) listing.src.vin = null;

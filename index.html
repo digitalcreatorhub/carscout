@@ -1317,7 +1317,7 @@ function rgen(cc){ return S.lang==='ru'&&RGEN[cc]?RGEN[cc]:rname(cc); }
 function rname(cc){var r=REGION_NAME[cc];return r?LP(r):cc}
 
 /* ---------- text parsing (screenshots and pasted text) ---------- */
-var MAKES=['Alfa Romeo','Audi','BMW','Citroën','Citroen','Cupra','Dacia','Fiat','Ford','Honda','Hyundai','Jaguar','Jeep','Kia','Land Rover','Lexus','Mazda','Mercedes-Benz','Mercedes','MINI','Mitsubishi','Nissan','Opel','Peugeot','Porsche','Renault','SEAT','Škoda','Skoda','Subaru','Suzuki','Tesla','Toyota','Volkswagen','VW','Volvo','GWM','GW','Great Wall','Ora','BYD','Chery','Geely','MG','Lynk & Co','NIO','XPeng','Zeekr','Leapmotor','Haval','Omoda','Jaecoo','Dongfeng','Voyah','Maxus','Lotus'];
+var MAKES=['Alfa Romeo','Audi','BMW','Citroën','Citroen','Cupra','Dacia','Fiat','Ford','Honda','Hyundai','Jaguar','Jeep','Kia','Land Rover','Lexus','Mazda','Mercedes-Benz','Mercedes','MINI','Mitsubishi','Nissan','Opel','Peugeot','Porsche','Renault','SEAT','Škoda','Skoda','Subaru','Suzuki','Tesla','Toyota','Volkswagen','VW','Volvo','GWM','GW','Great Wall','Ora','BYD','Chery','Geely','MG','Lynk & Co','NIO','XPeng','Zeekr','Leapmotor','Haval','Omoda','Jaecoo','Dongfeng','Voyah','Maxus','Lotus','SsangYong','KGM','Isuzu','Lada','UAZ','GAZ','Iveco','Cadillac','Lincoln','Buick','GMC','RAM','Hummer','Abarth','Alpine','Maserati','Ferrari','Lamborghini','Rolls-Royce','McLaren','Genesis','Daihatsu','Daewoo','Rover','Aiways','Fisker','Lucid','Rivian','Seres','Skywell','Togg','ZAZ','Moskvich','Tata','Mahindra','Proton','Bugatti','Pontiac','Plymouth','Mercury','Acura','Scion','Datsun','Morgan','Tatra','Wartburg','Trabant','Iran Khodro','DR','Xev','Microcar','Aixam','Ligier','Piaggio','Vauxhall','Holden','BAIC','JAC'];
 function toNum(s){
   s=String(s==null?'':s).replace(/[   \s]/g,'').replace(/[^\d.,]/g,''); if(!s) return null;
   if(/^\d{1,3}([.,]\d{3})+$/.test(s)) return parseInt(s.replace(/[.,]/g,''),10);
@@ -2235,7 +2235,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-14.8', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.9', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };

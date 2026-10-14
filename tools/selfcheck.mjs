@@ -51,7 +51,7 @@ good(`ss: ${adsChecked} ad pages read (LV/RU/EN)`);
 {
   const list = await get('/api/search', { url: 'https://www.ss.com/ru/transport/cars/volkswagen/' });
   const it = (list.items || [])[0];
-  if (it) { const s = await get('/api/seller', { url: it.url }); if (!s.ok || s.views == null) bad('ss seller', s.error || 'no views'); else good(`ss seller: views ${s.views}, cars ${s.carAds}`); }
+  if (it) { const s = await get('/api/seller', { url: it.url }); if (!s.ok || s.views == null) bad('ss seller', s.error || 'no views'); else good(`ss seller: views ${s.views}, ${s.phoneLinked ? 'cars ' + s.carAds : 'no phone link (other ads hidden by seller)'}`); }
 }
 
 // 3. comparables on every market
