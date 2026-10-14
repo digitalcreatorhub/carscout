@@ -2313,7 +2313,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.17', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.18', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3982,7 +3982,7 @@ var memRender0=renderA;
 renderA=function(v){ var h=memRender0(v); if(!v||!v.mem||v.sell) return h; var m=pMem(v); if(!m) return h; var at=h.indexOf('id="a-check"'); if(at<0) return h+m; var s=h.lastIndexOf('<section',at); return s<0?h+m:h.slice(0,s)+m+h.slice(s); };
 
 /* ======================= Telegram alerts: link this browser's favourites and saved searches to a bot chat ======================= */
-var TG_BOT='', KEY_TG='carscout_tg', tgTimer=null;
+var TG_BOT='carsscout_lv_bot', KEY_TG='carscout_tg', tgTimer=null;
 function tgLoad(){ try{ var o=JSON.parse(LS.get(KEY_TG)||'null'); return o&&o.code?o:null; }catch(e){ return null; } }
 function tgCode(){ var a=new Uint8Array(20); try{ crypto.getRandomValues(a); }catch(e){ for(var i=0;i<20;i++) a[i]=Math.floor(Math.random()*256); } return Array.prototype.map.call(a,function(b){ return 'abcdefghijklmnopqrstuvwxyz0123456789'[b%36]; }).join(''); }
 function tgData(off){
