@@ -12,9 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
-      - env:
-          TG_TOKEN: ${{ secrets.TG_TOKEN }}
-        run: |
+      - run: |
           mkdir -p out
           bash probe.sh || true
           node rec.mjs || true
