@@ -1209,15 +1209,21 @@ function compStats(comps,car){
   var sum=pr.reduce(function(a,b){return a+b},0);
   var out={n:n,min:pr[0],max:pr[n-1],median:quantile(pr,0.5),q1:quantile(pr,0.25),q3:quantile(pr,0.75),mean:sum/n,reg:null};
   var pts=rows.filter(function(c){return c.km!=null&&isFinite(c.km)&&c.km>=0});
-  if(pts.length>=5&&car&&car.km!=null&&isFinite(car.km)){
+  if(pts.length>=8&&car&&car.km!=null&&isFinite(car.km)){
     var N=pts.length,sx=0,sy=0,sxx=0,sxy=0;
     pts.forEach(function(p){sx+=p.km;sy+=p.price;sxx+=p.km*p.km;sxy+=p.km*p.price});
     var den=N*sxx-sx*sx;
     if(Math.abs(den)>1e-6){
       var slope=(N*sxy-sx*sy)/den, icpt=(sy-slope*sx)/N, my=sy/N, ssr=0, sst=0;
       pts.forEach(function(p){var e=p.price-(icpt+slope*p.km); ssr+=e*e; var d=p.price-my; sst+=d*d});
-      var r2=sst>0?1-ssr/sst:0, sd=Math.sqrt(ssr/Math.max(1,N-2)), at=icpt+slope*car.km;
-      if(slope<0&&r2>=0.25&&at>0) out.reg={slope:slope,intercept:icpt,r2:r2,sd:sd,atKm:at,n:N};
+      var r2=sst>0?1-ssr/sst:0, sd=Math.sqrt(ssr/Math.max(1,N-2));
+      /* no long straight-line guesses outside the mileages that were actually found: at most a quarter of the range beyond them,
+         and never far outside the real prices */
+      var kms=pts.map(function(p){return p.km}), kLo=Math.min.apply(null,kms), kHi=Math.max.apply(null,kms), span=Math.max(kHi-kLo,10000);
+      var kUse=Math.max(kLo-span*0.25,Math.min(kHi+span*0.25,car.km)), at=icpt+slope*kUse, extrap=kUse!==car.km?(car.km>kHi?'above':'below'):null;
+      var lo=pr[0]*0.9, hi=pr[n-1];
+      if(at<lo){ at=lo; extrap=extrap||'clamped'; } if(at>hi){ at=hi; extrap=extrap||'clamped'; }
+      if(slope<0&&r2>=0.25&&at>0) out.reg={slope:slope,intercept:icpt,r2:r2,sd:Math.min(sd,at*0.25),atKm:at,n:N,extrap:extrap,kmLo:kLo,kmHi:kHi};
     }
   }
   return out;
@@ -1925,6 +1931,9 @@ function compute(car,results,f,notes){
   var solid=function(r){return r.fair&&r.n>=5};
   var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
   if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push((function(){return L('В '+rloc(want)+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку '+rgen(home.region)+(FAR[home.region]?' (цены без учёта ввоза: доставка и регистрация добавят примерно 800–1500 €)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(FAR[home.region]?' (prices before import costs)':'')+'.')})); }
+  if(home&&home.stats&&home.stats.reg&&(home.stats.reg.extrap==='above'||home.stats.reg.extrap==='below')&&car.km!=null){ var xr=home.stats.reg, ab=xr.extrap==='above', ck=car.km;
+    notes.push(function(){ return ab?L('Ваш пробег ('+fmt(ck)+' км) больше, чем у всех найденных машин (до '+fmt(xr.kmHi)+' км): оценка по самым близким по пробегу, реальная цена может быть ещё ниже.','Your mileage ('+fmt(ck)+' km) is higher than in all the cars found (up to '+fmt(xr.kmHi)+' km): the estimate uses the closest ones, the real price may be even lower.','Jūsu nobraukums ('+fmt(ck)+' km) ir lielāks nekā visiem atrastajiem auto (līdz '+fmt(xr.kmHi)+' km): novērtējums pēc tuvākajiem, reālā cena var būt vēl zemāka.')
+      :L('Ваш пробег ('+fmt(ck)+' км) меньше, чем у всех найденных машин (от '+fmt(xr.kmLo)+' км): реальная цена может быть выше оценки.','Your mileage ('+fmt(ck)+' km) is lower than in all the cars found (from '+fmt(xr.kmLo)+' km): the real price may be above the estimate.','Jūsu nobraukums ('+fmt(ck)+' km) ir mazāks nekā visiem atrastajiem auto (no '+fmt(xr.kmLo)+' km): reālā cena var būt augstāka par novērtējumu.'); }); }
   if(home&&home.drvN&&car.drive){ var dN=home.drvN, dw=car.drive; notes.push(function(){ return dw==='awd'?L('Сравнение только с полноприводными машинами: '+dN+' объявл.','Compared only with all-wheel-drive cars: '+dN+' ads','Salīdzināts tikai ar pilnpiedziņas auto: '+dN+' sludin.'):L('Полноприводные версии исключены из сравнения ('+dN+' объявл. осталось).','All-wheel-drive versions were excluded from the comparison ('+dN+' ads left).','Pilnpiedziņas versijas izslēgtas no salīdzināšanas (palika '+dN+' sludin.).'); }); }
   else if(home&&car.drive==='awd'&&home.drvFew!=null){ var dF=home.drvFew; notes.push(function(){ return L('Полный привод указан в заголовках только у '+dF+' объявл., поэтому сравнение идёт со всеми версиями. Полноприводная машина обычно стоит на 5–10% дороже.','All-wheel drive is named in only '+dF+' ad titles, so all versions are compared. An all-wheel-drive car usually costs 5–10% more.','Pilnpiedziņa norādīta tikai '+dF+' sludinājumu virsrakstos, tāpēc salīdzinātas visas versijas. Pilnpiedziņas auto parasti ir par 5–10% dārgāks.'); }); }
   if(home&&home.engN){ var eN=home.engN, eL=car.engineL; notes.push(function(){ return L('Сравнение только с машинами с тем же объёмом двигателя ('+eL.toFixed(1)+' л): '+eN+' объявл.','Compared only with cars with the same engine size ('+eL.toFixed(1)+' l): '+eN+' ads','Salīdzināts tikai ar auto ar tādu pašu motora tilpumu ('+eL.toFixed(1)+' l): '+eN+' sludin.'); }); }
@@ -2313,7 +2322,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.19', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.20', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
