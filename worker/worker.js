@@ -675,14 +675,14 @@ async function hImg(env, q) {
 }
 
 /* ---------------- handlers ---------------- */
-async function hListing(env, q) {
+async function hListing(env, q, ctx) {
   const url = q.get('url');
   if (!url || !allowed(url)) return json(env, { ok: false, error: 'bad_url', message: 'Link missing or site not supported.' }, 400);
   const host = new URL(url).hostname;
   const p = await getPage(url, 600);
   const b = blockedBy(p);
   if (b) return json(env, { ok: false, error: 'blocked', message: 'The site refused the server request (' + b + ').', diag: { status: p.status, bytes: p.text.length } });
-  if (p.status === 404) return json(env, { ok: false, error: 'not_found', message: 'Listing page not found (removed or wrong link).' });
+  if (p.status === 404) { later(ctx, memGone(env, url)); return json(env, { ok: false, error: 'not_found', message: 'Listing page not found (removed or wrong link).' }); }
   let res, parser;
   if (/(^|\.)ss\.(com|lv)$/.test(host) && /\/msg\//.test(url)) {
     res = parseSsListing(p.text, p.url); parser = 'ss';
@@ -693,8 +693,10 @@ async function hListing(env, q) {
   } else if (/(^|\.)autoportaal\.ee$/.test(host) && (res = parseApListing(p.text, p.url))) { parser = 'autoportaal';
   } else { res = parseGenericListing(p.text, p.url); parser = 'generic'; res.hints = {}; }
   const L = res.listing;
+  if (parser === 'ss' && L.removed) { later(ctx, memGone(env, url)); } 
   if (parser === 'ss' && L.removed) return json(env, { ok: false, error: 'not_found', removed: true, message: 'The listing was removed or has expired.', source: host, parser: parser, listing: L });
   const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;
+  if (filled >= 3 && L.asking_price > 0 && adKey(url)) later(ctx, memSave(env, [{ id: adKey(url), src: parser, mk: memNorm(L.make), md: memNorm(L.model), yr: L.year || null, vin: L.vin || null, title: String(res.title || '').slice(0, 90), p: Math.round(L.asking_price), km: L.mileage_km != null ? Math.round(L.mileage_km) : null, posted: L.posted || null }]));
   return json(env, { ok: filled >= 2, error: filled >= 2 ? null : 'parse_failed', message: filled >= 2 ? null : 'Could not read the main fields from this page.', source: host, parser: parser,
     listing: L, image: res.image || null, images: res.images || collectImages(p.text, p.url), title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
 }
@@ -711,7 +713,7 @@ const SS_GEN = {
   golf: { 'golf-4': [1997, 2004], 'golf-5': [2003, 2009], 'golf-6': [2008, 2013], 'golf-7': [2012, 2020], 'golf-8': [2019, 2030], 'golf-variant': [1993, 2030] },
   passat: { 'passat-b5': [1996, 2005], 'passat-b6': [2005, 2011], 'passat-b7': [2010, 2015], 'passat-b8': [2014, 2030], 'passat-variant': [1988, 2030] }
 };
-async function hComps(env, q) {
+async function hComps(env, q, ctx) {
   const source = q.get('source');
   const cm = cleanMakeModel(q.get('make') || '', q.get('model') || '');
   const make = cm.make || '', model = cm.model || '';
@@ -760,6 +762,7 @@ async function hComps(env, q) {
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseSsList(p.text, p.url)); });
     items = dedupe(items);
     if (others) items = filterOthers(items, make, model);
+    later(ctx, memSave(env, memRowsFromItems(items, make, model, 'ss')));
     return json(env, { ok: items.length > 0, source: 'ss', region: 'LV', label: 'ss.com', searchUrl: base, items: items, pages: pages.filter(function (p) { return p.status === 200; }).length, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
   }
   if (source === 'as24de' || source === 'as24') {
@@ -794,6 +797,7 @@ async function hComps(env, q) {
       if (inY / items.length < 0.5) return json(env, { ok: false, source: srcName, error: 'filters_ignored', message: 'AutoScout24 did not apply the model/year filters.', searchUrl: search });
     }
     if (usedTrim) items.forEach(function (i) { i.trimMatch = usedTrim; });
+    later(ctx, memSave(env, memRowsFromItems(items, make, model, 'as24')));
     return json(env, { ok: items.length > 0, source: srcName, region: CY[cy], label: 'AutoScout24 (' + CY[cy] + ')', searchUrl: search, trimFilter: usedTrim || null, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
   }
   if (source === 'autoplius') {
@@ -810,6 +814,7 @@ async function hComps(env, q) {
     let items = [];
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseAutopliusList(p.text, p.url)); });
     items = dedupe(items);
+    later(ctx, memSave(env, memRowsFromItems(items, make, model, 'autoplius')));
     return json(env, { ok: items.length > 0, source: 'autoplius', region: 'LT', label: 'autoplius.lt', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found on the page.' });
   }
   if (source === 'autoportaal') {
@@ -830,6 +835,7 @@ async function hComps(env, q) {
       if (inY / items.length < 0.5) return json(env, { ok: false, source: 'autoportaal', error: 'filters_ignored', message: 'autoportaal.ee did not apply the model/year filters.', searchUrl: search });
     }
     items.forEach(function (i) { delete i.make; delete i.model; delete i.name; });
+    later(ctx, memSave(env, memRowsFromItems(items, make, model, 'autoportaal')));
     return json(env, { ok: items.length > 0, source: 'autoportaal', region: 'EE', label: 'autoportaal.ee', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found for this make/model.' });
   }
   return json(env, { ok: false, error: 'bad_source', message: 'Unknown source.' }, 400);
@@ -843,7 +849,7 @@ function cookieJar(jar, r) {
   return jar;
 }
 function jarStr(jar) { return Object.keys(jar).map(function (k) { return k + '=' + jar[k]; }).join('; '); }
-async function hSeller(env, q) {
+async function hSeller(env, q, ctx) {
   const url = q.get('url');
   if (!url || !allowed(url) || !/(^|\.)ss\.(com|lv)$/.test(new URL(url).hostname) || !/\/msg\//.test(url)) return json(env, { ok: false, error: 'bad_url', message: 'Only ss.lv / ss.com listing links are supported.' }, 400);
   const origin = new URL(url).origin, jar = {};
@@ -863,6 +869,7 @@ async function hSeller(env, q) {
   if (!st) return json(env, { ok: false, error: 'no_stats', message: 'ss.lv did not return the seller data.', posted: dt.posted, updated: dt.updated });
   const a = st[1].split(',').map(function (x) { return parseInt(x, 10); });
   const out = { ok: true, posted: dt.posted, updated: dt.updated, views: a[4] > 0 ? a[4] : null, phoneLinked: a[0] >= 0, emailLinked: a[3] >= 0, items: [], searchUrl: null };
+  if (lk) later(ctx, memSeller(env, url, lk[1]));
   if (lk && a[0] >= 0) {
     const lang = (url.match(/\/msg\/([a-z]{2})\//) || [])[1] || 'lv';
     const su = origin + '/' + lang + '/search-result/?t=' + encodeURIComponent(lk[1]);
@@ -941,17 +948,90 @@ async function hDebug(env, q) {
   });
 }
 
+/* ================= CarScout memory (Cloudflare D1, optional binding DB) =================
+   Remembers listings it has seen: price and mileage over time, VIN, a hash of the ss.lv seller link, and when an ad disappeared.
+   Public listing data only; the seller link is stored as a one-way hash. */
+let MEM_READY = false;
+async function memInit(env) {
+  if (!env || !env.DB) return false; if (MEM_READY) return true;
+  await env.DB.batch([
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS ads(id TEXT PRIMARY KEY, src TEXT, mk TEXT, md TEXT, yr INT, vin TEXT, seller TEXT, title TEXT, ft INT, fp INT, fkm INT, lt INT, lp INT, lkm INT, n INT DEFAULT 1, gone INT, posted TEXT)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS ads_vin ON ads(vin)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS ads_seller ON ads(seller)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS ads_mm ON ads(mk, md, yr)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS hist(id TEXT, t INT, p INT, km INT)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS hist_id ON hist(id)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS watch(code TEXT PRIMARY KEY, data TEXT, t INT)')
+  ]);
+  MEM_READY = true; return true;
+}
+function adKey(url) {
+  const u = String(url || '');
+  let m = u.match(/ss\.(?:com|lv)\/msg\/(?:[a-z]{2}\/)?[^?#]*?\/([a-z0-9]{4,})\.html/i); if (m) return 'ss:' + m[1].toLowerCase();
+  m = u.match(/autoplius\.lt\/[^?#]*?-(\d{5,})\.html/i); if (m) return 'ap:' + m[1];
+  m = u.match(/autoscout24\.[a-z.]+\/(?:offers|angebote|annonces|aanbod|ofertas)\/[^?#]*?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i); if (m) return 'as:' + m[1].toLowerCase();
+  m = u.match(/autoportaal\.ee\/[a-z]{2}\/kasutatud-autod\/(\d+)/i); if (m) return 'ee:' + m[1];
+  return null;
+}
+function memNorm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/mercedes-benz/, 'mercedes').replace(/[^a-z0-9]+/g, ''); }
+function later(ctx, p) { const q = Promise.resolve(p).catch(function () { }); if (ctx && ctx.waitUntil) ctx.waitUntil(q); return q; }
+async function memSave(env, rows) {
+  if (!rows.length || !(await memInit(env))) return;
+  const now = Date.now(), js = JSON.stringify(rows.slice(0, 300));
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO hist(id, t, p, km) SELECT j.value->>'id', ?2, j.value->>'p', j.value->>'km' FROM json_each(?1) j LEFT JOIN ads a ON a.id = j.value->>'id' WHERE a.id IS NULL OR a.lp IS NOT (j.value->>'p') OR (j.value->>'km' IS NOT NULL AND a.lkm IS NOT (j.value->>'km'))").bind(js, now),
+    env.DB.prepare("INSERT INTO ads(id, src, mk, md, yr, vin, title, ft, fp, fkm, lt, lp, lkm, n, posted) SELECT j.value->>'id', j.value->>'src', j.value->>'mk', j.value->>'md', j.value->>'yr', j.value->>'vin', j.value->>'title', ?2, j.value->>'p', j.value->>'km', ?2, j.value->>'p', j.value->>'km', 1, j.value->>'posted' FROM json_each(?1) j WHERE true " +
+      "ON CONFLICT(id) DO UPDATE SET lt = excluded.lt, lp = excluded.lp, lkm = COALESCE(excluded.lkm, ads.lkm), n = ads.n + 1, gone = NULL, vin = COALESCE(ads.vin, excluded.vin), posted = COALESCE(ads.posted, excluded.posted), yr = COALESCE(ads.yr, excluded.yr) " +
+      "WHERE excluded.lp IS NOT ads.lp OR (excluded.lkm IS NOT NULL AND excluded.lkm IS NOT ads.lkm) OR excluded.lt - ads.lt > 259200000 OR ads.gone IS NOT NULL OR (ads.vin IS NULL AND excluded.vin IS NOT NULL) OR (ads.posted IS NULL AND excluded.posted IS NOT NULL)").bind(js, now)
+  ]);
+}
+function memRowsFromItems(items, make, model, src) {
+  const mk = memNorm(make), md = memNorm(model), out = [];
+  (items || []).forEach(function (i) { const id = adKey(i.url); if (!id || !(i.price > 0)) return; out.push({ id: id, src: src, mk: mk, md: md, yr: i.year || null, vin: i.vin || null, title: String(i.title || '').slice(0, 90), p: Math.round(i.price), km: i.km != null ? Math.round(i.km) : null, posted: null }); });
+  return out;
+}
+async function memGone(env, url) { const id = adKey(url); if (!id || !(await memInit(env))) return; await env.DB.prepare('UPDATE ads SET gone = ?2 WHERE id = ?1 AND gone IS NULL').bind(id, Date.now()).run(); }
+async function memSeller(env, url, token) {
+  const id = adKey(url); if (!id || !token || !(await memInit(env))) return;
+  const h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('carscout:' + token)))).slice(0, 10).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  await env.DB.prepare('UPDATE ads SET seller = ?2 WHERE id = ?1').bind(id, h).run();
+}
+async function hMemory(env, q) {
+  if (!(await memInit(env))) return json(env, { ok: false, error: 'no_db', message: 'Memory is not connected.' });
+  const out = { ok: true };
+  const url = q.get('url'), id = adKey(url), vinQ = String(q.get('vin') || '').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
+  let me = null;
+  if (id) {
+    me = await env.DB.prepare('SELECT * FROM ads WHERE id = ?1').bind(id).first();
+    if (me) { const h = await env.DB.prepare('SELECT t, p, km FROM hist WHERE id = ?1 ORDER BY t LIMIT 40').bind(id).all(); out.self = { first: { t: me.ft, p: me.fp, km: me.fkm }, last: { t: me.lt, p: me.lp, km: me.lkm }, seen: me.n, hist: h.results || [] }; }
+  }
+  const vin = vinQ.length === 17 ? vinQ : (me && me.vin) || null;
+  if (vin) { const r = await env.DB.prepare('SELECT id, src, title, ft, fp, fkm, lt, lp, lkm, gone FROM ads WHERE vin = ?1 AND id IS NOT ?2 ORDER BY ft LIMIT 10').bind(vin, id).all(); out.vin = r.results || []; }
+  if (me && me.seller) { const r = await env.DB.prepare('SELECT id, src, title, yr, ft, fp, fkm, lt, lp, lkm, gone FROM ads WHERE seller = ?1 AND id IS NOT ?2 AND mk = ?3 AND md = ?4 AND (yr IS NULL OR ?5 IS NULL OR ABS(yr - ?5) <= 1) ORDER BY ft LIMIT 10').bind(me.seller, id, me.mk, me.md, me.yr).all(); out.seller = r.results || []; }
+  const mk = memNorm(q.get('make') || (me && me.mk)), md = memNorm(q.get('model') || (me && me.md)), yr = parseInt(q.get('year') || (me && me.yr) || '', 10) || null;
+  if (mk && md) {
+    const r = await env.DB.prepare('SELECT ft, fp, lt, lp, gone, posted FROM ads WHERE mk = ?1 AND md = ?2 AND gone IS NOT NULL AND (?3 IS NULL OR yr IS NULL OR ABS(yr - ?3) <= 2) ORDER BY gone DESC LIMIT 300').bind(mk, md, yr).all();
+    const g = r.results || [], days = [], drop = [];
+    g.forEach(function (x) { const st = x.posted ? Date.parse(x.posted) : x.ft; if (st && x.gone > st) days.push((x.gone - st) / 86400000); if (x.fp > 0 && x.lp > 0) drop.push((x.lp - x.fp) / x.fp * 100); });
+    const med = function (a) { if (!a.length) return null; const b = a.slice().sort(function (x, y) { return x - y; }); const k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; };
+    const tot = await env.DB.prepare('SELECT COUNT(*) AS n FROM ads WHERE mk = ?1 AND md = ?2').bind(mk, md).first();
+    out.market = { sold: g.length, days: g.length >= 5 ? med(days) : null, drop: g.length >= 5 ? med(drop) : null, tracked: tot ? tot.n : 0 };
+  }
+  return json(env, out);
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
     if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     const u = new URL(request.url);
     try {
-      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/seller', '/api/comps', '/api/search', '/api/img', '/api/debug'] });
-      if (u.pathname === '/api/listing') return await hListing(env, u.searchParams);
-      if (u.pathname === '/api/comps') return await hComps(env, u.searchParams);
+      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/seller', '/api/comps', '/api/memory', '/api/search', '/api/img', '/api/debug'] });
+      if (u.pathname === '/api/listing') return await hListing(env, u.searchParams, ctx);
+      if (u.pathname === '/api/comps') return await hComps(env, u.searchParams, ctx);
+      if (u.pathname === '/api/memory') return await hMemory(env, u.searchParams);
       if (u.pathname === '/api/search') return await hSearch(env, u.searchParams);
-      if (u.pathname === '/api/seller') return await hSeller(env, u.searchParams);
+      if (u.pathname === '/api/seller') return await hSeller(env, u.searchParams, ctx);
       if (u.pathname === '/api/vinhist') return await hVinHistory(env, u.searchParams);
       if (u.pathname === '/api/debug') return await hDebug(env, u.searchParams);
       if (u.pathname === '/api/img') return await hImg(env, u.searchParams);

@@ -963,6 +963,14 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 #a-sellad .sv-lang select{width:auto}
 #a-sellad textarea{width:100%;font-size:13.5px;line-height:1.5;min-height:220px}
 #intake .row3,#intake .row2{align-items:end}
+/* scam risk and memory panels */
+.ap.fraud.hi{border-color:color-mix(in srgb,var(--bad) 60%,var(--line));box-shadow:0 0 0 1px color-mix(in srgb,var(--bad) 35%,transparent),0 0 24px -6px color-mix(in srgb,var(--bad) 45%,transparent)}
+.ap.fraud.mid{border-color:color-mix(in srgb,var(--warn,#f5b84b) 55%,var(--line))}
+.ap.fraud .sh{color:var(--bad)} .ap.fraud.mid .sh{color:var(--warn,#f5b84b)}
+.ap.fraud .fr-tips{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.ap.fraud .fr-tips ul{margin:6px 0 0;padding-left:18px;color:var(--dim);font-size:13px;line-height:1.5}
+.ap.mem.bad{border-color:color-mix(in srgb,var(--bad) 60%,var(--line))}
+.ap.mem.bad li b{color:var(--bad)}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2300,7 +2308,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.16', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.17', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3912,6 +3920,61 @@ rePanel=function(id,html){ fraudRe0(id,html); if(id==='a-life'||id==='a-acc') { 
 var fraudRender0=renderA;
 renderA=function(v){ var h=fraudRender0(v); if(!v||v.sell||!v.regions||!v.regions.length) return h; var f=pFraud(v); if(!f) return h;
   var m=h.indexOf('id="a-check"'); if(m<0) return f+h; var s=h.lastIndexOf('<section',m); return s<0?f+h:h.slice(0,s)+f+h.slice(s); };
+
+/* ======================= CarScout memory: what the app has seen of this car before ======================= */
+function memDate(t){ var d=new Date(t); return isNaN(d)?'':('0'+d.getDate()).slice(-2)+'.'+('0'+(d.getMonth()+1)).slice(-2)+'.'+d.getFullYear(); }
+function memSrc(id,src){ var k=String(id||'').split(':')[0]; return {ss:'ss.lv',ap:'autoplius.lt',as:'AutoScout24',ee:'autoportaal.ee'}[k]||src||''; }
+function memAnalyse(v,m){
+  var c=v.car, o={raw:m,lines:[],warn:[],market:m&&m.market||null};
+  if(!m||!m.ok) return o;
+  var km=c.km, DAY=86400000, now=Date.now();
+  if(m.self&&m.self.first&&now-m.self.first.t>DAY){
+    var h=(m.self.hist||[]).filter(function(x){return x.p>0}), ps=[]; h.forEach(function(x){ if(!ps.length||ps[ps.length-1].p!==x.p) ps.push(x); });
+    o.lines.push(L('CarScout впервые видел это объявление ','CarScout first saw this ad on ','CarScout šo sludinājumu pirmo reizi redzēja ')+memDate(m.self.first.t)+L(' за ',' at ',' par ')+eur(m.self.first.p)+(m.self.first.km?' · '+fmt(m.self.first.km)+' km':''));
+    if(ps.length>1) o.lines.push(L('Цена менялась: ','Price changes: ','Cenas izmaiņas: ')+ps.map(function(x){return fmt(x.p)}).join(' → ')+' €');
+    var mx=h.reduce(function(a,x){return x.km>a?x.km:a},0); if(km!=null&&mx-km>1000) o.warn.push(L('В этом же объявлении раньше был указан пробег '+fmt(mx)+' км, сейчас '+fmt(km)+' км','This same ad earlier showed '+fmt(mx)+' km, now '+fmt(km)+' km','Šajā pašā sludinājumā agrāk bija '+fmt(mx)+' km, tagad '+fmt(km)+' km'));
+  }
+  (m.vin||[]).forEach(function(x){ var xk=Math.max(x.fkm||0,x.lkm||0);
+    o.lines.push(L('Тот же VIN уже продавался: ','The same VIN was on sale before: ','Tas pats VIN jau tika pārdots: ')+memSrc(x.id,x.src)+', '+memDate(x.ft)+(x.gone?'–'+memDate(x.gone):'')+L(', цена ',', price ',', cena ')+eur(x.lp||x.fp)+(xk?' · '+fmt(xk)+' km':''));
+    if(km!=null&&xk-km>1000) o.warn.push(L('Тот же VIN '+memDate(x.ft)+' продавался с пробегом '+fmt(xk)+' км — сейчас на '+fmt(xk-km)+' км меньше. Почти наверняка скрученный пробег','The same VIN was for sale on '+memDate(x.ft)+' with '+fmt(xk)+' km — now '+fmt(xk-km)+' km less. Almost certainly a rolled-back odometer','Tas pats VIN '+memDate(x.ft)+' tika pārdots ar '+fmt(xk)+' km — tagad par '+fmt(xk-km)+' km mazāk. Gandrīz noteikti attīts nobraukums')); });
+  (m.seller||[]).forEach(function(x){ var xk=Math.max(x.fkm||0,x.lkm||0);
+    o.lines.push(L('Этот продавец уже выставлял похожую машину: ','This seller already listed a similar car: ','Šis pārdevējs jau ir izlicis līdzīgu auto: ')+memDate(x.ft)+(x.gone?'–'+memDate(x.gone):'')+', '+eur(x.lp||x.fp)+(xk?' · '+fmt(xk)+' km':''));
+    if(km!=null&&xk-km>3000) o.warn.push(L('У того же продавца похожая машина '+memDate(x.ft)+' была с пробегом '+fmt(xk)+' км, у этой '+fmt(km)+' км. Если это та же машина — пробег скручен','The same seller had a similar car on '+memDate(x.ft)+' with '+fmt(xk)+' km, this one has '+fmt(km)+' km. If it is the same car, the mileage was rolled back','Tam pašam pārdevējam līdzīgs auto '+memDate(x.ft)+' bija ar '+fmt(xk)+' km, šim ir '+fmt(km)+' km. Ja tas ir tas pats auto — nobraukums attīts')); });
+  if(o.warn.length) v.memory={rollback:o.warn[0]};
+  return o;
+}
+function memMarketLine(mk){
+  if(!mk||mk.days==null) return '';
+  return L('По наблюдениям CarScout ('+mk.sold+' проданных): такие машины уходят примерно за '+nDays(Math.round(mk.days))+(mk.drop!=null&&mk.drop<-0.5?', перед продажей цену снижают в среднем на '+Math.round(-mk.drop)+'%':''),
+    'From CarScout observations ('+mk.sold+' sold): such cars go in about '+nDays(Math.round(mk.days))+(mk.drop!=null&&mk.drop<-0.5?', the price is cut by '+Math.round(-mk.drop)+'% on average before the sale':''),
+    'Pēc CarScout novērojumiem ('+mk.sold+' pārdoti): šādi auto aiziet aptuveni '+nDays(Math.round(mk.days))+(mk.drop!=null&&mk.drop<-0.5?', pirms pārdošanas cenu vidēji samazina par '+Math.round(-mk.drop)+'%':''));
+}
+function pMem(v){
+  var o=v.mem; if(!o) return ''; var ml=memMarketLine(o.market);
+  if(!o.lines.length&&!o.warn.length&&!ml) return '';
+  return '<section class="ap c12 mem'+(o.warn.length?' bad':'')+'" id="a-mem">'+aHead(L('Память CarScout','CarScout memory','CarScout atmiņa'),aMeta(L('что приложение видело раньше','what the app has seen before','ko lietotne redzējusi agrāk')))+
+    '<ul class="ls">'+o.warn.map(function(t){return '<li>'+aIcon('warn')+'<span><b>'+esc(t)+'</b></span></li>'}).join('')+o.lines.map(function(t){return '<li>'+aIcon('info')+'<span>'+esc(t)+'</span></li>'}).join('')+(ml?'<li>'+aIcon('ok')+'<span>'+esc(ml)+'</span></li>':'')+'</ul>'+
+    '<p class="anote">'+esc(L('CarScout запоминает объявления, которые проверяли его пользователи: цену, пробег, VIN и дату. Чем больше проверок, тем больше память.','CarScout remembers the ads its users have checked: price, mileage, VIN and date. The more checks, the bigger the memory.','CarScout atceras sludinājumus, ko pārbaudījuši tā lietotāji: cenu, nobraukumu, VIN un datumu. Jo vairāk pārbaužu, jo lielāka atmiņa.'))+'</p></section>';
+}
+function memPlace(v){
+  var html=pMem(v), el=document.getElementById('a-mem'); if(!html){ if(el) el.remove(); return; }
+  var t=document.createElement('div'); t.innerHTML=html; var n=t.firstChild;
+  if(el){ el.parentNode.replaceChild(n,el); return; }
+  var after=document.getElementById('a-fraud')||document.getElementById('a-acc')||document.getElementById('a-verdict'); if(after&&after.parentNode) after.parentNode.insertBefore(n,after.nextSibling);
+}
+async function memLoad(v){
+  if(!S.api||!v||!v.car) return; var c=v.car;
+  try{
+    var j=await api('/api/memory',{url:c.url||'',vin:c.vin||'',make:c.make||'',model:c.model||'',year:c.year||''},15000);
+    if(v!==S.view||!j||!j.ok) return;
+    if(v.sell){ var ml=memMarketLine(j.market), box=document.querySelector('#a-sell .anote'); if(ml&&box&&!document.getElementById('sv-mem')){ var p=document.createElement('p'); p.id='sv-mem'; p.className='anote'; p.style.color='var(--ink)'; p.textContent=ml; box.parentNode.insertBefore(p,box); } return; }
+    v.mem=memAnalyse(v,j); memPlace(v); try{ fraudRefresh(); }catch(e){}
+  }catch(e){}
+}
+var memExtras0=extrasAfterRun;
+extrasAfterRun=function(v){ var r=memExtras0(v); setTimeout(function(){ memLoad(v); },400); return r; };
+var memRender0=renderA;
+renderA=function(v){ var h=memRender0(v); if(!v||!v.mem||v.sell) return h; var m=pMem(v); if(!m) return h; var at=h.indexOf('id="a-check"'); if(at<0) return h+m; var s=h.lastIndexOf('<section',at); return s<0?h+m:h.slice(0,s)+m+h.slice(s); };
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){

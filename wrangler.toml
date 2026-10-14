@@ -6,3 +6,9 @@ compatibility_date = "2025-01-01"
 [vars]
 # Only your own page may call this server from a browser.
 ALLOW_ORIGIN = "https://digitalcreatorhub.github.io"
+
+# CarScout memory: listings seen before (price and mileage over time). Created in Cloudflare > Storage & Databases > D1.
+[[d1_databases]]
+binding = "DB"
+database_name = "carscout-memory"
+database_id = "74f04bac-7736-4dcc-8e9f-32bb22123206"
