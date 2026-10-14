@@ -1,3 +1,0 @@
-403 1437 vin=0 cf=0 https://en.bidfax.info/chrysler/pacifica/13035837-chrysler-pacifica-touring-l-2022-gray-36l-vin-2c4rc1bg0nr117203.html
-403 1437 vin=0 cf=0 https://en.bidfax.info/index.php?do=search&subaction=search&story=2C4RC1BG0NR117203
-403 1437 vin=0 cf=0 https://bidfax.info/index.php?do=search&subaction=search&story=2C4RC1BG0NR117203

@@ -1,6 +1,0 @@
-      1 APP_VER='2026-10-13.2'
-      1 function kbFor
-      1 function lvT
-      1 id="lang-lv"
-      4 nav-find
-True 15 47 [('Audi A4 Kabriolets 2, 0L Dīzel', 305095), ('Audi A4 2.0L dīzelis , 140kW, ', 243163), ('Audi A4 3.0L Tdi Quattro Dīzel', 333076)]

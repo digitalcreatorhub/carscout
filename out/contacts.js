@@ -1,2 +1,0 @@
-ADS_STAT=[0,0,0,0,306];
-OPEN_STAT_LNK="EFsTE1UXEFU=";if( window.try_open_stat_lnk ){try_open_stat_lnk( 'lv' );}else{window.setTimeout("open_stat_lnk( 'lv' );",100);}PH_c = "_show_phone(0);";eval(PH_c);
