@@ -2323,7 +2323,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.21', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.22', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -4037,7 +4037,7 @@ var tgPollT=null;
 function tgWatchLink(ms){
   clearInterval(tgPollT); var t0=Date.now();
   var tick=function(){ var t=tgLoad(); if(!t||t.linked||!S.api||Date.now()-t0>(ms||240000)){ clearInterval(tgPollT); return; } if(document.visibilityState==='hidden') return;
-    fetch(S.api+'/api/tg/status?code='+t.code).then(function(r){return r.json()}).then(function(j){ if(j&&j.ok&&j.linked){ var c=tgLoad(); if(!c) return; c.linked=true; LS.set(KEY_TG,JSON.stringify(c)); clearInterval(tgPollT); tgPlace(); showStatus('ok',function(){return L('Telegram подключён: бот прислал подтверждение.','Telegram is connected: the bot sent a confirmation.','Telegram pieslēgts: bots atsūtīja apstiprinājumu.')}); } }).catch(function(){}); };
+    fetch(S.api+'/api/tg/status?code='+t.code).then(function(r){return r.json()}).then(function(j){ if(j&&j.error==='no_tg'){ var c0=tgLoad(); if(c0&&Date.now()-(c0.at||0)>60000){ c0.linked=true; LS.set(KEY_TG,JSON.stringify(c0)); tgPlace(); } clearInterval(tgPollT); return; } if(j&&j.ok&&j.linked){ var c=tgLoad(); if(!c) return; c.linked=true; LS.set(KEY_TG,JSON.stringify(c)); clearInterval(tgPollT); tgPlace(); showStatus('ok',function(){return L('Telegram подключён: бот прислал подтверждение.','Telegram is connected: the bot sent a confirmation.','Telegram pieslēgts: bots atsūtīja apstiprinājumu.')}); } }).catch(function(){}); };
   tgPollT=setInterval(tick,3000); setTimeout(tick,1500);
 }
 document.addEventListener('visibilitychange',function(){ var t=tgLoad(); if(document.visibilityState==='visible'&&t&&!t.linked) tgWatchLink(120000); });
