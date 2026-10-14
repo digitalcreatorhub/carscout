@@ -1,0 +1,3 @@
+Volkswagen Golf 2017 tracked 22 now {'end': 1792011951168, 'n': 22, 'med': 9850}
+Audi A6 2012 tracked 67 now {'end': 1792011951929, 'n': 67, 'med': 9450}
+Toyota RAV4 2019 tracked 51 now {'end': 1792011952419, 'n': 51, 'med': 22500}
