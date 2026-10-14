@@ -977,12 +977,15 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .tgb.on b{color:var(--good)}
 @media (max-width:760px){.tgb{grid-template-columns:1fr}}
 .tgb.wait{border-color:color-mix(in srgb,#f5b84b 50%,var(--line));background:color-mix(in srgb,#f5b84b 6%,transparent)}
-/* "Value my car" asks for attention softly until it has been tried */
-.modebar button.nudge{position:relative;color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent);animation:sellnudge 2.8s ease-in-out infinite}
+/* "Value my car" asks for attention softly until it has been tried: slow breathing glow and a light that circles the border without jumps */
+@property --nudge-a{syntax:'<angle>';inherits:false;initial-value:0deg}
+.modebar button.nudge{position:relative;color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent);animation:sellbreath 4.2s ease-in-out infinite alternate}
 .modebar button.nudge svg{color:var(--accent)}
-.modebar button.nudge::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:linear-gradient(90deg,transparent 0%,var(--accent) 50%,transparent 100%) 0 0/250% 100%;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:sellsweep 2.8s linear infinite;pointer-events:none;opacity:.9}
-@keyframes sellnudge{0%,100%{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent),0 0 0 0 transparent}50%{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 70%,transparent),0 0 16px -2px color-mix(in srgb,var(--accent) 45%,transparent)}}
-@keyframes sellsweep{from{background-position:150% 0}to{background-position:-100% 0}}
+.modebar button.nudge::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:conic-gradient(from var(--nudge-a),transparent 0deg,transparent 250deg,color-mix(in srgb,var(--accent) 55%,transparent) 310deg,var(--accent) 340deg,transparent 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:sellorbit 5s linear infinite}
+@keyframes sellbreath{from{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent),0 0 6px -4px color-mix(in srgb,var(--accent) 20%,transparent)}to{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 0 18px -4px color-mix(in srgb,var(--accent) 45%,transparent)}}
+@keyframes sellorbit{to{--nudge-a:360deg}}
 @media (prefers-reduced-motion:reduce){.modebar button.nudge,.modebar button.nudge::after{animation:none}}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
@@ -2330,7 +2333,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.23', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.24', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
