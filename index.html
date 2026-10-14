@@ -924,6 +924,7 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .hunt .hnewt{color:var(--good)}
 .hunt .tbl{margin-top:6px}
 </style>
+<script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
 <body>
 <nav class="rail" aria-label="Menu"><div class="rlogo" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0B0E12" stroke-width="2.4" stroke-linecap="round"><path d="M4 16l5-6 4 4 7-8"/></svg></div><button type="button" class="on" data-act="nav-top" title="Анализ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span class="rl" data-ru="Анализ" data-en="Analysis"></span></button><button type="button" data-act="nav-favs" title="Избранное"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span class="rl" data-ru="Избранное" data-en="Favourites"></span></button><button type="button" data-act="nav-compare" title="Сравнение"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/></svg><span class="rl" data-ru="Сравнение" data-en="Compare"></span></button><button type="button" data-act="nav-find" title="Выгодные"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="rl" data-ru="Выгодные" data-en="Deals" data-lv="Izdevīgie"></span></button><button type="button" data-act="nav-insp" title="Осмотр"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 12l2 2 4-4"/></svg><span class="rl" data-ru="Осмотр" data-en="Inspect" data-lv="Apskate"></span></button><button type="button" data-act="nav-hist" title="История"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4M12 7v5l3 2"/></svg><span class="rl" data-ru="История" data-en="History"></span></button><div class="sp"></div></nav>
@@ -1795,6 +1796,7 @@ async function run(){
     S.view=compute(car,results,f,notes);
     render();
     histAdd(S.view);
+    try{ var hs=(car.site||'').toLowerCase(); gcCount('check','Проверка машины',true); if(hs) gcCount('check-'+hs.replace(/[^a-z0-9.]+/g,''),'Проверка: '+hs,true); }catch(e){}
     try{ extrasAfterRun(S.view); }catch(e){}
     try{ var rp=document.getElementById('a-car'); if(rp) setTimeout(function(){ var y=rp.getBoundingClientRect().top+window.pageYOffset-(aMob()?70:20); window.scrollTo({top:Math.max(0,y),behavior:'smooth'}); },60); }catch(e){}
     showStatus(''); renderSrcs();
@@ -2251,7 +2253,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.11', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.12', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3635,6 +3637,29 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&S.apiOk){ try{ favAutoCheck(); huntAutoCheck(); }catch(e){} } });
 
+/* ======================= usage statistics (GoatCounter, no cookies, no personal data) ======================= */
+/* Only fixed names are sent: never the listing links, prices or anything typed. */
+var GC_Q=[];
+function gcCount(path,title,ev){
+  if(!/^https?:$/.test(location.protocol)||/^(localhost|127\.)/.test(location.hostname)) return;
+  GC_Q.push({path:path,title:title||path,event:!!ev});
+  var flush=function(){ if(!(window.goatcounter&&window.goatcounter.count)) return false; while(GC_Q.length){ try{ window.goatcounter.count(GC_Q.shift()); }catch(e){} } return true; };
+  if(!flush()&&!gcCount.t){ var n=0; gcCount.t=setInterval(function(){ if(flush()||++n>60){ clearInterval(gcCount.t); gcCount.t=null; } },500); }
+}
+function gcBoot(){
+  var standalone=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;
+  var q=location.search||'', kind=/[?&](title|text)=/.test(q)?'share-in':/[?&](url|mk)=/.test(q)?'link-in':'';
+  gcCount(standalone?'/app':'/',standalone?'Запуск установленного приложения':'Открытие в браузере',false);
+  if(kind) gcCount(kind,kind==='share-in'?'Объявление прислано через «Поделиться»':'Открыта ссылка на анализ',true);
+  var ib=document.getElementById('btn-install'); if(ib) ib.addEventListener('click',function(){ gcCount('install-click','Нажата кнопка «Установить»',true); });
+  window.addEventListener('appinstalled',function(){ gcCount('installed','Приложение установлено',true); });
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]'); if(!b) return; var a=b.getAttribute('data-act');
+  var M={'share-link':'Отправлена ссылка на анализ','fav-toggle':'Избранное','hunt-add':'Сохранён поиск','find-run':'Поиск выгодных','nav-insp':'Чек-лист осмотра','copy-msg':'Скопировано сообщение продавцу','print':'Печать / PDF'};
+  if(M[a]) gcCount(a,M[a],true);
+});
+
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]'); if(!b) return;
@@ -3695,6 +3720,7 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   applyLang(); apiDot('none');
   (function(){ var ft=document.querySelector('.foot'); if(ft){ var p=document.createElement('p'); p.className='mini'; p.innerHTML=''; var s=document.createElement('span'); s.id='app-ver'; var bt=document.createElement('button'); bt.type='button'; bt.className='btn sm'; bt.id='app-upd'; bt.setAttribute('data-act','refresh'); p.appendChild(s); p.appendChild(bt); ft.appendChild(p); s.textContent=L('Версия приложения: ','App version: ')+APP_VER+' '; bt.textContent=L('Обновить','Update'); } })();
   S.connP=(S.api||API_DEFAULT)?connect().then(function(ok){ if(ok){ favAutoCheck(); huntAutoCheck(); } return ok; }):Promise.resolve(false);
+  try{ gcBoot(); }catch(e){}
   try{ favBadge(); huntBadge(); bootLink(); }catch(e){}
   /* ---------- install as an app (PWA) ---------- */
 (function(){
