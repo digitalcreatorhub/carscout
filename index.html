@@ -987,7 +987,7 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
             <div class="fld"><label for="f-km" data-ru="Пробег, км" data-en="Mileage, km"></label><input class="in num" id="f-km" type="text" inputmode="numeric"></div>
             <div class="fld"><label for="f-price" data-ru="Цена, €" data-en="Price, €"></label><input class="in num" id="f-price" type="text" inputmode="numeric"></div>
           </div>
-          <div class="fld"><label for="f-trim" data-ru="Комплектация (R-Line, AMG Line, M Sport…)" data-en="Trim (R-Line, AMG Line, M Sport…)"></label><input class="in" id="f-trim" type="text" placeholder="R-Line"></div>
+          <div class="row2"><div class="fld"><label for="f-trim" data-ru="Комплектация (R-Line, AMG Line, M Sport…)" data-en="Trim (R-Line, AMG Line, M Sport…)"></label><input class="in" id="f-trim" type="text" placeholder="R-Line"></div><div class="fld"><label for="f-eng" data-ru="Объём двигателя, л" data-en="Engine size, l" data-lv="Motora tilpums, l"></label><input class="in num" id="f-eng" type="text" inputmode="decimal" placeholder="2.0"></div></div>
           <div class="row2">
             <div class="fld"><label for="f-fuel" data-ru="Топливо" data-en="Fuel"></label>
               <select class="in" id="f-fuel"><option value=""></option><option value="petrol">Petrol / Бензин</option><option value="diesel">Diesel / Дизель</option><option value="hybrid">Hybrid / Гибрид</option><option value="electric">Electric / Электро</option><option value="lpg">Petrol + LPG / Бензин + газ</option></select></div>
@@ -1599,7 +1599,7 @@ function autoSet(sel,v){
 }
 function readForm(){
   var y=fvInt('#f-year');
-  return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:fv('#f-vin'),make:fv('#f-make'),model:fv('#f-model'),trim:fv('#f-trim'),photos:!$('#f-photos')||$('#f-photos').checked,
+  return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:fv('#f-vin'),make:fv('#f-make'),model:fv('#f-model'),trim:fv('#f-trim'),eng:(function(){ var x=parseFloat(fv('#f-eng').replace(',','.')); return x>=0.6&&x<=8?Math.round(x*10)/10:null; })(),photos:!$('#f-photos')||$('#f-photos').checked,
     year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:fvInt('#f-km'),price:fvInt('#f-price'),fuel:fv('#f-fuel'),market:$('#f-market').value,
     extra:$('#f-extra').value.split(/\s+/).map(function(s){return s.trim()}).filter(function(s){return /^https?:\/\//i.test(s)}).slice(0,4)};
 }
@@ -1702,6 +1702,7 @@ async function run(){
     var man={make:f.make,model:f.model,year:f.year,km:f.km,price:f.price,fuel:f.fuel,vin:f.vin};
     Object.keys(man).forEach(function(k){ if(man[k]!=null&&man[k]!==''){ car[k]=man[k]; car.src[k]='manual'; } });
     if(S.manualGear){ car.gear=S.manualGear; car.src.gear='manual'; }
+    if(f.eng){ car.engineL=f.eng; car.src.engine='manual'; } else if(car.engineL) car.src.engine=car.src.engine||'table';
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year},'link');
     /* ss.com lists less common brands (GWM, BYD, ...) under "Others": take the real make from the ad text */
@@ -1733,7 +1734,7 @@ async function run(){
     autoSet('#f-trim',(car.trims||[]).map(trimDisplay).join(', '));
     var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1){ car.year=vd.years[0]; car.src.year='vin'; }
     /* fill the form so the user can fix it */
-    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin);
+    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin); (function(){ var e=engineOf(car); if(e&&!car.engineL){ car.engineL=e; car.src.engine='text'; } autoSet('#f-eng',e?e.toFixed(1):''); })();
     renderVinLive();
     if(!car.make||!car.model||!car.year){
       $('#manual').open=true;
@@ -1803,6 +1804,8 @@ function pickRelevant(items,car){
   }
   if(tol>2) tol=2;
   if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===car.fuel}); if(same.length>=5) sel=same; }
+  var engN=null; if(car.engineL&&!isEvCar(car)){ var itemEng=function(i){ if(i.engine_l) return +i.engine_l; var m=String(i.title||'').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m?parseFloat(m[1].replace(',','.')):null; };
+    var sameE=sel.filter(function(i){ var e=itemEng(i); return e!=null&&Math.abs(e-car.engineL)<=0.15; }); if(sameE.length>=5){ sel=sameE; engN=sameE.length; } }
   var med=median(sel.map(function(i){return i.price})); if(med) sel=sel.filter(function(i){return i.price>=med*0.4&&i.price<=med*2.5});
   var pre=sel, trimNote=null, mine=car.trims||[];
   if(mine.length){
@@ -1812,7 +1815,7 @@ function pickRelevant(items,car){
     var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title,car.make))});
     if(plain.length>=6&&plain.length<sel.length){ sel=plain; trimNote={mode:'plain',n:plain.length}; }
   }
-  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote};
+  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote,engN:engN};
 }
 function fairOf(st){
   if(!st) return null;
@@ -1827,7 +1830,7 @@ function compute(car,results,f,notes){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:(function(){return errText(j)}),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
       var pr=pickRelevant((j.items||[]).map(function(i){return Object.assign({src:r.label,region:r.region},i)}),car);
-      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote;
+      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN;
       row.stats=compStats(pr.items.map(function(i){return {price:i.price,km:i.km}}),{km:car.km});
       row.fair=fairOf(row.stats);
       if(row.fair&&row.n>=3&&car.price>0&&(row.fair.mid<car.price*0.45||row.fair.mid>car.price*2.2)){
@@ -1846,6 +1849,7 @@ function compute(car,results,f,notes){
   var solid=function(r){return r.fair&&r.n>=5};
   var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
   if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push((function(){return L('В '+rloc(want)+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку '+rgen(home.region)+(FAR[home.region]?' (цены без учёта ввоза: доставка и регистрация добавят примерно 800–1500 €)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(FAR[home.region]?' (prices before import costs)':'')+'.')})); }
+  if(home&&home.engN){ var eN=home.engN, eL=car.engineL; notes.push(function(){ return L('Сравнение только с машинами с тем же объёмом двигателя ('+eL.toFixed(1)+' л): '+eN+' объявл.','Compared only with cars with the same engine size ('+eL.toFixed(1)+' l): '+eN+' ads','Salīdzināts tikai ar auto ar tādu pašu motora tilpumu ('+eL.toFixed(1)+' l): '+eN+' sludin.'); }); }
   var fair=home?home.fair:null, ver=verdictOf(car.price,fair?fair.mid:null), score=ver.delta!=null?priceScore(ver.delta):null;
   if(home&&home.fair&&!(home.stats&&home.stats.reg)&&car.km!=null){
     var hk=median(home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km}));
@@ -2231,7 +2235,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER='2026-10-14.7', KEY_FAVS='carscout_favs';
+var APP_VER='2026-10-14.8', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2676,17 +2680,19 @@ function pCheck(v){
     sel('c-fuel',L('Топливо','Fuel'),fuelVal,'fuel',[['',L('не указано','not set')],['petrol',L('Бензин','Petrol')],['diesel',L('Дизель','Diesel')],['hybrid',L('Гибрид','Hybrid')],['electric',L('Электро','Electric')],['lpg',L('Бензин + газ','Petrol + LPG')]])+
     sel('c-gear',L('Коробка','Gearbox'),c.gear,'gear',[['',L('не указано','not set')],['automatic',L('Автомат','Automatic')],['manual',L('Механика','Manual')]])+
     inp('c-trim',L('Комплектация','Trim'),(c.trims||[]).map(trimDisplay).join(', '),'trims')+
+    (isEvCar(c)?'':inp('c-eng',L('Объём двигателя, л','Engine size, l','Motora tilpums, l'),engineOf(c)?engineOf(c).toFixed(1):'','engine'))+
     '<div class="cf cvin"><label for="c-vin">VIN</label><input class="in mono" id="c-vin" type="text" maxlength="20" autocapitalize="characters" spellcheck="false" placeholder="'+esc(L('вставьте VIN из объявления','paste the VIN from the ad','ielīmējiet VIN no sludinājuma'))+'" value="'+esc(c.vin||'')+'" data-orig="'+esc(c.vin||'')+'">'+(c.vin?tag('vin',c.vin)+'<span class="vinl">'+esc(L('Проверить VIN: ','Check the VIN: ','Pārbaudīt VIN: '))+'<a href="https://www.google.com/search?q='+encodeURIComponent(c.vin)+'" target="_blank" rel="noopener noreferrer">Google ↗</a> <a href="https://en.bidfax.info/index.php?do=search&subaction=search&story='+encodeURIComponent(c.vin)+'" target="_blank" rel="noopener noreferrer">Bidfax ↗</a></span>':'<span class="stag" id="c-vin-hint">'+esc(/ss\.(com|lv)\//.test(c.url||'')?L('на ss.lv VIN скрыт: нажмите «Показать VIN» в объявлении','on ss.lv the VIN is hidden: press “Show VIN” in the ad','ss.lv VIN ir paslēpts: sludinājumā nospiediet «Parādīt VIN»'):L('не найдено','not found'))+'</span>')+'</div></div>'+
     '<div class="abtns"><button class="btn sm pri" type="button" data-act="recheck">'+esc(L('Пересчитать с исправлениями','Recalculate with corrections'))+'</button><span class="anote" style="align-self:center">'+esc(L('Если всё верно, ничего делать не нужно: сравнение уже выполнено по этим данным.','If everything is right, nothing to do: the comparison already uses these data.'))+'</span></div>');
 }
 function applyCheck(){
   var ch=function(id){ var el=document.getElementById(id); return !!el&&String(el.value||'').trim()!==String(el.getAttribute('data-orig')||'').trim(); };
   var g=function(id){ var el=document.getElementById(id); return el?String(el.value||'').trim():''; };
-  var ids=['c-make','c-model','c-year','c-km','c-price','c-fuel','c-trim','c-gear','c-vin'];
+  var ids=['c-make','c-model','c-year','c-km','c-price','c-fuel','c-trim','c-gear','c-vin','c-eng'];
   if(ch('c-vin')){ var vv=g('c-vin').toUpperCase().replace(/[^A-Z0-9]/g,''); if(vv&&(vv.length!==17||/[IOQ]/.test(vv))){ showStatus('err',function(){return L('VIN должен состоять из 17 символов без букв I, O, Q. Сейчас: '+vv.length+'.','The VIN must have 17 characters without the letters I, O, Q. Now: '+vv.length+'.','VIN jābūt 17 rakstzīmēm bez burtiem I, O, Q. Tagad: '+vv.length+'.')}); var ve=document.getElementById('c-vin'); if(ve) ve.focus(); return; } }
   if(!ids.some(ch)){ showStatus('info',function(){return L('Вы ничего не изменили: эти данные уже учтены.','Nothing changed: these data are already used.')}); return; }
   var set=function(sel,id,num){ if(!ch(id)) return; var el=$(sel); if(!el) return; var val=g(id); el.value=num?val.replace(/[^\d]/g,''):val; el.dataset.auto=''; };
   if(ch('c-vin')){ var fv0=$('#f-vin'); if(fv0){ fv0.value=g('c-vin').toUpperCase().replace(/[^A-Z0-9]/g,''); fv0.dataset.auto=''; } }
+  if(ch('c-eng')){ var fe0=$('#f-eng'); if(fe0){ fe0.value=g('c-eng').replace(',','.'); fe0.dataset.auto=''; } }
   set('#f-make','c-make'); set('#f-model','c-model'); set('#f-year','c-year',1); set('#f-km','c-km',1); set('#f-price','c-price',1); set('#f-fuel','c-fuel'); set('#f-trim','c-trim');
   if(ch('c-gear')) S.manualGear=g('c-gear')||null;
   window.scrollTo({top:0,behavior:'smooth'}); run();
