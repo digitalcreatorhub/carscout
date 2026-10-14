@@ -923,6 +923,99 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .hunt tr.hnew td{background:color-mix(in srgb,var(--good) 7%,transparent)}
 .hunt .hnewt{color:var(--good)}
 .hunt .tbl{margin-top:6px}
+/* ===== future visuals: scan log, tilt, forecast, radar, body scheme ===== */
+.scanlog{margin-top:10px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:12px;background:linear-gradient(180deg,rgba(198,242,78,.05),rgba(0,0,0,.25));padding:10px 12px 8px;font:500 12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--dim);overflow:hidden;position:relative;transition:opacity .6s ease,max-height .6s ease;max-height:420px}
+.scanlog::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px);pointer-events:none}
+.scanlog.out{opacity:0;max-height:0;padding-top:0;padding-bottom:0;margin-top:0;border-width:0}
+.scanlog .vzl-h{display:flex;justify-content:space-between;letter-spacing:.14em;font-size:10.5px;color:var(--accent);text-shadow:0 0 8px color-mix(in srgb,var(--accent) 55%,transparent)}
+.scanlog .vzl-t{font-variant-numeric:tabular-nums}
+.scanlog .vzl-bar{height:2px;background:var(--line);border-radius:2px;margin:6px 0 6px;overflow:hidden}
+.scanlog .vzl-bar i{display:block;height:100%;width:8%;background:var(--accent);box-shadow:0 0 10px var(--accent);transition:width .35s ease}
+.scanlog .vzl-r{display:flex;align-items:center;gap:0;white-space:nowrap;animation:slin .35s ease both}
+.scanlog .vzl-p{color:var(--accent);margin-right:8px;flex:none}
+.scanlog .vzl-n{flex:none;overflow:hidden;text-overflow:ellipsis;max-width:70%}
+.scanlog .vzl-d{flex:1;min-width:16px;margin:0 8px;height:1px;border-bottom:1px dotted rgba(255,255,255,.18);transform:translateY(2px)}
+.scanlog .vzl-v{flex:none;font-variant-numeric:tabular-nums}
+.scanlog .vzl-r[data-s=run] .vzl-n{color:var(--ink)}
+.scanlog .vzl-r[data-s=ok] .vzl-n{color:color-mix(in srgb,var(--ink) 70%,transparent)}
+.scanlog .vzl-r[data-s=fin]{color:var(--ink);margin-top:2px}
+.scanlog .vzl-r[data-s=fin] .vzl-d{display:none}
+.scanlog .vzl-ok{color:var(--good);font-weight:700}
+.scanlog .vzl-bad{color:var(--bad);font-weight:700}
+.scanlog .vzl-cur{display:inline-block;width:7px;height:12px;vertical-align:-1px;background:var(--accent);animation:slcur 1s steps(2) infinite}
+.sspin{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid color-mix(in srgb,var(--accent) 30%,transparent);border-top-color:var(--accent);animation:slspin .7s linear infinite;vertical-align:-1px}
+@keyframes slin{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@keyframes slcur{50%{opacity:0}}
+@keyframes slspin{to{transform:rotate(360deg)}}
+.vz-tilt{transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .45s cubic-bezier(.2,.8,.2,1);will-change:transform}
+.vz-tilt.vz-tilt-on{transition:transform .08s linear}
+/* forecast */
+#a-fcast .fc-k{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:4px 0 8px}
+#a-fcast .fc-k dt{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+#a-fcast .fc-k dd{margin:2px 0 0;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+#a-fcast .fc-k dd.dn{color:var(--bad)}
+#a-fcast .fc-k small{color:var(--dim);font-size:11.5px}
+.fc-wrap{position:relative}
+.fc-svg{width:100%;height:auto;display:block;overflow:visible}
+.fc-grid{stroke:var(--line);stroke-width:1}
+.fc-vt{stroke:var(--line);stroke-dasharray:2 4}
+.fc-ax{fill:var(--dim);font-size:10.5px;font-family:Inter,system-ui,sans-serif}
+.fc-cone{opacity:0;animation:fcfade 1s .35s ease forwards}
+.fc-edge{fill:none;stroke:var(--accent);stroke-opacity:.35;stroke-width:1;stroke-dasharray:3 4}
+.fc-mid{fill:none;stroke:var(--accent);stroke-width:2.4;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100;animation:fcdraw 1.3s .2s cubic-bezier(.2,.8,.2,1) forwards}
+.fc-pt{fill:#0B0E12;stroke:var(--accent);stroke-width:2.2;filter:drop-shadow(0 0 6px var(--accent))}
+.fc-ev{fill:var(--ink);fill-opacity:.85;stroke:#0B0E12;stroke-width:1.5}
+.fc-ask{fill:none;stroke:var(--ink);stroke-width:2}
+.fc-lb{fill:var(--ink);font-size:11.5px;font-weight:600;font-family:Inter,system-ui,sans-serif;paint-order:stroke;stroke:#0B0E12;stroke-width:3px}
+.fc-scan{stroke:var(--accent);stroke-width:1.2;opacity:0;filter:drop-shadow(0 0 4px var(--accent))}
+#a-fcast.vz-in .fc-scan{animation:fcscan 2.2s .3s ease-in-out 1}
+.fc-wait{padding:30px 0;color:var(--dim);text-align:center}
+@keyframes fcdraw{to{stroke-dashoffset:0}}
+@keyframes fcfade{to{opacity:1}}
+@keyframes fcscan{0%{opacity:0;transform:translateX(0)}10%{opacity:.9}90%{opacity:.9}100%{opacity:0;transform:translateX(486px)}}
+/* radar */
+.rd-wrap{display:flex;justify-content:center}
+.rd-svg{width:100%;max-width:420px;height:auto;overflow:visible}
+.rd-ring{fill:none;stroke:var(--line)}
+.rd-ring.mid{stroke:var(--line2,rgba(255,255,255,.18))}
+.rd-ax{stroke:var(--line)}
+.rd-mkt{fill:none;stroke:var(--dim);stroke-dasharray:4 4;stroke-width:1.2}
+.rd-car{stroke:var(--accent);stroke-width:2;stroke-linejoin:round;transform-origin:150px 146px;transform:scale(.2);opacity:0;animation:rdgrow 1s .25s cubic-bezier(.2,.8,.2,1) forwards}
+.rd-pt{fill:#0B0E12;stroke:var(--accent);stroke-width:2;opacity:0;animation:fcfade .4s 1s ease forwards}
+.rd-pt.gd{stroke:var(--good)} .rd-pt.bd{stroke:var(--bad)} .rd-pt.na{stroke:var(--dim)}
+.rd-lb{fill:var(--ink);font-size:11px;font-weight:600;font-family:Inter,system-ui,sans-serif}
+.rd-v{fill:var(--dim);font-weight:500;font-size:10px}
+.rd-v.gd{fill:var(--good)} .rd-v.bd{fill:var(--bad)}
+.rd-sweep{transform-origin:150px 146px;animation:rdsweep 4.5s linear infinite}
+.rd-sweep path{fill:var(--accent);opacity:.07}
+.rd-key{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.rd-key.car{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.rd-key.mkt{background:repeating-linear-gradient(90deg,var(--dim) 0 4px,transparent 4px 7px)}
+@keyframes rdgrow{to{transform:scale(1);opacity:1}}
+@keyframes rdsweep{to{transform:rotate(360deg)}}
+/* body scheme */
+.bd-wrap{margin:2px 0 10px;border:1px solid var(--line);border-radius:12px;background:radial-gradient(120% 90% at 50% 100%,rgba(198,242,78,.06),transparent 60%);padding:6px 6px 2px}
+.bd-svg{width:100%;height:auto;display:block}
+.bd-grid{stroke:rgba(255,255,255,.035)}
+.bd-floor{stroke:var(--accent);stroke-opacity:.35;stroke-dasharray:2 3}
+.bd-body{stroke:var(--accent);stroke-width:1.6;stroke-linejoin:round;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--accent) 55%,transparent));stroke-dasharray:100;stroke-dashoffset:0}
+.vz-in .bd-body{stroke-dashoffset:100;animation:fcdraw 1.6s .1s cubic-bezier(.4,0,.2,1) forwards}
+.bd-win{fill:rgba(198,242,78,.06);stroke:var(--accent);stroke-opacity:.45;stroke-width:1}
+.bd-wheel{fill:#0B0E12;stroke:var(--accent);stroke-opacity:.7;stroke-width:1.4}
+.bd-hub{fill:none;stroke:var(--accent);stroke-opacity:.35}
+.bd-scan{fill:url(#bdg);opacity:.9;animation:bdscan 3.6s 1s ease-in-out infinite}
+.bd-scan{fill:rgba(198,242,78,.16)}
+.bd-pt{cursor:pointer}
+.bd-pt .bd-dot{fill:var(--bad);stroke:#0B0E12;stroke-width:1.5}
+.bd-pt .bd-pulse{fill:none;stroke:var(--bad);stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:bdpulse 1.8s ease-out infinite}
+.bd-pt text{fill:#fff;font:700 8.5px Inter,system-ui,sans-serif;pointer-events:none}
+.bd-pt.on .bd-dot{fill:var(--accent)} .bd-pt.on .bd-pulse{stroke:var(--accent)} .bd-pt.on text{fill:#0B0E12}
+#a-weak li .bd-n{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--bad);color:#fff;font-size:10.5px;line-height:1;margin-right:6px;vertical-align:1px}
+#a-weak li.bd-on{background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:8px}
+#a-weak li.bd-on .bd-n{background:var(--accent);color:#0B0E12}
+@keyframes bdscan{0%{transform:translateX(0)}50%{transform:translateX(360px)}100%{transform:translateX(0)}}
+@keyframes bdpulse{0%{transform:scale(.7);opacity:.9}100%{transform:scale(2.1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.scanlog .vzl-r,.scanlog .vzl-cur,.sspin,.fc-mid,.fc-cone,.rd-car,.rd-pt,.rd-sweep,.bd-scan,.bd-pt .bd-pulse,.vz-in .bd-body{animation:none!important;opacity:1!important;transform:none!important;stroke-dashoffset:0!important}.vz-tilt{transform:none!important}}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2253,7 +2346,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.12', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.13', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2739,6 +2832,7 @@ function renderA(v){
     if(sc&&hi){ h.push(sc); h.push(hi); } else if(sc){ h.push(sc.replace('class="ap c8"','class="ap c12"')); } else if(hi){ h.push(hi.replace('class="ap c4"','class="ap c12"')); }
     var mk=pMarkets(v), pl=pPlan(v);
     if(mk&&pl){ h.push(mk); h.push(pl); } else { if(mk) h.push(mk.replace('class="ap c7"','class="ap c12"')); if(pl) h.push(pl.replace('class="ap c5"','class="ap c12"')); }
+    var fcp=pFcast(v), rdp=pRadar(v); if(fcp&&rdp){ h.push(fcp); h.push(rdp); } else if(rdp) h.push(rdp.replace('class="ap c5"','class="ap c12"')); else if(fcp) h.push(fcp.replace('class="ap c7"','class="ap c12"'));
     h.push(pTrims(v)); h.push(pFlags(v));
     var nr=pNear(v); h.push(nr?pChecks(v):pChecks(v).replace('class="ap c6"','class="ap c12"')); if(nr) h.push(nr);
     h.push(aWrap(secMsg(v),'c6')); h.push(aWrap(secCalc(v),'c6'));
@@ -3659,6 +3753,265 @@ document.addEventListener('click',function(e){
   var M={'share-link':'Отправлена ссылка на анализ','fav-toggle':'Избранное','hunt-add':'Сохранён поиск','find-run':'Поиск выгодных','nav-insp':'Чек-лист осмотра','copy-msg':'Скопировано сообщение продавцу','print':'Печать / PDF'};
   if(M[a]) gcCount(a,M[a],true);
 });
+
+/* ======================= future-style visualisations: scan log, tilt cards, price forecast, radar, body scheme ======================= */
+var VZ_RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function vzClamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+
+/* ---------- 1. live scan log while a check runs ---------- */
+var VZ={on:false,t0:0,stages:[],timer:null,box:null};
+function vzLogBox(){
+  var b=document.getElementById('scanlog'); if(b) return b;
+  var st=document.getElementById('srcs')||document.getElementById('status'); if(!st) return null;
+  b=document.createElement('div'); b.id='scanlog'; b.className='scanlog'; b.setAttribute('aria-hidden','true'); st.parentNode.insertBefore(b,st.nextSibling); return b;
+}
+function vzStageText(msg){ var t=typeof msg==='function'?msg():msg; return String(t||'').replace(/\s*·\s*\d+\s*(c|s|с|sek\.?)$/i,'').replace(/\s*·\s*\d+%$/,'').trim(); }
+function vzLogStart(){
+  var b=vzLogBox(); if(!b) return; VZ.on=true; VZ.t0=Date.now(); VZ.stages=[]; VZ.done=false; b.innerHTML=''; b.classList.remove('out'); b.hidden=false;
+  clearInterval(VZ.timer); VZ.timer=setInterval(function(){ if(!S.busy){ vzLogEnd(); return; } vzLogDraw(); },120);
+}
+function vzLogEnd(){
+  clearInterval(VZ.timer); VZ.timer=null; if(!VZ.on) return; VZ.on=false; VZ.done=true; vzLogDraw();
+  var b=document.getElementById('scanlog'); if(!b) return;
+  setTimeout(function(){ if(!VZ.on){ b.classList.add('out'); setTimeout(function(){ if(!VZ.on){ b.hidden=true; b.innerHTML=''; } },650); } },VZ_RM?600:1800);
+}
+function vzLogDraw(){
+  var b=document.getElementById('scanlog'); if(!b) return;
+  var rows=Object.keys(S.srcRows||{}).map(function(k){ return [k,S.srcRows[k]]; }), sec=((Date.now()-VZ.t0)/1000).toFixed(1);
+  var done=rows.filter(function(r){return r[1].state!=='run'}).length, tot=rows.length, found=rows.reduce(function(a,r){return a+(r[1].state==='ok'&&r[1].n?r[1].n:0)},0);
+  if(!b.firstChild){ b.innerHTML='<div class="vzl-h"><span>CARSCOUT · SCAN</span><span class="vzl-t"></span></div><div class="vzl-bar"><i></i></div><div class="vzl-l"></div>'; }
+  b.querySelector('.vzl-t').textContent=sec+' s';
+  b.querySelector('.vzl-bar i').style.width=(tot?Math.round(done/tot*100):(VZ.done?100:8))+'%';
+  var list=b.querySelector('.vzl-l'), want=[];
+  VZ.stages.forEach(function(s,i){ var last=i===VZ.stages.length-1&&!tot&&!VZ.done; want.push(['s'+i,s,last?'<i class="vzl-cur"></i>':'<b class="vzl-ok">✓</b>',last?'run':'ok']); });
+  rows.forEach(function(r){ var x=r[1], st=x.state==='run'?'<i class="sspin"></i>':x.state==='ok'?'<b class="vzl-ok">'+(x.n!=null?x.n:'✓')+'</b>':'<b class="vzl-bad">'+esc(L('закрыт','blocked','slēgts'))+'</b>'; want.push(['r'+r[0],srcShort(x.label),st,x.state]); });
+  if(VZ.done) want.push(['fin',L('Готово: ','Done: ','Gatavs: ')+found+L(' объявлений за ',' listings in ',' sludinājumi ')+sec+' s','','fin']);
+  want.forEach(function(w){
+    var el=list.querySelector('[data-k="'+w[0]+'"]');
+    if(!el){ el=document.createElement('div'); el.className='vzl-r'; el.setAttribute('data-k',w[0]); el.innerHTML='<span class="vzl-p">'+(w[0]==='fin'?'✓':'›')+'</span><span class="vzl-n"></span><span class="vzl-d"></span><span class="vzl-v"></span>'; list.appendChild(el); }
+    el.setAttribute('data-s',w[3]);
+    var n=el.querySelector('.vzl-n'); if(n.textContent!==w[1]) n.textContent=w[1];
+    var v=el.querySelector('.vzl-v'); if(v.getAttribute('data-h')!==w[2]){ v.setAttribute('data-h',w[2]); v.innerHTML=w[2]; }
+  });
+  [].slice.call(list.children).forEach(function(el){ if(!want.some(function(w){return w[0]===el.getAttribute('data-k')})) el.remove(); });
+}
+var vzShowStatus0=showStatus;
+showStatus=function(kind,msg,stop){
+  vzShowStatus0(kind,msg,stop);
+  try{
+    if(kind==='busy'&&S.busy){ if(!VZ.on) vzLogStart(); var t=vzStageText(msg); if(t&&VZ.stages[VZ.stages.length-1]!==t) { VZ.stages.push(t); if(VZ.stages.length>4) VZ.stages.shift(); } }
+  }catch(e){}
+};
+
+/* ---------- 2. tilt cards: follow the pointer, or the phone's tilt ---------- */
+var VZ_TILT='#a-car,#a-verdict,#a-kpis .kpi,#a-radar,#a-fcast,#a-plan';
+(function(){
+  if(VZ_RM) return;
+  var cur=null;
+  var set=function(el,rx,ry,gx,gy){ el.style.setProperty('--rx',rx.toFixed(2)+'deg'); el.style.setProperty('--ry',ry.toFixed(2)+'deg'); el.style.setProperty('--gx',gx+'%'); el.style.setProperty('--gy',gy+'%'); };
+  var reset=function(el){ if(!el) return; el.classList.remove('vz-tilt-on'); set(el,0,0,50,30); };
+  document.addEventListener('pointermove',function(e){
+    var el=e.target&&e.target.closest&&e.target.closest(VZ_TILT); if(cur&&cur!==el){ reset(cur); cur=null; } if(!el) return;
+    var r=el.getBoundingClientRect(), x=(e.clientX-r.left)/r.width, y=(e.clientY-r.top)/r.height, k=el.matches('#a-kpis .kpi')?6:3.2;
+    el.classList.add('vz-tilt','vz-tilt-on'); cur=el; set(el,(0.5-y)*k,(x-0.5)*k,Math.round(x*100),Math.round(y*100));
+  },{passive:true});
+  document.addEventListener('pointerleave',function(){ reset(cur); cur=null; },{passive:true});
+  document.addEventListener('pointerup',function(e){ if(e.pointerType!=='mouse'){ var c=cur; setTimeout(function(){ if(c===cur){ reset(cur); cur=null; } },700); } },{passive:true});
+  /* phones: the whole report leans slightly with the device */
+  var base=null, raf=0, last={b:0,g:0};
+  var onOri=function(e){ if(e.beta==null||e.gamma==null) return; if(!base) base={b:e.beta,g:e.gamma}; last={b:vzClamp(e.beta-base.b,-25,25),g:vzClamp(e.gamma-base.g,-25,25)};
+    if(raf) return; raf=requestAnimationFrame(function(){ raf=0; document.querySelectorAll(VZ_TILT).forEach(function(el){ if(el===cur) return; el.classList.add('vz-tilt'); set(el,-last.b*0.12,last.g*0.14,Math.round(50+last.g*1.6),Math.round(30+last.b*1.4)); }); }); };
+  var coarse=window.matchMedia&&matchMedia('(pointer: coarse)').matches;
+  if(coarse&&window.DeviceOrientationEvent){
+    if(typeof DeviceOrientationEvent.requestPermission==='function'){
+      /* iPhone: the motion sensor needs one tap of consent; it is asked only when the car card is tapped */
+      document.addEventListener('click',function ask(e){ if(!e.target.closest('#a-car')) return; document.removeEventListener('click',ask,true);
+        DeviceOrientationEvent.requestPermission().then(function(s){ if(s==='granted') window.addEventListener('deviceorientation',onOri); }).catch(function(){}); },true);
+    } else window.addEventListener('deviceorientation',onOri);
+    document.addEventListener('visibilitychange',function(){ base=null; });
+  }
+})();
+
+/* ---------- 4. price forecast: how this car loses value (from today's prices of older cars) ---------- */
+function vzSolve(A,b){
+  var n=b.length, M=A.map(function(r,i){ return r.concat([b[i]]); });
+  for(var c=0;c<n;c++){ var p=c; for(var r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[p][c])) p=r; if(Math.abs(M[p][c])<1e-9) return null; var t=M[c]; M[c]=M[p]; M[p]=t;
+    for(var r2=0;r2<n;r2++){ if(r2===c) continue; var f=M[r2][c]/M[c][c]; if(!f) continue; for(var k=c;k<=n;k++) M[r2][k]-=f*M[c][k]; } }
+  return M.map(function(r,i){ return r[n]/r[i]; });
+}
+function vzItems(v){
+  var c=v.car, f=c.fuel==='lpg'?'petrol':c.fuel, seen={}, out=[];
+  var add=function(region,i){ if(!i||!(i.price>500)||!i.year||!(i.km>=1000)) return; if(i.year<c.year-9||i.year>c.year+2) return;
+    var fi=i.fuel==='lpg'?'petrol':i.fuel; if(f&&fi&&fi!==f) return; var id=listingId(i.url)||i.url; if(seen[id]) return; seen[id]=1; out.push({r:region,year:i.year,km:i.km,price:i.price}); };
+  (S.lastResults||[]).forEach(function(r){ if(FAR[r.region]&&r.region!=='DE') return; ((r.j&&r.j.items)||[]).forEach(function(i){ add(r.region,i); }); });
+  (v.fcExtra||[]).forEach(function(i){ add('DE',i); });
+  return out;
+}
+function vzFit(v){
+  var c=v.car; if(!c.year) return null;
+  var it=vzItems(v), cnt={}; it.forEach(function(i){ cnt[i.r]=(cnt[i.r]||0)+1; });
+  var regs=Object.keys(cnt).filter(function(r){return cnt[r]>=6}); it=it.filter(function(i){return regs.indexOf(i.r)>-1});
+  var yrs={}; it.forEach(function(i){yrs[i.year]=1}); var yk=Object.keys(yrs).map(Number);
+  if(it.length<30||yk.length<4||Math.max.apply(null,yk)-Math.min.apply(null,yk)<4) return null;
+  var ckm=c.km!=null?c.km:median(it.map(function(i){return i.km}));
+  var fit=function(rows){
+    var X=rows.map(function(i){ return regs.map(function(r){return i.r===r?1:0}).concat([i.year-c.year,(i.km-ckm)/1e4]); }), y=rows.map(function(i){return Math.log(i.price)}), p=X[0].length;
+    var A=[],bb=[]; for(var a=0;a<p;a++){ A.push([]); bb.push(0); for(var d=0;d<p;d++) A[a].push(0); }
+    X.forEach(function(x,k){ for(var a=0;a<p;a++){ bb[a]+=x[a]*y[k]; for(var d=0;d<p;d++) A[a][d]+=x[a]*x[d]; } });
+    var w=vzSolve(A,bb); if(!w) return null;
+    var res=X.map(function(x,k){ var s=0; for(var a=0;a<p;a++) s+=x[a]*w[a]; return y[k]-s; });
+    return {w:w,res:res,sd:Math.sqrt(res.reduce(function(a,r){return a+r*r},0)/Math.max(1,res.length-p))};
+  };
+  var F=fit(it); if(!F) return null;
+  var keep=it.filter(function(i,k){return Math.abs(F.res[k])<2.5*F.sd}); if(keep.length>=25){ var F2=fit(keep); if(F2){ F=F2; it=keep; } }
+  var bY=F.w[regs.length], bK=F.w[regs.length+1];
+  if(!(bY>0.01)||!(bK<0.02)) return null;
+  var age=Math.max(0.5,(new Date().getFullYear()-c.year)+0.5), kpy=c.km!=null?vzClamp(c.km/age,7000,35000):15000;
+  var lf=-bY+Math.min(0,bK)*kpy/1e4, rate=1-Math.exp(lf);
+  if(!(rate>0.015&&rate<0.4)) return null;
+  var P0=v.fair&&v.fair.mid?v.fair.mid:null; if(!P0) return null;
+  var home=v.home&&v.home.region, pts=[];
+  for(var k=1;k<=3;k++){ var ex=it.filter(function(i){ return i.year===c.year-k&&(!home||i.r===home||regs.length===1); }).map(function(i){ return i.price*Math.exp(Math.min(0,bK)*((ckm+kpy*k)-i.km)/1e4); });
+    if(ex.length>=3) pts.push({k:k,p:median(ex),n:ex.length}); }
+  var at=function(k){ var m=P0*Math.exp(lf*k), w=Math.min(0.42,0.03*k+0.35*F.sd*Math.sqrt(k)); return {m:m,lo:m*Math.exp(-w),hi:m*Math.exp(w)}; };
+  return {rate:rate,kpy:kpy,P0:P0,at:at,pts:pts,n:it.length,years:yk.length,sd:F.sd};
+}
+function pFcast(v){
+  if(!v.fcInit){ v.fcInit=true; v.fcast=vzFit(v); if(!v.fcast&&S.api&&v.car.year) v.fcastState='run'; }
+  var F=v.fcast;
+  if(!F){ if(v.fcastState==='run') return aPanel('a-fcast','c7',aHead(L('Прогноз цены','Price forecast','Cenas prognoze'),aMeta(L('считаю…','calculating…','aprēķinu…'))),'<div class="fc-wait"><i class="sspin"></i> '+esc(L('Собираю цены машин разных лет…','Collecting prices of cars of different years…','Vācu dažādu gadu auto cenas…'))+'</div>'); return ''; }
+  var c=v.car, Y=new Date().getFullYear(), W=560, H=230, pl=56, pr=18, pt=18, pb=34, ks=[0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3];
+  var a3=F.at(3), ask=c.price||null;
+  var top=Math.max(F.at(0).hi,ask||0,F.pts.reduce(function(a,p){return Math.max(a,p.p)},0))*1.06, bot=Math.min(a3.lo,F.pts.reduce(function(a,p){return Math.min(a,p.p)},Infinity))*0.9;
+  var X=function(k){ return pl+(W-pl-pr)*k/3; }, Yp=function(p){ return pt+(H-pt-pb)*(1-(p-bot)/(top-bot)); };
+  var up=ks.map(function(k){ var a=F.at(k); return X(k).toFixed(1)+','+Yp(a.hi).toFixed(1); }), dn=ks.slice().reverse().map(function(k){ var a=F.at(k); return X(k).toFixed(1)+','+Yp(a.lo).toFixed(1); });
+  var mid=ks.map(function(k,i){ return (i?'L':'M')+X(k).toFixed(1)+','+Yp(F.at(k).m).toFixed(1); }).join(' ');
+  var nt=niceTicks(bot,top,4), ticks=nt&&nt.ticks||[];
+  var g='<svg class="fc-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(L('Прогноз цены на 3 года','3-year price forecast','Cenas prognoze 3 gadiem'))+'"><defs><linearGradient id="fcg" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="var(--accent)" stop-opacity=".38"/><stop offset="1" stop-color="var(--accent)" stop-opacity=".06"/></linearGradient><filter id="fcglow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
+  (Array.isArray(ticks)?ticks:[]).forEach(function(t){ if(t<bot||t>top) return; g+='<line class="fc-grid" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Yp(t).toFixed(1)+'" y2="'+Yp(t).toFixed(1)+'"/><text class="fc-ax" x="'+(pl-8)+'" y="'+(Yp(t)+4).toFixed(1)+'" text-anchor="end">'+esc(fmt(Math.round(t/100)*100))+'</text>'; });
+  [0,1,2,3].forEach(function(k){ g+='<line class="fc-vt" x1="'+X(k)+'" x2="'+X(k)+'" y1="'+pt+'" y2="'+(H-pb)+'"/><text class="fc-ax" x="'+X(k)+'" y="'+(H-12)+'" text-anchor="middle">'+esc(k?'+'+k+' · '+(Y+k):L('сейчас','now','tagad'))+'</text>'; });
+  g+='<polygon class="fc-cone" points="'+up.concat(dn).join(' ')+'" fill="url(#fcg)"/><path class="fc-edge" d="M'+up.join(' L')+'"/><path class="fc-edge" d="M'+dn.slice().reverse().join(' L')+'"/>';
+  g+='<path class="fc-mid" d="'+mid+'" filter="url(#fcglow)" pathLength="100"/>';
+  F.pts.forEach(function(p){ g+='<circle class="fc-ev" cx="'+X(p.k).toFixed(1)+'" cy="'+Yp(p.p).toFixed(1)+'" r="4.5"><title>'+esc(L('Так сейчас стоят машины на ','What cars ','Tik tagad maksā auto, kas ir par ')+p.k+L(' г. старше: ',' year(s) older cost now: ',' g. vecāki: ')+eur(Math.round(p.p/50)*50)+' (n='+p.n+')')+'</title></circle>'; });
+  if(ask){ g+='<circle class="fc-ask" cx="'+X(0)+'" cy="'+Yp(ask).toFixed(1)+'" r="6"/><text class="fc-lb" x="'+(X(0)+10)+'" y="'+(Yp(ask)-8).toFixed(1)+'">'+esc(L('цена ','price ','cena ')+eur(ask))+'</text>'; }
+  [1,3].forEach(function(k){ var a=F.at(k); g+='<circle class="fc-pt" cx="'+X(k)+'" cy="'+Yp(a.m).toFixed(1)+'" r="5"/><text class="fc-lb" x="'+(X(k)-(k===3?8:0))+'" y="'+(Yp(a.m)-12).toFixed(1)+'" text-anchor="'+(k===3?'end':'middle')+'">≈ '+esc(eur(Math.round(a.m/50)*50))+'</text>'; });
+  g+='<line class="fc-scan" x1="'+pl+'" x2="'+pl+'" y1="'+pt+'" y2="'+(H-pb)+'"/></svg>';
+  var a1=F.at(1), loss=ask?ask-a3.m:null;
+  var kp='<div class="fc-k"><div><dt>'+esc(L('Теряет в год','Loses per year','Zaudē gadā'))+'</dt><dd class="dn">≈ '+esc((F.rate*100).toFixed(0))+'%</dd></div>'+
+    '<div><dt>'+esc(L('Через год','In 1 year','Pēc gada'))+'</dt><dd>'+esc(eur(Math.round(a1.m/50)*50))+'</dd><small>'+esc(fmt(Math.round(a1.lo/100)*100)+'–'+eur(Math.round(a1.hi/100)*100))+'</small></div>'+
+    '<div><dt>'+esc(L('Через 3 года','In 3 years','Pēc 3 gadiem'))+'</dt><dd>'+esc(eur(Math.round(a3.m/50)*50))+'</dd><small>'+esc(fmt(Math.round(a3.lo/100)*100)+'–'+eur(Math.round(a3.hi/100)*100))+'</small></div>'+
+    (loss!=null&&loss>0?'<div><dt>'+esc(L('Потеря цены за 3 года','Value lost in 3 years','Vērtības zudums 3 gados'))+'</dt><dd>'+esc(eur(Math.round(loss/50)*50))+'</dd><small>'+esc('≈ '+eur(Math.round(loss/36/5)*5)+L(' в месяц',' a month',' mēnesī'))+'</small></div>':'')+'</div>';
+  return aPanel('a-fcast','c7',aHead(L('Прогноз цены','Price forecast','Cenas prognoze'),aMeta(L('3 года вперёд','3 years ahead','3 gadi uz priekšu'))),kp+'<div class="fc-wrap">'+g+'</div>'+
+    '<p class="anote">'+esc(L('Расчёт по сегодняшним ценам похожих машин разных лет ('+F.n+' объявл.), с вашим пробегом ≈ '+fmt(Math.round(F.kpy/1000)*1000)+' км в год. Точки — сколько сейчас стоят машины на 1–3 года старше. Коридор показывает разброс; рынок может измениться.',
+      'Based on today’s prices of similar cars of different years ('+F.n+' ads), at about '+fmt(Math.round(F.kpy/1000)*1000)+' km a year. Dots show what cars 1–3 years older cost now. The band shows the spread; the market can change.',
+      'Aprēķins pēc šodienas līdzīgu dažāda gada auto cenām ('+F.n+' sludin.), ar nobraukumu ≈ '+fmt(Math.round(F.kpy/1000)*1000)+' km gadā. Punkti — cik tagad maksā par 1–3 gadiem vecāki auto. Josla rāda izkliedi; tirgus var mainīties.'))+'</p>');
+}
+async function vzFcastMore(v){
+  if(v.fcast||v.fcastTried||!S.api||!v.car.year) return; v.fcastTried=true; v.fcastState='run';
+  var c=v.car, base={make:c.make,model:c.model,year:c.year-3,yfrom:c.year-7,yto:c.year+1,fuel:c.fuel==='lpg'?'petrol':(c.fuel||'')};
+  try{
+    var j=await api('/api/comps',Object.assign({source:'as24',cy:'D'},base),55000);
+    if(v!==S.view) return; v.fcExtra=(j&&j.items)||[];
+  }catch(e){}
+  v.fcState='done'; v.fcastState='done'; v.fcast=vzFit(v);
+  var el=document.getElementById('a-fcast'), rd=document.getElementById('a-radar');
+  if(v.fcast){ var html=pFcast(v); if(el){ var t=document.createElement('div'); t.innerHTML=html; el.parentNode.replaceChild(t.firstChild,el); vzAnimate(); } }
+  else { if(el) el.remove(); if(rd){ rd.classList.remove('c5'); rd.classList.add('c12'); } }
+}
+
+/* ---------- 5. radar: this car against a typical one on its market ---------- */
+function vzRadarData(v){
+  var c=v.car, A=[];
+  var all=[]; (S.lastResults||[]).forEach(function(r){ ((r.j&&r.j.items)||[]).forEach(function(i){ if(i.year) all.push(i.year); }); });
+  var my=all.length>=8?median(all):null;
+  A.push({k:'price',n:L('Цена','Price','Cena'),s:v.ver&&v.ver.delta!=null?vzClamp(50-v.ver.delta*2.5,3,100):null,t:v.ver&&v.ver.delta!=null?pct(v.ver.delta)+L(' к рынку',' vs market',' pret tirgu'):''});
+  A.push({k:'km',n:L('Пробег','Mileage','Nobraukums'),s:v.medKm!=null&&c.km!=null?vzClamp(50+(v.medKm-c.km)/Math.max(1,v.medKm)*100,3,100):null,t:c.km!=null?aKmTxt(c.km):''});
+  A.push({k:'age',n:L('Возраст','Age','Vecums'),s:my&&c.year?vzClamp(50+(c.year-my)*9,3,100):null,t:c.year?String(c.year):''});
+  var fl=flagsOf(v), acc=typeof accInfo==='function'?accInfo(v):null, rk=70-fl.risks.length*14+fl.pros.length*4-(acc?45:0)-(v.ver&&v.ver.key==='too_cheap'?25:0)-(kbFor(c).length>2?8:0);
+  A.push({k:'risk',n:L('Надёжность','Low risk','Zems risks'),s:vzClamp(rk,3,100),t:acc?L('была авария','accident','avārija'):fl.risks.length?fl.risks.length+L(' риск.',' risks',' riski'):L('рисков нет','no risks','risku nav')});
+  var od=dayDiff(c.posted); A.push({k:'liq',n:L('Ликвидность','Liquidity','Likviditāte'),s:od!=null?vzClamp(85-od*0.9,5,100):null,t:od!=null?nDays(od):''});
+  var tx=String(c.desc||'')+' '+String(c.title||''), hs=40+(c.vin?14:0)+(c.accident===false?14:0)+(/serv[iī]s[a-z]*\s+gr[aā]mat|сервисн\S*\s+книж|service\s+(book|history)|scheckheft|servisa vēsture|сервисн\S* истори/i.test(tx)?18:0)+(c.owners&&c.owners<=2?10:0)+(c.warranty?10:0)-(acc?35:0);
+  A.push({k:'hist',n:L('История','History','Vēsture'),s:vzClamp(hs,3,100),t:[c.vin?'VIN':'',c.owners?c.owners+L(' влад.',' owners',' īpaš.'):'',acc?'!':''].filter(Boolean).join(' · ')});
+  return A;
+}
+function pRadar(v){
+  var A=vzRadarData(v); if(A.filter(function(a){return a.s!=null}).length<4) return '';
+  var S0=300, cx=150, cy=146, R=104, n=A.length;
+  var pt=function(i,s){ var a=-Math.PI/2+i*2*Math.PI/n, r=R*s/100; return [cx+Math.cos(a)*r,cy+Math.sin(a)*r]; };
+  var poly=function(f){ return A.map(function(a,i){ var p=pt(i,f(a)); return p[0].toFixed(1)+','+p[1].toFixed(1); }).join(' '); };
+  var g='<svg class="rd-svg" viewBox="-58 0 '+(S0+116)+' 292" role="img" aria-label="'+esc(L('Радар машины','Car radar','Auto radars'))+'"><defs><radialGradient id="rdg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="var(--accent)" stop-opacity=".05"/><stop offset="1" stop-color="var(--accent)" stop-opacity=".35"/></radialGradient><filter id="rdglow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
+  [25,50,75,100].forEach(function(s){ g+='<polygon class="rd-ring'+(s===50?' mid':'')+'" points="'+poly(function(){return s})+'"/>'; });
+  A.forEach(function(a,i){ var p=pt(i,100); g+='<line class="rd-ax" x1="'+cx+'" y1="'+cy+'" x2="'+p[0].toFixed(1)+'" y2="'+p[1].toFixed(1)+'"/>'; });
+  g+='<clipPath id="rdclip"><polygon points="'+poly(function(){return 100})+'"/></clipPath><g clip-path="url(#rdclip)"><g class="rd-sweep"><path d="M'+cx+','+cy+' L'+cx+','+(cy-R)+' A'+R+','+R+' 0 0 1 '+(cx+R*Math.sin(Math.PI/5)).toFixed(1)+','+(cy-R*Math.cos(Math.PI/5)).toFixed(1)+' Z"/></g></g>';
+  g+='<polygon class="rd-mkt" points="'+poly(function(){return 50})+'"/>';
+  g+='<polygon class="rd-car" points="'+poly(function(a){return a.s==null?50:a.s})+'" fill="url(#rdg)" filter="url(#rdglow)"/>';
+  A.forEach(function(a,i){ var p=pt(i,a.s==null?50:a.s), q=pt(i,122), anc=Math.abs(q[0]-cx)<8?'middle':q[0]<cx?'end':'start', cls=a.s==null?'na':a.s>=60?'gd':a.s<40?'bd':'';
+    g+='<circle class="rd-pt '+cls+'" cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+(a.s==null?3:4.2)+'"/>';
+    g+='<text class="rd-lb" x="'+q[0].toFixed(1)+'" y="'+(q[1]+(q[1]<cy-20?-2:q[1]>cy+20?10:4)).toFixed(1)+'" text-anchor="'+anc+'">'+esc(a.n)+'<tspan class="rd-v '+cls+'" x="'+q[0].toFixed(1)+'" dy="13">'+esc(a.s==null?L('нет данных','no data','nav datu'):Math.round(a.s)+(a.t?' · '+a.t:''))+'</tspan></text>'; });
+  g+='</svg>';
+  var tot=Math.round(A.filter(function(a){return a.s!=null}).reduce(function(s,a,_,arr){return s+a.s/arr.length},0));
+  return aPanel('a-radar','c5',aHead(L('Радар машины','Car radar','Auto radars'),aMeta(L('индекс ','index ','indekss ')+tot+'/100')),'<div class="rd-wrap">'+g+'</div>'+
+    '<p class="anote"><span class="rd-key car"></span>'+esc(L('эта машина','this car','šis auto'))+' &nbsp; <span class="rd-key mkt"></span>'+esc(L('типичная на рынке (50)','typical on the market (50)','tipisks tirgū (50)'))+'. '+esc(L('Чем дальше от центра, тем лучше: дешевле рынка, меньше пробег, новее, меньше рисков, быстрее продаётся, больше подтверждённой истории.','The further from the centre the better: cheaper than the market, lower mileage, newer, fewer risks, sells faster, more confirmed history.','Jo tālāk no centra, jo labāk: lētāks par tirgu, mazāks nobraukums, jaunāks, mazāk risku, ātrāk pārdodas, vairāk apstiprinātas vēstures.'))+'</p>');
+}
+
+/* ---------- 8. body scheme: weak points of this model on a wireframe of the car ---------- */
+function vzBodyType(c){
+  var t=[c.body,c.model,c.rawModel,c.title].join(' ').toLowerCase();
+  if(/universāl|универсал|wagon|kombi\b|touring|avant|variant|estate|sports ?tourer|shooting brake|allroad|alltrack|\bsw\b|break\b/.test(t)) return 'wagon';
+  if(/minivan|minivens|минивэн|микроавтобус|\bvan\b|kastenwagen|transporter|vito|sprinter|caddy|berlingo|partner|kangoo|touran|sharan|zafira|galaxy|s-max|alhambra/.test(t)) return 'van';
+  if(/apvidus|внедорож|кроссов|\bsuv\b|crossover|4x4|\bx[1-7]\b|\bq[2-8]\b|rav ?-?4|tiguan|touareg|kodiaq|karoq|kamiq|sportage|tucson|santa ?fe|cr-?v|hr-?v|x-?trail|qashqai|juke|kuga|puma|xc ?[469]0|\bgl[abces]\b|\bml\b|outlander|forester|range rover|discovery|evoque|cayenne|macan|model ?[xy]\b|niro|kona|ioniq ?5|id\.? ?4|enyaq|t-?roc|ateca|arona|3008|5008|2008|captur|duster|c-hr|land cruiser|prado|highlander|ux\b|nx\b|rx\b|e-?tron|ev6/.test(t)) return 'suv';
+  if(/kupej|купе|coupe|coupé|cabrio|kabriolet|кабриолет|roadster|\btt\b|z4|mx-?5|mustang|camaro|911/.test(t)) return 'coupe';
+  if(/hečbek|hatchback|хэтчбек|хетчбек|golf|polo|fiesta|focus|corsa|astra|i20|i30|ceed|yaris|clio|208|308|\ba[13]\b|fabia|ibiza|leon|auris|civic|mazda ?[23]\b|swift|micra|up!?|\bid\.? ?3|zoe|leaf|1-?series|a-?klasse|a-class|mini/.test(t)) return 'hatch';
+  return 'sedan';
+}
+var VZ_BODY={
+  sedan:{d:'M14,100 L14,82 Q16,72 30,70 L92,64 Q104,62 112,56 L140,40 Q146,37 156,37 L200,37 Q210,37 218,44 L246,62 L292,66 Q304,68 306,80 L306,100 L267,100 A22,22 0 0 0 223,100 L93,100 A22,22 0 0 0 51,100 Z',w:'M118,58 L142,43 L176,43 L176,58 Z M182,43 L200,43 Q207,43 212,48 L232,60 L182,60 Z',y:104,r:18},
+  wagon:{d:'M14,100 L14,82 Q16,72 30,70 L92,64 Q104,62 112,56 L140,40 Q146,37 156,37 L270,37 Q280,37 286,46 L302,64 Q306,68 306,80 L306,100 L267,100 A22,22 0 0 0 223,100 L93,100 A22,22 0 0 0 51,100 Z',w:'M118,58 L142,43 L176,43 L176,58 Z M182,43 L226,43 L226,60 L182,60 Z M232,43 L268,43 Q275,43 279,50 L287,60 L232,60 Z',y:104,r:18},
+  hatch:{d:'M22,100 L22,82 Q24,72 38,70 L96,63 Q108,61 116,55 L142,40 Q148,37 158,37 L214,37 Q226,37 236,44 L280,62 Q292,66 294,78 L294,100 L267,100 A22,22 0 0 0 223,100 L93,100 A22,22 0 0 0 51,100 Z',w:'M122,57 L146,43 L180,43 L180,58 Z M186,43 L214,43 Q222,43 230,48 L256,60 L186,60 Z',y:104,r:18},
+  suv:{d:'M14,96 L14,74 Q16,64 30,62 L88,56 Q100,54 108,48 L132,30 Q138,27 148,27 L262,27 Q274,27 282,36 L300,58 Q306,62 306,76 L306,96 L269,96 A24,24 0 0 0 221,96 L95,96 A24,24 0 0 0 47,96 Z',w:'M114,52 L138,33 L176,33 L176,52 Z M182,33 L224,33 L224,52 L182,52 Z M230,33 L262,33 Q270,33 276,40 L288,52 L230,52 Z',y:102,r:20},
+  coupe:{d:'M14,100 L14,84 Q16,74 30,72 L94,66 Q108,63 118,57 L150,43 Q158,40 168,40 L194,40 Q210,41 228,51 L264,64 L294,68 Q304,70 306,82 L306,100 L267,100 A22,22 0 0 0 223,100 L93,100 A22,22 0 0 0 51,100 Z',w:'M124,58 L152,46 L184,45 L184,60 Z M190,45 L198,45 Q210,46 222,53 L234,61 L190,61 Z',y:104,r:18},
+  van:{d:'M14,100 L14,70 Q16,60 28,56 L68,48 L92,22 Q96,18 106,18 L292,18 Q304,18 306,30 L306,100 L267,100 A22,22 0 0 0 223,100 L93,100 A22,22 0 0 0 51,100 Z',w:'M78,48 L98,26 L132,26 L132,48 Z M138,26 L200,26 L200,48 L138,48 Z M206,26 L292,26 L292,48 L206,48 Z',y:104,r:18}
+};
+var VZ_ZONE={engine:[62,74],service:[44,70],gearbox:[112,90],electronics:[126,56],chassis:[72,104],drivetrain:[245,100],body:[170,98],battery:[176,90]};
+function vzBodySvg(v,list){
+  var c=v.car, bt=vzBodyType(c), B=VZ_BODY[bt], used={};
+  var pts=list.map(function(k,i){ var z=VZ_ZONE[k.a]||VZ_ZONE.engine, n=used[k.a]||0; used[k.a]=n+1; return {i:i+1,x:z[0]+n*14,y:z[1]-n*10,a:k.a}; });
+  var g='<svg class="bd-svg" viewBox="0 0 320 132" role="img" aria-label="'+esc(L('Схема слабых мест','Weak points diagram','Vājo vietu shēma'))+'"><defs><linearGradient id="bdg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".16"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient><clipPath id="bdc"><path d="'+B.d+'"/></clipPath></defs>';
+  for(var gx=20;gx<320;gx+=20) g+='<line class="bd-grid" x1="'+gx+'" x2="'+gx+'" y1="4" y2="124"/>';
+  g+='<line class="bd-floor" x1="6" x2="314" y1="'+(B.y+B.r+1)+'" y2="'+(B.y+B.r+1)+'"/>';
+  g+='<path class="bd-body" d="'+B.d+'" fill="url(#bdg)" pathLength="100"/><path class="bd-win" d="'+B.w+'"/>';
+  g+='<g clip-path="url(#bdc)"><rect class="bd-scan" x="-40" y="0" width="40" height="132"/></g>';
+  [72,245].forEach(function(x){ g+='<circle class="bd-wheel" cx="'+x+'" cy="'+B.y+'" r="'+B.r+'"/><circle class="bd-hub" cx="'+x+'" cy="'+B.y+'" r="'+(B.r*0.42).toFixed(1)+'"/>'; });
+  pts.forEach(function(p){ g+='<g class="bd-pt" data-i="'+p.i+'"><circle class="bd-pulse" cx="'+p.x+'" cy="'+p.y+'" r="9"/><circle class="bd-dot" cx="'+p.x+'" cy="'+p.y+'" r="6.5"/><text x="'+p.x+'" y="'+(p.y+3.4)+'" text-anchor="middle">'+p.i+'</text></g>'; });
+  return g+'</svg>';
+}
+/* add the scheme on top of the existing weak points panel and number its items */
+function vzWeakDeco(v){
+  var pnl=document.getElementById('a-weak'); if(!pnl||pnl.dataset.vz) return; var list=kbFor(v.car); if(!list.length) return; pnl.dataset.vz='1';
+  var ul=pnl.querySelector('ul.ls'); if(!ul) return;
+  var d=document.createElement('div'); d.className='bd-wrap'; d.innerHTML=vzBodySvg(v,list); ul.parentNode.insertBefore(d,ul);
+  [].slice.call(ul.children).forEach(function(li,i){ li.setAttribute('data-wi',i+1); var s=document.createElement('b'); s.className='bd-n'; s.textContent=i+1; var sp=li.querySelector(':scope>span')||li; sp.insertBefore(s,sp.firstChild); });
+}
+document.addEventListener('click',function(e){
+  var p=e.target.closest&&e.target.closest('.bd-pt'); if(!p) return; var i=p.getAttribute('data-i'), li=document.querySelector('#a-weak li[data-wi="'+i+'"]'); if(!li) return;
+  document.querySelectorAll('#a-weak li.bd-on,#a-weak .bd-pt.on').forEach(function(x){x.classList.remove('bd-on','on')}); li.classList.add('bd-on'); p.classList.add('on'); li.scrollIntoView({behavior:'smooth',block:'nearest'});
+});
+document.addEventListener('pointerover',function(e){
+  var li=e.target.closest&&e.target.closest('#a-weak li[data-wi]'); if(!li) return; var p=document.querySelector('#a-weak .bd-pt[data-i="'+li.getAttribute('data-wi')+'"]');
+  document.querySelectorAll('#a-weak .bd-pt.on').forEach(function(x){x.classList.remove('on')}); if(p) p.classList.add('on');
+});
+
+/* the entrance animation keeps a transform; drop its class when done so the tilt can work */
+document.addEventListener('animationend',function(e){ var t=e.target; if(t&&t.parentNode&&t.parentNode.id==='out'&&/^fxin/.test(e.animationName)){ t.classList.remove('fx-in'); t.style.animationDelay=''; } });
+/* ---------- glue: run after each render ---------- */
+function vzAnimate(){ if(VZ_RM) return; document.querySelectorAll('#a-fcast,#a-radar,#a-weak .bd-wrap').forEach(function(el){ if(el.dataset.vzin) return; el.dataset.vzin='1'; el.classList.add('vz-in'); }); }
+var vzAfter0=fxAfterRender;
+fxAfterRender=function(){
+  vzAfter0(); var v=S.view; if(!v||!v.regions||!v.regions.length) return;
+  try{ vzWeakDeco(v); }catch(e){}
+  vzAnimate();
+  if(!v.fcast&&!v.fcastTried&&v.fcastState==='run') vzFcastMore(v);
+};
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
