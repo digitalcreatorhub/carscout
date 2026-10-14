@@ -1901,7 +1901,7 @@ function fairOf(st){
 }
 function compute(car,results,f,notes){
   var regions=[], all=[], totalUsed=0;
-  var order={ss:0,apl:1,as24de:2,as24be:3,as24nl:4,as24fr:5}; results.sort(function(a,b){return (order[a.key]!=null?order[a.key]:9)-(order[b.key]!=null?order[b.key]:9)||a.key.localeCompare(b.key)});
+  var order={ss:0,apl:1,ape:2,as24de:3,as24be:4,as24nl:5,as24fr:6}; results.sort(function(a,b){return (order[a.key]!=null?order[a.key]:9)-(order[b.key]!=null?order[b.key]:9)||a.key.localeCompare(b.key)});
   results.forEach(function(r){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:(function(){return errText(j)}),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
@@ -2313,7 +2313,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.18', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.19', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
