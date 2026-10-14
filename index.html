@@ -909,6 +909,20 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 @keyframes fxphscan{to{top:100%}}
 @media (prefers-reduced-motion:reduce){.kmini i,svg rect.fx-bar,svg line.fx-grow,.ring .rdot,#a-scatter .xhair line,#a-car .ph .hscan{animation:none!important}}
 @media print{.kmini,#a-car .ph .hud{display:none}}
+/* rail badges, favourites changes, saved searches */
+.rail button{position:relative}
+.rail .rbadge{position:absolute;top:3px;right:3px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:#0B0E12;font:700 10px/16px Inter,system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px #090B0E,0 0 10px color-mix(in srgb,var(--accent) 60%,transparent);pointer-events:none}
+@media (max-width:760px){.rail .rbadge{top:0;right:calc(50% - 22px)}}
+.favchg{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.favchg .mini{margin-top:4px;line-height:1.5}
+#favs li.fav-new b:first-child{color:var(--accent)}
+.hunt{margin:4px 0 16px}
+.hunt .hrow{padding:10px 0;border-top:1px solid var(--line)}
+.hunt .hhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.hunt .hcnt{display:inline-block;margin-left:6px;padding:0 7px;border-radius:9px;background:var(--good);color:#0B0E12;font-size:11px;font-weight:700;line-height:18px}
+.hunt tr.hnew td{background:color-mix(in srgb,var(--good) 7%,transparent)}
+.hunt .hnewt{color:var(--good)}
+.hunt .tbl{margin-top:6px}
 </style>
 </head>
 <body>
@@ -946,14 +960,14 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 
   <section class="lead" data-over="Рига · Балтия · ЕС">
     <h1 data-ru="Реальные цены на авто с сайтов объявлений" data-en="Real car prices from the listing sites"></h1>
-    <p data-ru="Вставьте ссылку на объявление. Сервер откроет её, найдёт настоящие похожие объявления на ss.lv, autoplius.lt и AutoScout24 и покажет, где цена выше или ниже рынка. Если ссылку прочитать нельзя, загрузите скриншот: текст распознаётся прямо в браузере." data-en="Paste a listing link. The server opens it, finds real similar ads on ss.lv, autoplius.lt and AutoScout24, and shows whether the price is above or below the market. If a link cannot be read, upload a screenshot: the text is recognised right in your browser."></p>
+    <p data-ru="Вставьте ссылку на объявление. Сервер откроет её, найдёт настоящие похожие объявления на ss.lv, autoplius.lt, autoportaal.ee и AutoScout24 и покажет, где цена выше или ниже рынка. Если ссылку прочитать нельзя, загрузите скриншот: текст распознаётся прямо в браузере." data-en="Paste a listing link. The server opens it, finds real similar ads on ss.lv, autoplius.lt, autoportaal.ee and AutoScout24, and shows whether the price is above or below the market. If a link cannot be read, upload a screenshot: the text is recognised right in your browser." data-lv="Ielīmējiet sludinājuma saiti. Serveris to atvērs, atradīs īstus līdzīgus sludinājumus ss.lv, autoplius.lt, autoportaal.ee un AutoScout24 un parādīs, vai cena ir virs vai zem tirgus. Ja saiti nevar nolasīt, augšupielādējiet ekrānuzņēmumu: teksts tiek atpazīts tieši pārlūkā."></p>
   </section>
 
   <div class="grid">
     <form id="intake" class="sheet intake" novalidate autocomplete="off">
       <div class="fld">
         <label for="f-url" data-ru="Ссылка на объявление" data-en="Listing link"></label>
-        <input class="in lg" id="f-url" type="url" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="ss.com, autoplius, auto24, mobile.de, autoscout24…">
+        <input class="in lg" id="f-url" type="url" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="ss.com, autoplius, autoportaal, mobile.de, autoscout24…">
         <div id="link-hints" class="chips"></div>
       </div>
 
@@ -1076,7 +1090,7 @@ function decodeVin(raw){
 }
 function plain(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 
-var SITES=[['ss.lv','SS.lv','LV'],['ss.com','SS.com','LV'],['auto24.lv','Auto24','LV'],['auto24.ee','Auto24','EE'],
+var SITES=[['ss.lv','SS.lv','LV'],['ss.com','SS.com','LV'],['auto24.lv','Auto24','LV'],['auto24.ee','Auto24','EE'],['autoportaal.ee','Autoportaal','EE'],
   ['autoplius.lt','Autoplius','LT'],['autogidas.lt','Autogidas','LT'],['mobile.de','mobile.de','DE'],
   ['kleinanzeigen.de','Kleinanzeigen','DE'],['otomoto.pl','Otomoto','PL'],['marktplaats.nl','Marktplaats','NL'],
   ['leboncoin.fr','Leboncoin','FR'],['subito.it','Subito','IT'],['coches.net','Coches.net','ES'],
@@ -1758,6 +1772,8 @@ async function run(){
     jobs.push(api('/api/comps',Object.assign({source:'ss',ssPath:car.hints&&car.hints.ss_path||''},base),55000).then(function(j){return {key:'ss',region:'LV',label:'ss.com',j:j}}));
     setSrc('apl','autoplius.lt (LT)','run',function(){return L('загружаю…','loading…')});
     jobs.push(api('/api/comps',Object.assign({source:'autoplius'},base),55000).then(function(j){return {key:'apl',region:'LT',label:'autoplius.lt',j:j}}));
+    setSrc('ape','autoportaal.ee (EE)','run',function(){return L('загружаю…','loading…','ielādēju…')});
+    jobs.push(api('/api/comps',Object.assign({source:'autoportaal'},base),55000).then(function(j){return {key:'ape',region:'EE',label:'autoportaal.ee',j:j}}));
     [['D','DE'],['B','BE'],['NL','NL'],['F','FR']].forEach(function(cc){
       var key='as24'+cc[1].toLowerCase();
       setSrc(key,'AutoScout24 ('+cc[1]+')','run',function(){return L('загружаю…','loading…')});
@@ -1765,7 +1781,7 @@ async function run(){
     });
     f.extra.forEach(function(u,i){
       var key='x'+i, host=''; try{host=new URL(u).hostname.replace(/^www\./,'').replace(/^en\./,'')}catch(e){}
-      var reg=/autoplius|autogidas|\.lt$/.test(host)?'LT':/auto24\.ee|\.ee$/.test(host)?'EE':/auto24\.lv|ss\.(com|lv)/.test(host)?'LV':/otomoto|\.pl$/.test(host)?'PL':/mobile\.de|autoscout24|\.de$/.test(host)?'DE':'EU';
+      var reg=/autoplius|autogidas|\.lt$/.test(host)?'LT':/auto24\.ee|autoportaal|\.ee$/.test(host)?'EE':/auto24\.lv|ss\.(com|lv)/.test(host)?'LV':/otomoto|\.pl$/.test(host)?'PL':/mobile\.de|autoscout24|\.de$/.test(host)?'DE':'EU';
       setSrc(key,host+' ('+reg+')','run',function(){return L('загружаю…','loading…')},u);
       jobs.push(api('/api/search',{url:u},55000).then(function(j){return {key:key,region:reg,label:host,j:j,url:u}}));
     });
@@ -2235,7 +2251,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.10', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.11', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2290,7 +2306,8 @@ function favRow(f,i){
   if(f.gone) badge+='<span class="badge-gone">'+esc(L('снято с продажи','no longer listed','noņemts no pārdošanas'))+'</span>';
   var od=dayDiff(f.posted); if(od!=null&&!f.gone) meta+=(meta?' · ':'')+L('на продаже ','on sale ','pārdošanā ')+nDays(od);
   if(f.hist&&f.hist.length>1) meta+=(meta?' · ':'')+L('цены: ','prices: ','cenas: ')+f.hist.map(function(h){return fmt(h.p)}).join(' → ');
-  return '<li class="'+(f.gone?'fav-gone':'')+'" style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)"><input type="checkbox" data-fsel="'+i+'"'+(f.sel?' checked':'')+' aria-label="'+esc(L('Выбрать для сравнения','Select to compare'))+'">'+
+  if(f.raises) meta+=(meta?' · ':'')+L('поднято ','bumped ','pacelts ')+f.raises+L(' раз',' times',' reizes');
+  return '<li class="'+(f.gone?'fav-gone':'')+(f.unseen?' fav-new':'')+'" style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)"><input type="checkbox" data-fsel="'+i+'"'+(f.sel?' checked':'')+' aria-label="'+esc(L('Выбрать для сравнения','Select to compare'))+'">'+
     '<div style="min-width:0"><b>'+esc(favTitle(f))+'</b> <span class="num">'+esc(f.price?eur(f.price):'–')+'</span>'+badge+'<div class="mini">'+esc(meta)+(vd?' · '+esc(vd):'')+'</div></div>'+
     '<div class="btns" style="flex-wrap:nowrap;gap:6px">'+link+'<button class="btn sm" type="button" data-act="fav-rm" data-i="'+i+'" aria-label="'+esc(L('Удалить','Delete'))+'">×</button></div></li>';
 }
@@ -2311,29 +2328,35 @@ function renderFavs(){
   if(!box){ var out=$('#out'); if(!out) return; box=document.createElement('section'); box.id='favs'; box.className='sec'; box.style.marginBottom='16px'; out.parentNode.insertBefore(box,out); }
   var a=favLoad(); if(!a.length){ box.hidden=true; box.innerHTML=''; return; } box.hidden=false;
   var n=a.filter(function(x){return x.sel}).length;
-  box.innerHTML='<h3 class="sh">'+esc(L('Избранное','Favourites'))+' ('+a.length+')</h3><ul class="stack" style="gap:0;margin-top:10px;list-style:none;padding:0">'+a.map(favRow).join('')+'</ul>'+
+  var un=a.filter(function(x){return x.unseen}), CH={down:L('цена снизилась','price dropped','cena samazinājās'),up:L('цена выросла','price went up','cena pieauga'),gone:L('снято с продажи','no longer listed','noņemts no pārdošanas'),raised:L('объявление поднято снова','ad bumped again','sludinājums pacelts atkal')};
+  var banner=un.length?'<div class="favchg"><b>'+esc(L('Изменения с прошлого раза: ','Changes since last time: ','Izmaiņas kopš pagājušās reizes: ')+un.length)+'</b><div class="mini">'+un.map(function(f){return esc(favTitle(f)+' — '+(CH[f.chg]||''))}).join('<br>')+'</div><div class="btns" style="margin-top:8px"><button class="btn sm" type="button" data-act="fav-seen">'+esc(L('Понятно','Got it','Skaidrs'))+'</button></div></div>':'';
+  box.innerHTML='<h3 class="sh">'+esc(L('Избранное','Favourites'))+' ('+a.length+')</h3>'+banner+'<ul class="stack" style="gap:0;margin-top:10px;list-style:none;padding:0">'+a.map(favRow).join('')+'</ul>'+
     '<div class="btns" style="margin-top:12px"><button class="btn sm" type="button" data-act="fav-recheck">'+esc(L('Проверить цены сейчас','Check prices now'))+'</button></div>'+
     '<p class="hint" style="margin-top:8px">'+esc(L('Отметьте 2–3 машины, чтобы сравнить их рядом. Цены перепроверяются при открытии приложения (не чаще раза в 6 часов); избранное хранится только в этом браузере.','Tick 2–3 cars to compare them side by side. Prices are re-checked when the app opens (at most once every 6 hours); favourites are stored in this browser only.'))+'</p>'+(n>=2?favCompare(a):'');
 }
+function favChgText(c){ return c.gone?c.f+': '+L('снято с продажи (вероятно, продано)','no longer listed (probably sold)','noņemts no pārdošanas (iespējams, pārdots)'):c.raised?c.f+': '+L('продавец снова поднял объявление','the seller bumped the ad again','pārdevējs atkal pacēla sludinājumu'):c.f+': '+eur(c.from)+' → '+eur(c.to)+(c.to<c.from?' ('+L('дешевле на ','cheaper by ','lētāk par ')+eur(c.from-c.to)+')':''); }
 var recheckBusy=false;
 async function favRecheck(silent){
   if(recheckBusy||!S.api) return; var a=favLoad().filter(function(f){return f.url&&safeUrl(f.url)}); if(!a.length){ if(!silent) showStatus('info',function(){return L('У сохранённых машин нет ссылок на объявления.','The saved cars have no listing links.')}); return; }
   recheckBusy=true; var changes=[]; if(!silent) showStatus('busy',function(){return L('Проверяю цены в избранном…','Checking favourite prices…')},false);
   try{
     var all=favLoad(), n=0;
-    for(var k=0;k<all.length&&n<8;k++){
-      var f=all[k]; if(!f.url||!safeUrl(f.url)) continue; n++;
+    var order=all.map(function(f,i){return i}).filter(function(i){return all[i].url&&safeUrl(all[i].url)}).sort(function(x,y){return (all[x].checkedAt||0)-(all[y].checkedAt||0)});
+    for(var q=0;q<order.length&&n<8;q++){
+      var f=all[order[q]]; n++;
       var j=await api('/api/listing',{url:f.url},25000), now=Date.now(); f.checkedAt=now;
-      var np=j&&j.listing&&j.listing.asking_price; 
-      if(np>0&&np!==f.price){ changes.push({f:favTitle(f),from:f.price,to:np}); f.hist=(f.hist||[]).concat([{t:now,p:np}]).slice(-30); f.price=np; }
-      else if(j&&j.ok===false&&(j.error==='not_found'||j.status===404)){ if(!f.gone) changes.push({f:favTitle(f),gone:true}); f.gone=true; }
-      if(j&&j.listing&&j.listing.posted&&!f.posted) f.posted=j.listing.posted;
+      var jl=j&&j.listing, np=jl&&jl.asking_price, chg=null;
+      if(np>0&&np!==f.price){ chg={f:favTitle(f),from:f.price,to:np}; f.hist=(f.hist||[]).concat([{t:now,p:np}]).slice(-30); f.price=np; if(f.fair) f.delta=Math.round((np-f.fair)/f.fair*1000)/10; }
+      else if(j&&j.ok===false&&(j.error==='not_found'||j.status===404)){ if(!f.gone) chg={f:favTitle(f),gone:true}; f.gone=true; }
+      if(jl&&jl.posted&&!f.posted) f.posted=jl.posted;
+      if(jl&&jl.updated){ if(f.updated&&jl.updated!==f.updated){ f.raises=(f.raises||0)+1; if(!chg) chg={f:favTitle(f),raised:true}; } f.updated=jl.updated; }
       if(np>0&&f.gone){ f.gone=false; }
+      if(chg){ changes.push(chg); f.unseen=true; f.chg=chg.gone?'gone':chg.raised?'raised':(chg.to<chg.from?'down':'up'); }
     }
     favSave(all); LS.set('carscout_favs_at',String(Date.now()));
   }catch(e){}
-  recheckBusy=false; renderFavs();
-  if(changes.length) showStatus('ok',function(){return changes.map(function(c){return c.gone?c.f+': '+L('снято с продажи','no longer listed','noņemts no pārdošanas'):c.f+': '+eur(c.from)+' → '+eur(c.to)}).join('; ')});
+  recheckBusy=false; renderFavs(); try{ favBadge(); }catch(e){}
+  if(changes.length) showStatus('ok',function(){return L('Избранное: ','Favourites: ','Izlase: ')+changes.map(favChgText).join('; ')});
   else if(!silent) showStatus('ok',function(){return L('Цены не изменились.','No price changes.')});
 }
 function favAutoCheck(){
@@ -2351,15 +2374,17 @@ function shareText(v){
   if(p) o.push(L('План торга: предложить ','Negotiation: offer ')+eur(p.offer)+L(', максимум ',', maximum ')+eur(p.max));
   var f=flagsOf(v); if(f.risks.length) o.push(L('Риски: ','Risks: ')+f.risks.join('; ')); if(f.pros.length) o.push(L('Плюсы: ','Pros: ')+f.pros.join('; '));
   if(c.url) o.push(c.url);
+  o.push(L('Анализ в CarScout: ','CarScout analysis: ','CarScout analīze: ')+analysisLink(v));
   o.push(L('Сводка CarScout. Цены — это цены предложений на момент проверки.','CarScout summary. Prices are asking prices at the time of the check.'));
   return o.filter(Boolean).join('\n');
 }
 function secShare(v){
   return '<section class="sec" id="sec-share"><h3 class="sh">'+esc(L('Поделиться результатом','Share the result'))+'</h3><div class="btns" style="margin-top:12px">'+
+    '<button class="btn sm primary" type="button" data-act="share-link">'+esc(L('Ссылка на анализ','Link to this analysis','Saite uz analīzi'))+'</button>'+
     '<button class="btn sm" type="button" data-act="copy-sum">'+esc(L('Копировать сводку','Copy the summary'))+'</button>'+
     (navigator.share?'<button class="btn sm" type="button" data-act="share-sum">'+esc(L('Отправить…','Send…'))+'</button>':'')+
     '<button class="btn sm" type="button" data-act="print">'+esc(L('Печать / сохранить в PDF','Print / save as PDF'))+'</button></div>'+
-    '<p class="hint" style="margin-top:8px">'+esc(L('В сводке: цена, вердикт, план торга, риски и плюсы. Данные продавца и ваши заметки не включаются.','The summary has the price, verdict, negotiation plan, risks and pros. No seller contact data or notes are included.'))+'</p></section>';
+    '<p class="hint" style="margin-top:8px">'+esc(L('Ссылка открывает эту же проверку с актуальными ценами на любом телефоне. В сводке: цена, вердикт, план торга, риски и плюсы. Данные продавца и ваши заметки не включаются.','The link opens this same check with current prices on any phone. The summary has the price, verdict, negotiation plan, risks and pros. No seller contact data or notes are included.','Saite atver šo pašu pārbaudi ar aktuālām cenām jebkurā tālrunī. Kopsavilkumā: cena, vērtējums, kaulēšanās plāns, riski un plusi. Pārdevēja dati un jūsu piezīmes netiek iekļauti.'))+'</p></section>';
 }
 (function(){
   var st=document.createElement('style');
@@ -3216,13 +3241,13 @@ function finderForm(){
   var p={}; try{ p=JSON.parse(LS.get(KEY_FIND)||'{}')||{}; }catch(e){}
   var c=S.view&&S.view.car; if(!p.make&&c){ p.make=c.make; p.model=c.model; p.yf=c.year?c.year-1:''; p.yt=c.year?c.year+1:''; }
   var inp=function(id,lab,val,ph,mode){ return '<label class="ff"><span>'+esc(lab)+'</span><input class="in" id="'+id+'" value="'+esc(val==null?'':val)+'" placeholder="'+esc(ph||'')+'"'+(mode?' inputmode="numeric"':'')+'></label>'; };
-  var mk=p.mk||{LV:1,LT:1,DE:1,BE:0,NL:0,FR:0};
+  var mk=p.mk||{LV:1,LT:1,EE:1,DE:1,BE:0,NL:0,FR:0}; if(mk.EE==null) mk.EE=1;
   return '<div class="fgrid">'+inp('fd-make',L('Марка','Make','Marka'),p.make,'Volkswagen')+inp('fd-model',L('Модель','Model','Modelis'),p.model,'Golf')+
     inp('fd-yf',L('Год от','Year from','Gads no'),p.yf,'2016',1)+inp('fd-yt',L('Год до','Year to','Gads līdz'),p.yt,'2020',1)+
     inp('fd-pmax',L('Цена до, €','Price up to, €','Cena līdz, €'),p.pmax,'15000',1)+inp('fd-kmax',L('Пробег до, км','Mileage up to, km','Nobraukums līdz, km'),p.kmax,'200000',1)+
     '<label class="ff"><span>'+esc(L('Топливо','Fuel','Degviela'))+'</span><select class="in" id="fd-fuel">'+[['',L('любое','any','jebkura')],['petrol',L('бензин','petrol','benzīns')],['diesel',L('дизель','diesel','dīzelis')],['hybrid',L('гибрид','hybrid','hibrīds')],['electric',L('электро','electric','elektro')]].map(function(o){return '<option value="'+o[0]+'"'+(p.fuel===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select></label>'+
     '<label class="ff"><span>'+esc(L('Коробка','Gearbox','Ātrumkārba'))+'</span><select class="in" id="fd-gear">'+[['',L('любая','any','jebkura')],['automatic',L('автомат','automatic','automāts')],['manual',L('механика','manual','manuāla')]].map(function(o){return '<option value="'+o[0]+'"'+(p.gear===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select></label></div>'+
-    '<div class="fmk"><span class="rn">'+esc(L('Рынки:','Markets:','Tirgi:'))+'</span>'+['LV','LT','DE','BE','NL','FR'].map(function(r){ return '<label class="chip"><input type="checkbox" data-fmk="'+r+'"'+(mk[r]?' checked':'')+'>'+esc(rname(r))+'</label>'; }).join('')+'</div>'+
+    '<div class="fmk"><span class="rn">'+esc(L('Рынки:','Markets:','Tirgi:'))+'</span>'+['LV','LT','EE','DE','BE','NL','FR'].map(function(r){ return '<label class="chip"><input type="checkbox" data-fmk="'+r+'"'+(mk[r]?' checked':'')+'>'+esc(rname(r))+'</label>'; }).join('')+'</div>'+
     '<div class="btns"><button class="btn primary" type="button" data-act="find-run">'+esc(L('Найти выгодные','Find good deals','Atrast izdevīgos'))+'</button></div>';
 }
 function renderFinder(show){
@@ -3230,8 +3255,8 @@ function renderFinder(show){
   if(!box){ var out=$('#out'); if(!out) return; box=document.createElement('section'); box.id='finder'; box.className='sec ap c12'; box.hidden=true; out.parentNode.insertBefore(box,out); }
   if(show!=null) box.hidden=!show; if(box.hidden) return;
   box.innerHTML=aHead(L('Поиск выгодных машин','Find good deals','Izdevīgu auto meklēšana'),'<button class="btn sm" type="button" data-act="nav-find">'+esc(L('Скрыть','Hide','Paslēpt'))+'</button>')+
-    '<p class="anote" style="margin-top:0">'+esc(L('Укажите модель, годы и бюджет: приложение просмотрит ss.lv, autoplius.lt и AutoScout24 и покажет машины, которые дешевле своего рынка с учётом года и пробега.','Enter the model, years and budget: the app scans ss.lv, autoplius.lt and AutoScout24 and shows cars priced below their market for the year and mileage.','Norādiet modeli, gadus un budžetu: lietotne pārskatīs ss.lv, autoplius.lt un AutoScout24 un parādīs auto, kas ir lētāki par savu tirgu, ņemot vērā gadu un nobraukumu.'))+'</p>'+
-    finderForm()+'<div id="find-out">'+findOutHtml()+'</div>';
+    '<p class="anote" style="margin-top:0">'+esc(L('Укажите модель, годы и бюджет: приложение просмотрит ss.lv, autoplius.lt, autoportaal.ee и AutoScout24 и покажет машины, которые дешевле своего рынка с учётом года и пробега.','Enter the model, years and budget: the app scans ss.lv, autoplius.lt, autoportaal.ee and AutoScout24 and shows cars priced below their market for the year and mileage.','Norādiet modeli, gadus un budžetu: lietotne pārskatīs ss.lv, autoplius.lt, autoportaal.ee un AutoScout24 un parādīs auto, kas ir lētāki par savu tirgu, ņemot vērā gadu un nobraukumu.'))+'</p>'+
+    huntHtml()+finderForm()+'<div id="find-out">'+findOutHtml()+'</div>';
 }
 function fitPrice(items){
   /* price ~ a + b*year + c*km (least squares); falls back to year medians */
@@ -3255,25 +3280,22 @@ function findOutHtml(){
   var h='<p class="anote">'+esc(L('Просмотрено объявлений: ','Listings scanned: ','Pārskatīti sludinājumi: ')+res.reduce(function(a,r){return a+((r.j&&r.j.items)||[]).length},0)+'. '+L('Ниже рынка: ','Below market: ','Zem tirgus: ')+good.length+'.')+'</p>';
   h+=good.length?'<div class="scroll"><table class="tbl">'+head+'<tbody>'+good.slice(0,15).map(tr).join('')+'</tbody></table></div>':'<p class="anote">'+esc(L('Машин заметно дешевле рынка по этим условиям не найдено. Попробуйте расширить годы, бюджет или рынки.','No cars clearly below the market for these filters. Try wider years, budget or markets.','Auto, kas būtu manāmi lētāki par tirgu, ar šiem nosacījumiem nav atrasti. Mēģiniet paplašināt gadus, budžetu vai tirgus.'))+'</p>';
   if(sus.length) h+='<div class="shh" style="margin-top:14px"><i style="background:var(--bad)"></i>'+esc(L('Подозрительно дёшево (более 35% ниже рынка): часто битые, без документов или мошенничество','Suspiciously cheap (more than 35% below the market): often damaged, without papers or a scam','Aizdomīgi lēti (vairāk nekā par 35% zem tirgus): bieži bojāti, bez dokumentiem vai krāpšana'))+'</div><div class="scroll"><table class="tbl">'+head+'<tbody>'+sus.slice(0,5).map(tr).join('')+'</tbody></table></div>';
+  if(S.findParams) h+='<div class="btns" style="margin-top:12px"><button class="btn sm" type="button" data-act="hunt-add">'+esc(L('Следить за этим поиском','Watch this search','Sekot šai meklēšanai'))+'</button></div>';
   if(notes.length) h+='<p class="mini" style="margin-top:8px">'+esc(notes.map(function(n){return typeof n==='function'?n():n}).join(' · '))+'</p>';
   h+='<p class="hint" style="margin-top:8px">'+esc(L('«Рынок» — ожидаемая цена такой машины на её же сайте по году и пробегу. Комплектацию и состояние список не видит: нажмите «Проверить» для полного разбора.','“Market” is the expected price of such a car on its own site for its year and mileage. The list cannot see trim or condition: press “Check” for the full analysis.','«Tirgus» — gaidāmā šāda auto cena tajā pašā vietnē pēc gada un nobraukuma. Komplektāciju un stāvokli saraksts neredz: nospiediet «Pārbaudīt» pilnai analīzei.'))+'</p>';
   return h;
 }
-async function runFinder(){
-  var g=function(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; }, gi=function(id){ var x=g(id).replace(/[^\d]/g,''); return x?parseInt(x,10):null; };
-  var mk={}; document.querySelectorAll('[data-fmk]').forEach(function(x){ mk[x.getAttribute('data-fmk')]=x.checked?1:0; });
-  var p={make:g('fd-make'),model:g('fd-model'),yf:gi('fd-yf'),yt:gi('fd-yt'),pmax:gi('fd-pmax'),kmax:gi('fd-kmax'),fuel:g('fd-fuel'),gear:g('fd-gear'),mk:mk};
-  LS.set(KEY_FIND,JSON.stringify(p));
-  var cm=cleanMakeModel(p.make,p.model); if(!cm.make||!cm.model){ showStatus('err',function(){return L('Укажите марку и модель.','Enter the make and model.','Norādiet marku un modeli.')}); return; }
-  if(!S.api){ showStatus('err',function(){return L('Нужен сервер (кнопка «Сервер»).','The server is needed (the “Server” button).','Nepieciešams serveris (poga «Serveris»).')}); return; }
+/* one search over the chosen markets: every listing scored against its own market (no DOM) */
+async function finderCore(p){
+  var mk=p.mk||{}, cm=cleanMakeModel(p.make,p.model); if(!cm.make||!cm.model||!S.api) return null;
   var yf=p.yf||(p.yt?p.yt-3:null), yt=p.yt||(p.yf?p.yf+3:null), ymid=yf&&yt?Math.round((yf+yt)/2):(yf||yt||null);
   var base={make:cm.make,model:cm.model,year:ymid||'',yfrom:yf||'',yto:yt||'',fuel:p.fuel||''};
   var jobs=[], AS={DE:'D',BE:'B',NL:'NL',FR:'F'};
   if(mk.LV) jobs.push(api('/api/comps',Object.assign({source:'ss'},base),55000).then(function(j){return {region:'LV',label:'ss.lv',j:j}}));
   if(mk.LT) jobs.push(api('/api/comps',Object.assign({source:'autoplius'},base),55000).then(function(j){return {region:'LT',label:'autoplius.lt',j:j}}));
+  if(mk.EE) jobs.push(api('/api/comps',Object.assign({source:'autoportaal'},base),55000).then(function(j){return {region:'EE',label:'autoportaal.ee',j:j}}));
   Object.keys(AS).forEach(function(r){ if(mk[r]) jobs.push(api('/api/comps',Object.assign({source:'as24',cy:AS[r]},base),55000).then(function(j){return {region:r,label:'AutoScout24 '+r,j:j}})); });
-  if(!jobs.length){ showStatus('err',function(){return L('Отметьте хотя бы один рынок.','Tick at least one market.','Atzīmējiet vismaz vienu tirgu.')}); return; }
-  var outEl=document.getElementById('find-out'); if(outEl) outEl.innerHTML='<p class="anote">'+esc(L('Ищу на рынках… Обычно 15–40 секунд.','Searching the markets… Usually 15–40 seconds.','Meklēju tirgos… Parasti 15–40 sekundes.'))+'</p>';
+  if(!jobs.length) return {rows:[],notes:[],scanned:0,cm:cm,none:true};
   var res=await Promise.all(jobs), rows=[], notes=[];
   res.forEach(function(r){
     var j=r.j||{}; if(!j.ok){ notes.push(function(){ return r.label+': '+errText(j); }); return; }
@@ -3286,9 +3308,20 @@ async function runFinder(){
       rows.push(Object.assign({region:r.region,src:r.label,exp:Math.round(e/50)*50,d:d,n:its.length},i)); });
   });
   rows.sort(function(a,b){return a.d-b.d});
-  S.findData={rows:rows,notes:notes,scanned:res.reduce(function(a,r){return a+((r.j&&r.j.items)||[]).length},0),cm:cm};
+  return {rows:rows,notes:notes,scanned:res.reduce(function(a,r){return a+((r.j&&r.j.items)||[]).length},0),cm:cm};
+}
+async function runFinder(){
+  var g=function(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; }, gi=function(id){ var x=g(id).replace(/[^\d]/g,''); return x?parseInt(x,10):null; };
+  var mk={}; document.querySelectorAll('[data-fmk]').forEach(function(x){ mk[x.getAttribute('data-fmk')]=x.checked?1:0; });
+  var p={make:g('fd-make'),model:g('fd-model'),yf:gi('fd-yf'),yt:gi('fd-yt'),pmax:gi('fd-pmax'),kmax:gi('fd-kmax'),fuel:g('fd-fuel'),gear:g('fd-gear'),mk:mk};
+  LS.set(KEY_FIND,JSON.stringify(p));
+  var cm=cleanMakeModel(p.make,p.model); if(!cm.make||!cm.model){ showStatus('err',function(){return L('Укажите марку и модель.','Enter the make and model.','Norādiet marku un modeli.')}); return; }
+  if(!S.api){ showStatus('err',function(){return L('Нужен сервер (кнопка «Сервер»).','The server is needed (the “Server” button).','Nepieciešams serveris (poga «Serveris»).')}); return; }
+  if(!Object.keys(mk).some(function(k){return mk[k]})){ showStatus('err',function(){return L('Отметьте хотя бы один рынок.','Tick at least one market.','Atzīmējiet vismaz vienu tirgu.')}); return; }
+  var outEl=document.getElementById('find-out'); if(outEl) outEl.innerHTML='<p class="anote">'+esc(L('Ищу на рынках… Обычно 15–40 секунд.','Searching the markets… Usually 15–40 seconds.','Meklēju tirgos… Parasti 15–40 sekundes.'))+'</p>';
+  var D=await finderCore(p); if(!D) return;
+  S.findData=D; S.findParams=p;
   var o2=document.getElementById('find-out'); if(o2) o2.innerHTML=findOutHtml();
-
   showStatus('ok',function(){return L('Поиск завершён.','Search finished.','Meklēšana pabeigta.')});
 }
 
@@ -3472,6 +3505,136 @@ fxAfterRender=function(){ var fresh=S.view!==fxLastView; fxAfterRender0(); var v
 /* film grain for depth */
 (function(){ var bg=document.getElementById('fxbg'); if(!bg||bg.querySelector('.n')) return; var n=document.createElement('i'); n.className='n'; bg.appendChild(n); })();
 
+/* ======================= links in: "Share → CarScout" and analysis links ======================= */
+/* A link like ?url=<listing> (or ?mk=…&md=…&y=… for a car entered by hand) opens and checks that car.
+   The installed app also receives shared ads through the manifest share_target (?title=&text=&url=). */
+function appBase(){ return location.origin+location.pathname; }
+function analysisLink(v){
+  var c=v&&v.car; if(!c) return appBase();
+  if(c.url&&safeUrl(c.url)) return appBase()+'?url='+encodeURIComponent(c.url);
+  var q=[['mk',c.make],['md',c.model],['y',c.year],['km',c.km],['p',c.price],['f',c.lpg?'lpg':c.fuel],['e',c.engineL],['tr',(c.trims||[]).map(trimDisplay).join(', ')||c.trimCustom||''],['vin',c.vin]]
+    .filter(function(x){return x[1]!=null&&x[1]!==''}).map(function(x){return x[0]+'='+encodeURIComponent(String(x[1]).slice(0,80))});
+  return appBase()+(q.length?'?'+q.join('&'):'');
+}
+function bootLink(){
+  var sp; try{ sp=new URLSearchParams(location.search); }catch(e){ return; }
+  if(!location.search||location.search.length<3||/^\?r=\d+$/.test(location.search)) return;
+  var take=function(k){ return String(sp.get(k)||'').trim(); };
+  var shared=[take('url'),take('text'),take('title')].join(' ');
+  var m=shared.match(/https?:\/\/[^\s<>"']+/i), url=m?m[0].replace(/[),.;!?]+$/,''):'';
+  var text=(take('text')+' '+take('title')).replace(/https?:\/\/[^\s<>"']+/ig,' ').replace(/\s+/g,' ').trim();
+  var mk=take('mk'), md=take('md');
+  var any=false;
+  if(url&&parseLink(url)&&!parseLink(url).bad){ $('#f-url').value=url; any=true; }
+  else if(text&&text.length>12&&/\d/.test(text)){ var ft=$('#f-text'); if(ft){ ft.value=text.slice(0,4000); any=true; } }
+  if(mk&&md){
+    var set=function(id,val){ var e=$(id); if(e&&val) e.value=val; };
+    set('#f-make',mk); set('#f-model',md); set('#f-year',take('y').replace(/\D/g,'').slice(0,4)); set('#f-km',take('km').replace(/\D/g,'')); set('#f-price',take('p').replace(/\D/g,''));
+    var fu=take('f'); if(/^(petrol|diesel|hybrid|electric|lpg)$/.test(fu)) set('#f-fuel',fu);
+    set('#f-eng',take('e').replace(/[^\d.]/g,'').slice(0,4)); set('#f-trim',take('tr').slice(0,60)); set('#f-vin',take('vin').replace(/[^A-Za-z0-9]/g,'').slice(0,17).toUpperCase());
+    var mn=$('#manual'); if(mn) mn.open=true; any=true;
+  }
+  try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  if(!any) return;
+  try{ renderHints(); renderVinLive(); }catch(e){}
+  showStatus('busy',function(){return L('Открываю объявление…','Opening the listing…','Atveru sludinājumu…')},false);
+  Promise.resolve(S.connP).then(function(){ run(); });
+}
+function shareLink(){
+  var v=S.view; if(!v||!v.car) return;
+  var u=analysisLink(v), t=[v.car.make,v.car.model,v.car.year].filter(Boolean).join(' ');
+  if(navigator.share) navigator.share({title:'CarScout: '+t,text:L('Анализ цены: ','Price check: ','Cenas analīze: ')+t,url:u}).catch(function(){});
+  else copyText(u,L('Ссылка на анализ скопирована. Кто её откроет, увидит проверку этой машины с актуальными ценами.','Analysis link copied. Whoever opens it sees the check of this car with current prices.','Analīzes saite nokopēta. Kas to atvērs, redzēs šī auto pārbaudi ar aktuālām cenām.'));
+}
+
+/* ======================= rail badges ======================= */
+function railBadge(act,n){
+  var b=document.querySelector('.rail button[data-act="'+act+'"]'); if(!b) return;
+  var s=b.querySelector('.rbadge');
+  if(!n){ if(s) s.remove(); return; }
+  if(!s){ s=document.createElement('span'); s.className='rbadge'; b.appendChild(s); }
+  s.textContent=n>9?'9+':String(n);
+}
+function favBadge(){ railBadge('nav-favs',favLoad().filter(function(f){return f.unseen}).length); }
+
+/* ======================= saved searches: new deals since the last look ======================= */
+var KEY_HUNT='carscout_hunt', huntBusy=false;
+function huntLoad(){ try{ var a=JSON.parse(LS.get(KEY_HUNT)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function huntSave(a){ LS.set(KEY_HUNT,JSON.stringify(a.slice(0,5))); }
+function rowId(x){ var u=String(x&&x.url||''); var m=u.match(/autoportaal\.ee\/[a-z]{2}\/kasutatud-autod\/(\d+)/); return m?'ap'+m[1]:(listingId(u)||u); }
+function huntName(p){
+  return [p.make,p.model].filter(Boolean).join(' ')+(p.yf||p.yt?' '+(p.yf||'…')+'–'+(p.yt||'…'):'')+(p.pmax?' · '+L('до ','up to ','līdz ')+eur(p.pmax):'')+(p.kmax?' · ≤'+fmt(p.kmax)+' km':'');
+}
+function huntKey(p){ return JSON.stringify([String(p.make||'').toLowerCase(),String(p.model||'').toLowerCase(),p.yf||0,p.yt||0,p.pmax||0,p.kmax||0,p.fuel||'',p.gear||'',Object.keys(p.mk||{}).filter(function(k){return p.mk[k]}).sort().join(',')]); }
+function isDeal(x){ return x.d>=-35&&x.d<-3; }
+function slimRow(x){ return {url:x.url,title:String(x.title||'').slice(0,80),price:x.price,year:x.year,km:x.km,exp:x.exp,d:Math.round(x.d*10)/10,src:x.src,region:x.region,img:x.img||null,t:Date.now()}; }
+function huntAdd(){
+  var D=S.findData, p=S.findParams; if(!D||!p) return;
+  var a=huntLoad(), k=huntKey(p);
+  if(a.some(function(h){return h.key===k})){ showStatus('info',function(){return L('Этот поиск уже сохранён.','This search is already saved.','Šī meklēšana jau ir saglabāta.')}); return; }
+  if(a.length>=5){ showStatus('err',function(){return L('Можно сохранить до 5 поисков: удалите один из старых.','You can save up to 5 searches: delete an old one.','Var saglabāt līdz 5 meklēšanām: izdzēsiet kādu veco.')}); return; }
+  var seen={}; D.rows.forEach(function(x){ seen[rowId(x)]=1; });
+  a.unshift({key:k,p:p,seen:Object.keys(seen).slice(-800),at:Date.now(),fresh:[],created:Date.now(),best:D.rows.filter(isDeal).length});
+  huntSave(a); renderFinder();
+  showStatus('ok',function(){return L('Поиск сохранён. При каждом открытии приложения (не чаще раза в 6 часов) он проверяется заново, а новые машины ниже рынка появятся здесь и на значке «Выгодные».','Search saved. Each time the app opens (at most every 6 hours) it is re-run, and new cars below the market show up here and on the “Deals” badge.','Meklēšana saglabāta. Katru reizi, kad atverat lietotni (ne biežāk kā reizi 6 stundās), tā tiek palaista no jauna, un jauni auto zem tirgus parādīsies šeit un uz «Izdevīgie» nozīmītes.')});
+}
+function huntBadge(){ railBadge('nav-find',huntLoad().reduce(function(a,h){return a+((h.fresh||[]).filter(function(x){return !x.seen}).length)},0)); }
+async function huntCheck(force,only){
+  if(huntBusy||!S.api) return; var a=huntLoad(); if(!a.length) return;
+  huntBusy=true; var now=Date.now(), found=[], ran=0;
+  if(force) showStatus('busy',function(){return L('Проверяю сохранённые поиски…','Checking saved searches…','Pārbaudu saglabātās meklēšanas…')},false);
+  try{
+    for(var i=0;i<a.length&&ran<3;i++){
+      var h=a[i]; if(only!=null&&i!==only) continue; if(!force&&now-(h.at||0)<6*3600*1000) continue; ran++;
+      var D=await finderCore(h.p); if(!D||!D.rows) continue;
+      var seen={}; (h.seen||[]).forEach(function(id){seen[id]=1});
+      var fr=D.rows.filter(function(x){ return isDeal(x)&&!seen[rowId(x)]; }).map(slimRow);
+      D.rows.forEach(function(x){ seen[rowId(x)]=1; });
+      var have={}; (h.fresh||[]).forEach(function(x){have[rowId(x)]=1});
+      h.fresh=fr.filter(function(x){return !have[rowId(x)]}).concat(h.fresh||[]).slice(0,20);
+      h.seen=Object.keys(seen).slice(-800); h.at=Date.now(); h.best=D.rows.filter(isDeal).length;
+      if(fr.length) found.push({n:fr.length,name:huntName(h.p)});
+    }
+    var cur=huntLoad(); a.forEach(function(h){ var j=cur.findIndex(function(x){return x.key===h.key}); if(j>-1) cur[j]=h; }); huntSave(cur);
+  }catch(e){}
+  huntBusy=false; huntBadge();
+  var fb=document.getElementById('finder'); if(fb&&!fb.hidden) renderFinder();
+  if(found.length) showStatus('ok',function(){return L('Новые выгодные машины: ','New good deals: ','Jauni izdevīgi auto: ')+found.map(function(f){return f.name+' — '+f.n}).join('; ')+'. '+L('Откройте «Выгодные».','Open “Deals”.','Atveriet «Izdevīgie».')});
+  else if(force) showStatus('ok',function(){return L('Новых выгодных машин пока нет.','No new good deals yet.','Jaunu izdevīgu auto pagaidām nav.')});
+}
+function huntAutoCheck(){ huntBadge(); if(huntLoad().length) huntCheck(false); }
+function huntRowHtml(x){
+  var u=safeUrl(x.url), ti=x.img?aImg(x.img):'', age=x.t?dayDiff(new Date(x.t).toISOString().slice(0,10)):null;
+  return '<tr'+(x.seen?'':' class="hnew"')+'><td class="thc">'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" tabindex="-1">':'')+'<span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span>'+(u?'</a>':'')+'</td>'+
+    '<td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title||'')+'</a>':esc(x.title||''))+'<div class="rn">'+esc([x.src,x.year,x.km!=null?aKmTxt(x.km):null].filter(Boolean).join(' · '))+(x.seen?'':' · <b class="hnewt">'+esc(L('новое','new','jauns'))+'</b>')+(age!=null?' · '+esc(age===0?L('сегодня','today','šodien'):nDays(age)+L(' назад',' ago',' atpakaļ')):'')+'</div></td>'+
+    '<td class="r"><b>'+esc(eur(x.price))+'</b><div class="rn">'+esc(L('рынок ','market ','tirgus ')+eur(x.exp))+'</div></td><td class="r" style="color:var(--good)"><b>'+esc(pct(x.d))+'</b></td>'+
+    '<td class="r">'+(u?'<button class="btn sm" type="button" data-act="find-check" data-u="'+esc(u)+'">'+esc(L('Проверить','Check','Pārbaudīt'))+'</button>':'')+'</td></tr>';
+}
+function huntHtml(){
+  var a=huntLoad(); if(!a.length) return '';
+  var h='<div class="hunt"><div class="shh"><i></i>'+esc(L('Мои поиски','My searches','Manas meklēšanas'))+'</div>';
+  a.forEach(function(s,i){
+    var nw=(s.fresh||[]).filter(function(x){return !x.seen}).length, ago=s.at?Math.round((Date.now()-s.at)/3600000):null;
+    h+='<div class="hrow"><div class="hhead"><div style="min-width:0"><b>'+esc(huntName(s.p))+'</b>'+(nw?' <span class="hcnt">+'+nw+'</span>':'')+
+      '<div class="rn">'+esc((ago==null?'':(ago<1?L('проверено только что','checked just now','pārbaudīts tikko'):L('проверено ','checked ','pārbaudīts ')+ago+L(' ч назад',' h ago',' st. atpakaļ')))+' · '+L('сейчас ниже рынка: ','below market now: ','tagad zem tirgus: ')+(s.best||0)+' · '+Object.keys(s.p.mk||{}).filter(function(k){return s.p.mk[k]}).join(' '))+'</div></div>'+
+      '<div class="btns" style="flex-wrap:nowrap;gap:6px"><button class="btn sm" type="button" data-act="hunt-run" data-i="'+i+'">'+esc(L('Проверить','Check','Pārbaudīt'))+'</button><button class="btn sm" type="button" data-act="hunt-rm" data-i="'+i+'" aria-label="'+esc(L('Удалить','Delete','Dzēst'))+'">×</button></div></div>';
+    if((s.fresh||[]).length) h+='<div class="scroll"><table class="tbl"><tbody>'+s.fresh.slice(0,10).map(huntRowHtml).join('')+'</tbody></table></div>'+(nw?'<div class="btns" style="margin-top:6px"><button class="btn sm" type="button" data-act="hunt-seen" data-i="'+i+'">'+esc(L('Отметить как просмотренные','Mark as seen','Atzīmēt kā skatītus'))+'</button></div>':'');
+    else h+='<p class="mini" style="margin-top:6px">'+esc(L('Новых машин ниже рынка с момента сохранения нет.','No new cars below the market since it was saved.','Kopš saglabāšanas jaunu auto zem tirgus nav.'))+'</p>';
+    h+='</div>';
+  });
+  return h+'<p class="hint" style="margin-top:8px">'+esc(L('Поиски проверяются, когда вы открываете приложение (не чаще раза в 6 часов). Уведомлений на телефон нет: загляните в «Выгодные». Хранится только в этом браузере.','Searches are re-checked when you open the app (at most every 6 hours). There are no phone notifications: look in “Deals”. Stored in this browser only.','Meklēšanas tiek pārbaudītas, kad atverat lietotni (ne biežāk kā reizi 6 stundās). Paziņojumu uz tālruni nav: ieskatieties «Izdevīgie». Glabājas tikai šajā pārlūkā.'))+'</p></div>';
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]'); if(!b) return; var a=b.getAttribute('data-act');
+  if(a==='share-link') shareLink();
+  else if(a==='hunt-add') huntAdd();
+  else if(a==='hunt-run') huntCheck(true,+b.getAttribute('data-i'));
+  else if(a==='hunt-rm'){ var h=huntLoad(); h.splice(+b.getAttribute('data-i'),1); huntSave(h); huntBadge(); renderFinder(); }
+  else if(a==='hunt-seen'){ var hs=huntLoad(), s=hs[+b.getAttribute('data-i')]; if(s){ (s.fresh||[]).forEach(function(x){x.seen=true}); huntSave(hs); huntBadge(); renderFinder(); } }
+  else if(a==='fav-seen'){ var fl=favLoad(); fl.forEach(function(f){ f.unseen=false; f.chg=null; }); favSave(fl); favBadge(); renderFavs(); }
+});
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&S.apiOk){ try{ favAutoCheck(); huntAutoCheck(); }catch(e){} } });
+
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]'); if(!b) return;
@@ -3531,7 +3694,8 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   S.api=normApi(LS.get(KEY_API)||API_DEFAULT); $('#f-api').value=S.api; S.apiOk=null;
   applyLang(); apiDot('none');
   (function(){ var ft=document.querySelector('.foot'); if(ft){ var p=document.createElement('p'); p.className='mini'; p.innerHTML=''; var s=document.createElement('span'); s.id='app-ver'; var bt=document.createElement('button'); bt.type='button'; bt.className='btn sm'; bt.id='app-upd'; bt.setAttribute('data-act','refresh'); p.appendChild(s); p.appendChild(bt); ft.appendChild(p); s.textContent=L('Версия приложения: ','App version: ')+APP_VER+' '; bt.textContent=L('Обновить','Update'); } })();
-  if(S.api||API_DEFAULT){ connect().then(function(ok){ if(ok) favAutoCheck(); }); }
+  S.connP=(S.api||API_DEFAULT)?connect().then(function(ok){ if(ok){ favAutoCheck(); huntAutoCheck(); } return ok; }):Promise.resolve(false);
+  try{ favBadge(); huntBadge(); bootLink(); }catch(e){}
   /* ---------- install as an app (PWA) ---------- */
 (function(){
   var deferred=null, btn=$('#btn-install');

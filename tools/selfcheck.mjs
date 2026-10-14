@@ -56,7 +56,7 @@ good(`ss: ${adsChecked} ad pages read (LV/RU/EN)`);
 
 // 3. comparables on every market
 const MODELS = [['Volkswagen', 'Golf', 2018, 'petrol'], ['Toyota', 'RAV4', 2019, ''], ['Volkswagen', 'Arteon', 2020, 'diesel']];
-const SRC = [['ss', {}], ['autoplius', {}], ['as24', { cy: 'D' }], ['as24', { cy: 'B' }], ['as24', { cy: 'NL' }], ['as24', { cy: 'F' }]];
+const SRC = [['ss', {}], ['autoplius', {}], ['autoportaal', {}], ['as24', { cy: 'D' }], ['as24', { cy: 'B' }], ['as24', { cy: 'NL' }], ['as24', { cy: 'F' }]];
 for (const [make, model, year, fuel] of MODELS) for (const [source, extra] of SRC) {
   if (source === 'autoplius' && model !== 'Golf') continue; // autoplius limits bursts of requests
   const name = `${source}${extra.cy ? ' ' + extra.cy : ''} ${make} ${model}`;
@@ -74,12 +74,12 @@ for (const [make, model, year, fuel] of MODELS) for (const [source, extra] of SR
 }
 
 // 4. listing pages of other sites (first comparable of each)
-for (const [source, extra] of [['autoplius', {}], ['as24', { cy: 'D' }]]) {
+for (const [source, extra] of [['autoplius', {}], ['autoportaal', {}], ['as24', { cy: 'D' }]]) {
   const j = await get('/api/comps', Object.assign({ source, make: 'Volkswagen', model: 'Golf', year: 2018 }, extra));
   const it = (j.items || [])[0]; if (!it) continue;
   const l = await get('/api/listing', { url: it.url });
   const L = l.listing || {};
-  const miss = (source === 'as24' ? ['make', 'model', 'year', 'asking_price', 'mileage_km', 'fuel', 'gearbox', 'engine_l'] : ['make', 'year', 'asking_price']).filter(k => L[k] == null);
+  const miss = (source === 'as24' || source === 'autoportaal' ? ['make', 'model', 'year', 'asking_price', 'mileage_km', 'fuel', 'gearbox', 'engine_l'] : ['make', 'year', 'asking_price']).filter(k => L[k] == null);
   if (source === 'as24' && L.model && L.make && L.model === L.make) miss.push('model=make');
   if (miss.length) bad(`listing ${source} ${it.url}`, 'not read: ' + miss.join(', ') + (l.error ? ' (' + l.error + ')' : ''));
   else good(`listing ${source}: ok`);

@@ -18,7 +18,7 @@ const VERSION = '1.0.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
-  /(^|\.)autoscout24\.[a-z.]+$/, /(^|\.)mobile\.de$/, /(^|\.)otomoto\.pl$/, /(^|\.)autovit\.ro$/, /(^|\.)kleinanzeigen\.de$/
+  /(^|\.)autoscout24\.[a-z.]+$/, /(^|\.)mobile\.de$/, /(^|\.)otomoto\.pl$/, /(^|\.)autovit\.ro$/, /(^|\.)kleinanzeigen\.de$/, /(^|\.)autoportaal\.ee$/
 ];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const MAKES = ['Alfa Romeo', 'Aston Martin', 'Audi', 'Bentley', 'BMW', 'Citroën', 'Citroen', 'Cupra', 'Dacia', 'DS', 'Fiat', 'Ford', 'Honda', 'Hyundai', 'Infiniti',
@@ -557,6 +557,48 @@ function parseAs24Listing(html, url) {
   const images = (L.images || []).filter(function (u) { return typeof u === 'string'; }).map(function (u) { return u.replace(/\/\d+x\d+\.webp$/, '/720x540.webp'); }).slice(0, 30);
   return { listing: listing, image: images[0] || null, images: images, title: [v.make, v.model, v.modelVersionInput].filter(Boolean).join(' '), hints: {} };
 }
+/* autoportaal.ee (Estonia): every listing carries schema.org Product data (make, model, year, km, VIN, price) */
+function apProducts(html) {
+  const out = [], re = /<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi; let m;
+  const walk = function (o) { if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === 'object') { if (o['@type'] === 'Product' || o['@type'] === 'Car') out.push(o); Object.keys(o).forEach(function (k) { const v = o[k]; if (v && typeof v === 'object' && k !== 'offers' && k !== 'brand') walk(v); }); } };
+  while ((m = re.exec(html))) { try { walk(JSON.parse(m[1])); } catch (e) { } }
+  return out;
+}
+function apFuel(f) { const s = String(f || '').toLowerCase(); return /plug|hybrid|hübriid/.test(s) ? 'hybrid' : /diesel|diisel/.test(s) ? 'diesel' : /electr|elekter/.test(s) ? 'electric' : /lpg|cng|gaas|gas/.test(s) ? 'lpg' : /petrol|bensiin|gasoline/.test(s) ? 'petrol' : null; }
+function apItem(o) {
+  const off = (Array.isArray(o.offers) ? o.offers[0] : o.offers) || {};
+  const price = parseFloat(off.price), eng = o.vehicleEngine || {}, disp = eng.engineDisplacement && parseFloat(eng.engineDisplacement.value), kw = eng.enginePower && parseFloat(eng.enginePower.value);
+  const km = o.mileageFromOdometer && o.mileageFromOdometer.value != null ? Math.round(parseFloat(o.mileageFromOdometer.value)) : null;
+  const yr = parseInt(o.vehicleModelDate || o.modelDate || String(o.dateVehicleFirstRegistered || '').slice(0, 4), 10) || null;
+  const tr = String(o.vehicleTransmission || '').toLowerCase();
+  const desc = String(o.description || ''); const tm = desc.match(/auto\s+(.+?),\s*\d{4},/i);
+  const img = Array.isArray(o.image) ? o.image[0] : (typeof o.image === 'string' ? o.image : null);
+  return { price: price > 0 ? Math.round(price) : null, km: km, year: yr, url: off.url || o.url || null, title: (tm ? tm[1] : o.name || '').slice(0, 120) + (o.vehicleConfiguration ? ' · ' + String(o.vehicleConfiguration).split(',').slice(0, 2).join(',') : ''),
+    fuel: apFuel(o.fuelType || eng.fuelType), gear: /auto/.test(tr) ? 'automatic' : /manu/.test(tr) ? 'manual' : null, img: img || null,
+    engine_l: disp > 0 && disp < 10 ? disp : null, power_kw: kw || null, vin: o.vehicleIdentificationNumber || null,
+    make: o.brand && o.brand.name || null, model: o.model || null, name: o.name || null };
+}
+function parseApList(html) {
+  const th = {}, re = /id="aimg(\d+)"[^>]*?\ssrc="([^"]+)"/g; let m; while ((m = re.exec(html))) th[m[1]] = m[2];
+  return apProducts(html).map(apItem).filter(function (i) { return i.url && i.price >= 300 && i.price <= 500000; }).map(function (i) { const id = (i.url.match(/\/(\d+)$/) || [])[1]; if (id && th[id]) i.img = th[id]; return i; });
+}
+function parseApListing(html, url) {
+  const ps = apProducts(html); if (!ps.length) return null;
+  const id = (url.match(/\/(\d+)(?:[?#]|$)/) || [])[1];
+  const o = ps.filter(function (x) { const off = (Array.isArray(x.offers) ? x.offers[0] : x.offers) || {}; return id && String(off.url || '').indexOf('/' + id) > -1; })[0] || ps[0];
+  const it = apItem(o), t = strip(html);
+  const loc = (html.match(/class="location"[^>]*>([\s\S]*?)<\/div>/i) || [])[1];
+  const sel = (t.match(/Müüja:\s*(.+?)\s+(?:[A-ZÕÄÖÜ][a-zõäöü]+,\s*Eesti|Telefon)/) || [])[1];
+  const li = t.indexOf('Lisainfo'); const extra = li > -1 ? t.slice(li + 8, li + 1500).replace(/\s+(Mootorsõidukimaks|Registreerimistasu|Aastamaks)[\s\S]*$/, '') : '';
+  const listing = { make: it.make, model: it.model, model_raw: (String(o.description || '').match(/auto\s+(.+?),\s*\d{4},/i) || [])[1] || it.name, year: it.year, mileage_km: it.km, asking_price: it.price,
+    fuel: it.fuel === 'lpg' ? 'petrol' : it.fuel, lpg: it.fuel === 'lpg', gearbox: it.gear, engine_l: it.engine_l, power_kw: it.power_kw, body: o.bodyType || null, color: o.color || null,
+    vin: it.vin && /^[A-HJ-NPR-Z0-9]{17}$/.test(it.vin) ? it.vin : null, description: (String(o.description || '') + '. ' + extra).slice(0, 8000), posted: null, updated: null,
+    place: loc ? strip(loc) : null, address: null, geo: null, dealer: /\b(OÜ|AS|SIA|UAB)\b/.test(sel || ''), seller_name: sel || null, accident: null, repaired_damage: false, owners: null, warranty: null };
+  listing.src = { make: 'table', model: 'table', year: listing.year ? 'table' : null, mileage_km: listing.mileage_km != null ? 'table' : null, asking_price: listing.asking_price ? 'table' : null, fuel: listing.fuel ? 'table' : null, gearbox: listing.gearbox ? 'table' : null, vin: listing.vin ? 'table' : null };
+  const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model || listing.model;
+  const images = (Array.isArray(o.image) ? o.image : []).filter(function (u) { return typeof u === 'string'; }).slice(0, 30);
+  return { listing: listing, image: images[0] || null, images: images, title: listing.model_raw || it.name, hints: {} };
+}
 function parseGenericListing(html, url) {
   const L = { make: null, model: null, year: null, mileage_km: null, asking_price: null, fuel: null, gearbox: null, color: null, body: null, vin: null, description: '' };
   let image = meta(html, 'og:image');
@@ -594,7 +636,7 @@ function parseGenericListing(html, url) {
 const IMG_HOSTS = [
   /(^|\.)copart\.com$/, /(^|\.)iaai\.com$/, /(^|\.)vincheck\.it\.com$/,
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoscout24\.(net|com|de)$/, /(^|\.)autoplius\.lt$/, /(^|\.)dgn\.lt$/, /(^|\.)auto24\.(ee|lv|lt)$/,
-  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autovit\.ro$/
+  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/
 ];
 function imgAllowed(u) {
   try { const x = new URL(u); return x.protocol === 'https:' && IMG_HOSTS.some(function (re) { return re.test(x.hostname); }); } catch (e) { return false; }
@@ -647,6 +689,7 @@ async function hListing(env, q) {
     res.image = g.image; res.title = g.title;
     Object.keys(g.listing).forEach(function (k) { if (k === 'fuel') return; if (res.listing[k] == null || res.listing[k] === '') res.listing[k] = g.listing[k]; });
   } else if (/(^|\.)autoscout24\.[a-z.]+$/.test(host) && (res = parseAs24Listing(p.text, p.url))) { parser = 'as24';
+  } else if (/(^|\.)autoportaal\.ee$/.test(host) && (res = parseApListing(p.text, p.url))) { parser = 'autoportaal';
   } else { res = parseGenericListing(p.text, p.url); parser = 'generic'; res.hints = {}; }
   const L = res.listing;
   if (parser === 'ss' && L.removed) return json(env, { ok: false, error: 'not_found', removed: true, message: 'The listing was removed or has expired.', source: host, parser: parser, listing: L });
@@ -767,6 +810,26 @@ async function hComps(env, q) {
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseAutopliusList(p.text, p.url)); });
     items = dedupe(items);
     return json(env, { ok: items.length > 0, source: 'autoplius', region: 'LT', label: 'autoplius.lt', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found on the page.' });
+  }
+  if (source === 'autoportaal') {
+    if (!make || !model) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
+    const apMk = /^mercedes/i.test(make) ? 'Mercedes-Benz' : /^vw$/i.test(make) ? 'Volkswagen' : make;
+    const mkUrl = function (p) { return 'https://autoportaal.ee/et/kasutatud-autod?make=' + encodeURIComponent(apMk) + '&model=' + encodeURIComponent(model) + (yf ? '&year_min=' + yf : '') + (yt ? '&year_max=' + yt : '') + (p > 1 ? '&page=' + p : ''); };
+    const pages = await Promise.all([1, 2, 3, 4].map(function (n) { return getPage(mkUrl(n), 1800).catch(function () { return { status: 0, text: '', url: mkUrl(n) }; }); }));
+    const search = mkUrl(1), b = blockedBy(pages[0]);
+    if (b) return json(env, { ok: false, source: 'autoportaal', error: 'blocked', message: 'autoportaal.ee refused the server request (' + b + ').', searchUrl: search });
+    let items = [];
+    pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseApList(p.text)); });
+    items = dedupe(items);
+    const w = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); };
+    const mw = w(model), mkw = w(apMk);
+    items = items.filter(function (i) { return (!i.make || w(i.make) === mkw || w(i.make).indexOf(mkw) === 0 || mkw.indexOf(w(i.make)) === 0) && (!i.model || w(i.model) === mw || w(i.model).indexOf(mw) === 0); });
+    if (year && items.length >= 10) {
+      const inY = items.filter(function (i) { return i.year == null || (i.year >= (yf || year - 1) && i.year <= (yt || year + 1)); }).length;
+      if (inY / items.length < 0.5) return json(env, { ok: false, source: 'autoportaal', error: 'filters_ignored', message: 'autoportaal.ee did not apply the model/year filters.', searchUrl: search });
+    }
+    items.forEach(function (i) { delete i.make; delete i.model; delete i.name; });
+    return json(env, { ok: items.length > 0, source: 'autoportaal', region: 'EE', label: 'autoportaal.ee', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found for this make/model.' });
   }
   return json(env, { ok: false, error: 'bad_source', message: 'Unknown source.' }, 400);
 }
