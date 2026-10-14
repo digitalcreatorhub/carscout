@@ -1122,8 +1122,28 @@ var WMI={
   JHM:'Honda',SHH:'Honda',JN1:'Nissan',JN8:'Nissan',SJN:'Nissan',VSK:'Nissan',JMZ:'Mazda',JF1:'Subaru',JF2:'Subaru',
   JS3:'Suzuki',TSM:'Suzuki',JMB:'Mitsubishi',JA3:'Mitsubishi',JA4:'Mitsubishi',
   KMH:'Hyundai',TMA:'Hyundai',NLH:'Hyundai',KNA:'Kia',KND:'Kia',KNE:'Kia',KNM:'Kia',U5Y:'Kia',
-  '5YJ':'Tesla','7SA':'Tesla',LRW:'Tesla',XP7:'Tesla'
+  '5YJ':'Tesla','7SA':'Tesla',LRW:'Tesla',XP7:'Tesla',
+  W1W:'Mercedes-Benz',W1T:'Mercedes-Benz',WDA:'Mercedes-Benz',WME:'smart',VWV:'Volkswagen',XW8:'Volkswagen',LSV:'Volkswagen',LFV:'Volkswagen',
+  VSX:'Opel',VSE:'Suzuki',NM0:'Ford',WF1:'Ford',SHS:'Honda',KPT:'SsangYong',XTA:'Lada',X7L:'Renault',SAD:'Jaguar',
+  MAL:'Hyundai',MA3:'Suzuki',LGW:'GWM',LVV:'Chery',L6T:'Geely',LC0:'BYD',LGX:'BYD',LPS:'Polestar',ZCF:'Iveco',WJM:'Iveco',NM4:'Fiat',VV9:'Cupra',
+  '1FA':'Ford','1FM':'Ford','1FT':'Ford','1G1':'Chevrolet','1GC':'Chevrolet','1C4':'Jeep','1C6':'RAM','2C3':'Dodge','2C4':'Chrysler','3VW':'Volkswagen','1VW':'Volkswagen','4T1':'Toyota','5TD':'Toyota','2T1':'Toyota','JTK':'Toyota','5UX':'BMW','5YM':'BMW','4JG':'Mercedes-Benz','55S':'Mercedes-Benz','1N4':'Nissan','5N1':'Nissan','KM8':'Hyundai','5XY':'Kia','3FA':'Ford','2HG':'Honda','1HG':'Honda','5J6':'Honda'
 };
+/* brands that really write the model year into position 10 for European cars (others leave a filler there) */
+var VIN_YEAR_OK=/^(WVW|WVG|WV1|WV2|WV3|VWV|WAU|WA1|WUA|TRU|TMB|VSS|VV9|WP0|WP1|YV1|YV4|YS3|W0L|W0V|VXK|VSX|KMH|KNA|KND|KNE|KNM|TMA|U5Y|NLH|MAL|SAL|SAJ|SAD|5YJ|7SA|LRW|XP7|JHM|SHH|SHS|KPT)/;
+var VIN_WMI2={WD:'Mercedes-Benz',W1:'Mercedes-Benz',WB:'BMW',WA:'Audi',WV:'Volkswagen',WP:'Porsche',W0:'Opel',WF:'Ford',VF:'PSA / Renault',VR:'PSA',ZF:'Fiat',YV:'Volvo',JT:'Toyota',JN:'Nissan',JM:'Mazda',JH:'Honda',KN:'Kia',KM:'Hyundai',SA:'Jaguar / Land Rover'};
+/* VW group cars for Europe carry the platform code in positions 7-8 (WVWZZZ AU ...) */
+var VAG_CODES={
+  WVW:{'1J':['Golf 4',1997,2006],'1K':['Golf 5 / Jetta',2003,2010],'5K':['Golf 6',2008,2013],'AU':['Golf 7',2012,2020],'5G':['Golf 7',2012,2020],'BQ':['Golf 7',2012,2020],'CD':['Golf 8',2019,2030],'5M':['Golf Plus',2005,2014],'AM':['Golf Sportsvan',2014,2020],
+    '9N':['Polo 4',2001,2009],'6R':['Polo 5',2009,2014],'6C':['Polo 5',2014,2017],'AW':['Polo 6',2017,2030],'3B':['Passat B5',1996,2005],'3C':['Passat B6 / B7',2005,2015],'3G':['Passat B8',2014,2030],'35':['Passat CC',2008,2016],'3H':['Arteon',2017,2030],
+    '1T':['Touran',2003,2015],'5T':['Touran',2015,2030],'7N':['Sharan',2010,2022],'13':['Scirocco',2008,2017],'1Q':['Eos',2006,2015],'5C':['Beetle',2011,2019],'16':['Jetta',2010,2018],'AA':['up!',2011,2030],'E1':['ID.3',2019,2030],'E2':['ID.4',2020,2030],'7H':['Transporter T5',2003,2015],'7E':['Transporter T5',2009,2015],'SG':['Transporter T6',2015,2030]},
+  WVG:{'5N':['Tiguan',2007,2016],'AD':['Tiguan',2016,2030],'AX':['Tiguan Allspace',2017,2030],'7L':['Touareg',2002,2010],'7P':['Touareg',2010,2018],'CR':['Touareg',2018,2030],'A1':['T-Roc',2017,2030],'C1':['T-Cross',2018,2030],'E2':['ID.4',2020,2030],'E5':['ID.5',2021,2030]},
+  WAU:{'8L':['A3 8L',1996,2003],'8P':['A3 8P',2003,2013],'8V':['A3 8V',2012,2020],'8Y':['A3 8Y',2020,2030],'8E':['A4 B6 / B7',2000,2008],'8K':['A4 B8',2007,2016],'8W':['A4 B9',2015,2030],'8T':['A5',2007,2016],'F5':['A5',2016,2030],
+    '4B':['A6 C5',1997,2005],'4F':['A6 C6',2004,2011],'4G':['A6 C7',2011,2018],'4A':['A6 C8',2018,2030],'4E':['A8 D3',2002,2010],'4H':['A8 D4',2010,2017],'4N':['A8 D5',2017,2030],'8X':['A1',2010,2018],'GB':['A1',2018,2030],'8J':['TT',2006,2014],'FV':['TT',2014,2023],'42':['R8',2006,2015],'4S':['R8',2015,2024],'8U':['Q3',2011,2018],'F3':['Q3',2018,2030],'GA':['Q2',2016,2030],
+    '8R':['Q5',2008,2017],'FY':['Q5',2017,2030],'4L':['Q7',2006,2015],'4M':['Q7 / Q8',2015,2030],'GE':['e-tron',2018,2025],'F4':['Q4 e-tron',2021,2030]},
+  TMB:{'1U':['Octavia 1',1996,2010],'1Z':['Octavia 2',2004,2013],'5E':['Octavia 3',2012,2020],'NE':['Octavia 3',2012,2020],'NX':['Octavia 4',2019,2030],'3U':['Superb 1',2001,2008],'3T':['Superb 2',2008,2015],'3V':['Superb 3',2015,2024],'5J':['Fabia 2 / Roomster',2006,2015],'NJ':['Fabia 3',2014,2021],'PJ':['Fabia 4',2021,2030],'NH':['Rapid',2012,2019],'5L':['Yeti',2009,2017],'NS':['Kodiaq',2016,2030],'NU':['Karoq',2017,2030],'NW':['Kamiq',2019,2030],'AA':['Citigo',2011,2020],'NY':['Enyaq',2020,2030],'NV':['Scala',2019,2030]},
+  VSS:{'1P':['Leon 2',2005,2012],'5F':['Leon 3',2012,2020],'KL':['Leon 4',2020,2030],'6L':['Ibiza 3',2002,2008],'6J':['Ibiza 4',2008,2017],'KJ':['Ibiza 5 / Arona',2017,2030],'5P':['Altea / Toledo',2004,2015],'KH':['Ateca',2016,2030],'7N':['Alhambra',2010,2020],'KN':['Tarraco',2018,2030]}
+};
+VAG_CODES.WA1=VAG_CODES.WAU; VAG_CODES.WUA=VAG_CODES.WAU; VAG_CODES.TRU=VAG_CODES.WAU; VAG_CODES.WV1=VAG_CODES.WVW; VAG_CODES.WV2=VAG_CODES.WVW; VAG_CODES.VWV=VAG_CODES.WVW; VAG_CODES.VV9=VAG_CODES.VSS;
 function regionOf(c){
   if(/[A-H]/.test(c)) return 'AF'; if(/[J-R]/.test(c)) return 'AS'; if(/[S-Z]/.test(c)) return 'EU';
   if(/[1-5]/.test(c)) return 'NA'; if(/[67]/.test(c)) return 'OC'; if(/[89]/.test(c)) return 'SA'; return null;
@@ -1150,7 +1170,17 @@ function decodeVin(raw){
   out.complete=true;
   out.wmi=v.slice(0,3); out.vds=v.slice(3,8); out.checkChar=v.charAt(8); out.yearChar=v.charAt(9);
   out.plantChar=v.charAt(10); out.serial=v.slice(11);
-  out.maker=WMI[out.wmi]||null; out.region=regionOf(v.charAt(0)); out.years=yearsOf(v.charAt(9)); out.check=checkDigit(v);
+  out.maker=WMI[out.wmi]||VIN_WMI2[v.slice(0,2)]||null; out.region=regionOf(v.charAt(0)); out.check=checkDigit(v);
+  /* a correct check digit means a US-format VIN, which always carries the model year */
+  out.yearReliable=out.region==='NA'||VIN_YEAR_OK.test(v)||(out.check.ok&&YEAR_CODES.indexOf(v.charAt(9))>-1);
+  var code=v.slice(6,8), tabs=[VAG_CODES[out.wmi]].concat(out.wmi==='WVW'?[VAG_CODES.WVG]:out.wmi==='WVG'?[VAG_CODES.WVW]:[]);
+  if(out.region==='EU') tabs.forEach(function(t){ if(!out.model&&t&&t[code]){ out.model=t[code][0]; out.genYears=[t[code][1],t[code][2]]; } });
+  var ys=yearsOf(v.charAt(9));
+  /* the codes repeat every 30 years: keep the year that fits (inside the model generation, or after 1990) */
+  if(ys.length>1){ var fit=ys.filter(function(y){ return out.genYears?(y>=out.genYears[0]-1&&y<=out.genYears[1]+1):y>=1990; }); if(fit.length) ys=fit; }
+  if(ys.length>1) ys=[Math.max.apply(null,ys)];
+  if(out.genYears&&ys.length&&(ys[0]<out.genYears[0]-1||ys[0]>out.genYears[1]+1)) out.yearReliable=false;
+  out.yearGuess=ys; out.years=out.yearReliable?ys:[];
   return out;
 }
 function plain(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
@@ -1721,8 +1751,8 @@ function renderVinLive(){
   if(!d.vin){el.textContent='';el.className='hint';return}
   if(d.issues.indexOf('chars')>-1||d.issues.indexOf('ioq')>-1){el.textContent=L('В VIN недопустимые символы (I, O, Q не бывает).','The VIN has invalid characters (no I, O, Q).');el.className='hint bd';return}
   if(!d.complete){el.textContent=L('Введено '+d.length+' из 17 символов.','Entered '+d.length+' of 17 characters.');el.className='hint';return}
-  var y=d.years&&d.years.length?d.years.join(' / '):'?';
-  el.textContent=(d.maker?d.maker+' · ':'')+L('модельный год ','model year ')+y+(d.check&&d.check.expected&&d.region==='NA'?'':'');
+  var y=d.years&&d.years.length?d.years.join(' / '):null;
+  el.textContent=[d.maker,d.model].filter(Boolean).join(' ')+(d.maker||d.model?' · ':'')+(y?L('модельный год ','model year ','modeļa gads ')+y:L('год в VIN этой марки не записан','this make does not write the year into the VIN','šī marka gadu VIN neieraksta'));
   el.className='hint ok';
 }
 function renderThumbs(){
@@ -1819,7 +1849,7 @@ async function run(){
       }catch(e){ notes.push((function(){return L('Фото не удалось прочитать (нужен интернет для загрузки распознавания).','Photos could not be read (internet needed to load text recognition).')})); }
     }
     autoSet('#f-trim',(car.trims||[]).map(trimDisplay).join(', '));
-    var vd=decodeVin(car.vin||''); if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1){ car.year=vd.years[0]; car.src.year='vin'; }
+    var vd=decodeVin(car.vin||''); if(vd.complete&&!car.make&&vd.maker&&!/\//.test(vd.maker)){ car.make=vd.maker; car.src.make='vin'; } if(vd.complete&&vd.model&&!car.model){ car.model=vd.model.split(/\s/)[0]; car.src.model='vin'; } if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1){ car.year=vd.years[0]; car.src.year='vin'; }
     /* fill the form so the user can fix it */
     autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin); (function(){ var e=engineOf(car); if(e&&!car.engineL){ car.engineL=e; car.src.engine='text'; } autoSet('#f-eng',e?e.toFixed(1):''); })();
     renderVinLive();
@@ -2118,7 +2148,7 @@ function secNear(v){
 function secVin(v){
   var d=decodeVin(v.car.vin||''); if(!d.complete) return '';
   var y=d.years&&d.years.length?d.years.join(' / '):'?';
-  return '<section class="sec" id="sec-vin"><h3 class="sh">VIN</h3><div class="stack" style="margin-top:12px"><p class="num" style="letter-spacing:.12em;font-size:17px">'+esc(d.vin)+'</p><dl class="kv"><div><dt>'+esc(L('Производитель','Maker'))+'</dt><dd>'+esc(d.maker||L('не определён','unknown'))+'</dd></div><div><dt>'+esc(L('Модельный год','Model year'))+'</dt><dd>'+esc(y)+'</dd></div><div><dt>'+esc(L('Контрольная цифра','Check digit'))+'</dt><dd>'+(d.region==='EU'?esc(L('для европейских VIN не обязательна','not mandatory for European VINs')):(d.check&&d.check.ok?'OK':esc(L('не совпадает','mismatch'))))+'</dd></div></dl>'+
+  return '<section class="sec" id="sec-vin"><h3 class="sh">VIN</h3><div class="stack" style="margin-top:12px"><p class="num" style="letter-spacing:.12em;font-size:17px">'+esc(d.vin)+'</p><dl class="kv"><div><dt>'+esc(L('Производитель','Maker'))+'</dt><dd>'+esc(d.maker||L('не определён','unknown'))+'</dd></div>'+(d.model?'<div><dt>'+esc(L('Модель','Model','Modelis'))+'</dt><dd>'+esc(d.model+(d.genYears?' ('+d.genYears[0]+'–'+(d.genYears[1]>=new Date().getFullYear()?'…':d.genYears[1])+')':''))+'</dd></div>':'')+'<div><dt>'+esc(L('Модельный год','Model year'))+'</dt><dd>'+esc(d.years&&d.years.length?d.years.join(' / '):L('в VIN этой марки не записан','not written into the VIN by this make','šī marka to VIN neieraksta'))+'</dd></div><div><dt>'+esc(L('Контрольная цифра','Check digit'))+'</dt><dd>'+(d.region==='EU'?esc(L('для европейских VIN не обязательна','not mandatory for European VINs')):(d.check&&d.check.ok?'OK':esc(L('не совпадает','mismatch'))))+'</dd></div></dl>'+
     '<p class="hint">'+esc(L('Это разбор структуры VIN. Комплектацию и историю проверьте в базе производителя и на csdd.lv.','This decodes the VIN structure. Check the equipment and history with the manufacturer and on csdd.lv.'))+'</p></div></section>';
 }
 function secCalc(v){
@@ -2333,7 +2363,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.24', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.25', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
