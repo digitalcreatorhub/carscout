@@ -1,3 +1,2 @@
-sleep 75
 W=https://carscout.pmax70095.workers.dev; O="Origin: https://digitalcreatorhub.github.io"
-curl -s -H "$O" "$W/api/tg/status?code=probeprobeprobe12345" > out/tg.json
+for m in "Volkswagen Golf 2017" "Škoda Superb 2019" "Audi A6 2012" "Toyota RAV4 2019"; do set -- $m; curl -s -H "$O" "$W/api/trend?make=$1&model=$2&year=$3" | python3 -c "import json,sys;j=json.load(sys.stdin);print('$m', 'tracked',j.get('tracked'),'now',j['weeks'][-1] if j.get('weeks') else j)" >> out/t.txt; done
