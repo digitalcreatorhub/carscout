@@ -539,7 +539,7 @@ function parseAs24Listing(html, url) {
     make: v.make || null, model: (v.model && v.modelGroup && /er$|series|serie|klasse|class|-reihe/i.test(v.modelGroup) && v.model !== v.modelGroup ? v.model : (v.modelGroup || v.model)) || null, model_raw: [v.model, v.modelVersionInput].filter(Boolean).join(' ') || null,
     year: /^\d{4}$/.test(yr) ? parseInt(yr, 10) : null, mileage_km: v.mileageInKmRaw != null ? Math.round(v.mileageInKmRaw) : null,
     asking_price: price ? Math.round(price) : null, fuel: fuel === 'lpg' ? 'petrol' : fuel, lpg: fuel === 'lpg', gearbox: gearbox,
-    engine_l: ccm > 400 ? Math.round(ccm / 100) / 10 : null, power_kw: v.rawPowerInKw || null, body: v.bodyType || null, color: null,
+    engine_l: ccm > 400 ? Math.round(ccm / 100) / 10 : null, power_kw: v.rawPowerInKw || null, drive: driveNorm(v.driveTrain || (raw.driveTrain)), body: v.bodyType || null, color: null,
     vin: null, description: desc,
     posted: L.createdTimestampWithOffset ? String(L.createdTimestampWithOffset).slice(0, 10) : null, updated: null,
     place: [loc.zip, loc.city].filter(Boolean).join(' ') + (loc.countryCode ? ', ' + loc.countryCode : '') || null,
@@ -564,6 +564,7 @@ function apProducts(html) {
   while ((m = re.exec(html))) { try { walk(JSON.parse(m[1])); } catch (e) { } }
   return out;
 }
+function driveNorm(x) { const s = String((x && x.formatted) || x || ''); return /all|four|4x4|4wd|awd|allrad/i.test(s) ? 'awd' : /front|vorder/i.test(s) ? 'fwd' : /rear|hinter/i.test(s) ? 'rwd' : null; }
 function apFuel(f) { const s = String(f || '').toLowerCase(); return /plug|hybrid|hübriid/.test(s) ? 'hybrid' : /diesel|diisel/.test(s) ? 'diesel' : /electr|elekter/.test(s) ? 'electric' : /lpg|cng|gaas|gas/.test(s) ? 'lpg' : /petrol|bensiin|gasoline/.test(s) ? 'petrol' : null; }
 function apItem(o) {
   const off = (Array.isArray(o.offers) ? o.offers[0] : o.offers) || {};
@@ -575,7 +576,7 @@ function apItem(o) {
   const img = Array.isArray(o.image) ? o.image[0] : (typeof o.image === 'string' ? o.image : null);
   return { price: price > 0 ? Math.round(price) : null, km: km, year: yr, url: off.url || o.url || null, title: (tm ? tm[1] : o.name || '').slice(0, 120) + (o.vehicleConfiguration ? ' · ' + String(o.vehicleConfiguration).split(',').slice(0, 2).join(',') : ''),
     fuel: apFuel(o.fuelType || eng.fuelType), gear: /auto/.test(tr) ? 'automatic' : /manu/.test(tr) ? 'manual' : null, img: img || null,
-    engine_l: disp > 0 && disp < 10 ? disp : null, power_kw: kw || null, vin: o.vehicleIdentificationNumber || null,
+    engine_l: disp > 0 && disp < 10 ? disp : null, power_kw: kw || null, vin: o.vehicleIdentificationNumber || null, drive: driveNorm(o.driveWheelConfiguration),
     make: o.brand && o.brand.name || null, model: o.model || null, name: o.name || null };
 }
 function parseApList(html) {
@@ -591,7 +592,7 @@ function parseApListing(html, url) {
   const sel = (t.match(/Müüja:\s*(.+?)\s+(?:[A-ZÕÄÖÜ][a-zõäöü]+,\s*Eesti|Telefon)/) || [])[1];
   const li = t.indexOf('Lisainfo'); const extra = li > -1 ? t.slice(li + 8, li + 1500).replace(/\s+(Mootorsõidukimaks|Registreerimistasu|Aastamaks)[\s\S]*$/, '') : '';
   const listing = { make: it.make, model: it.model, model_raw: (String(o.description || '').match(/auto\s+(.+?),\s*\d{4},/i) || [])[1] || it.name, year: it.year, mileage_km: it.km, asking_price: it.price,
-    fuel: it.fuel === 'lpg' ? 'petrol' : it.fuel, lpg: it.fuel === 'lpg', gearbox: it.gear, engine_l: it.engine_l, power_kw: it.power_kw, body: o.bodyType || null, color: o.color || null,
+    fuel: it.fuel === 'lpg' ? 'petrol' : it.fuel, lpg: it.fuel === 'lpg', gearbox: it.gear, engine_l: it.engine_l, power_kw: it.power_kw, drive: it.drive, body: o.bodyType || null, color: o.color || null,
     vin: it.vin && /^[A-HJ-NPR-Z0-9]{17}$/.test(it.vin) ? it.vin : null, description: (String(o.description || '') + '. ' + extra).slice(0, 8000), posted: null, updated: null,
     place: loc ? strip(loc) : null, address: null, geo: null, dealer: /\b(OÜ|AS|SIA|UAB)\b/.test(sel || ''), seller_name: sel || null, accident: null, repaired_damage: false, owners: null, warranty: null };
   listing.src = { make: 'table', model: 'table', year: listing.year ? 'table' : null, mileage_km: listing.mileage_km != null ? 'table' : null, asking_price: listing.asking_price ? 'table' : null, fuel: listing.fuel ? 'table' : null, gearbox: listing.gearbox ? 'table' : null, vin: listing.vin ? 'table' : null };

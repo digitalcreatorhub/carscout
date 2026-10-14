@@ -1652,10 +1652,11 @@ function autoSet(sel,v){
   if(el.value&&el.dataset.auto!=='1') return;
   el.value=(v==null?'':v); el.dataset.auto=el.value?'1':'';
 }
+function driveOf(t){ t=String(t||''); if(/quattro|4\s?motion|\bx-?drive|4\s?matic|\bawd\b|\b4x4\b|\b4wd\b|\ball4\b|\bq4\b|allrad|pilnpiedzi|полн(ый|ым)\s+привод|полноприв|e-?four|sh-?awd|all[\s-]?wheel|four[\s-]?wheel|4xmotion|alltrack|allroad|\b4x4|4matic/i.test(t)) return 'awd'; if(/\bfwd\b|front[\s-]?wheel|передний\s+привод|priekšpiedzi|esivedu/i.test(t)) return 'fwd'; if(/\brwd\b|rear[\s-]?wheel|задний\s+привод|aizmugurējā\s+piedzi|tagavedu/i.test(t)) return 'rwd'; return null; }
 function readForm(){
   var y=fvInt('#f-year');
   return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:fv('#f-vin'),make:fv('#f-make'),model:fv('#f-model'),trim:fv('#f-trim'),eng:(function(){ var x=parseFloat(fv('#f-eng').replace(',','.')); return x>=0.6&&x<=8?Math.round(x*10)/10:null; })(),photos:!$('#f-photos')||$('#f-photos').checked,
-    year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:fvInt('#f-km'),price:fvInt('#f-price'),fuel:fv('#f-fuel'),market:$('#f-market').value,
+    year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:fvInt('#f-km'),price:fvInt('#f-price'),fuel:fv('#f-fuel'),drive:(function(){ var e=$('#f-drive'); return e?e.value:''; })(),market:$('#f-market').value,
     extra:$('#f-extra').value.split(/\s+/).map(function(s){return s.trim()}).filter(function(s){return /^https?:\/\//i.test(s)}).slice(0,4)};
 }
 function setField(id,v){var el=$(id); if(el&&v!=null&&v!==''&&!el.value) el.value=v}
@@ -1743,7 +1744,7 @@ async function run(){
       var lj=await api('/api/listing',{url:f.url});
       if(lj&&lj.listing&&(lj.ok||lj.listing.asking_price||lj.listing.make)){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
-        var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null; car.place=l.place||null; car.address=l.address||null; car.geo=l.geo||null; car.isDealer=!!l.dealer; car.sellerName=l.seller_name||null; car.accident=l.accident; car.repairedDamage=!!l.repaired_damage; car.owners=l.owners||null; car.reportUrl=l.report_url||null; car.reportName=l.report_name||null; car.powerKw=l.power_kw||null; car.warranty=l.warranty||null;
+        var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null; car.place=l.place||null; car.address=l.address||null; car.geo=l.geo||null; car.isDealer=!!l.dealer; car.sellerName=l.seller_name||null; car.accident=l.accident; car.repairedDamage=!!l.repaired_damage; car.owners=l.owners||null; car.reportUrl=l.report_url||null; car.reportName=l.report_name||null; car.powerKw=l.power_kw||null; if(l.drive) car.drive=l.drive; car.warranty=l.warranty||null;
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
       } else {
         notes.push((function(){return L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.')}));
@@ -1758,6 +1759,7 @@ async function run(){
     Object.keys(man).forEach(function(k){ if(man[k]!=null&&man[k]!==''){ car[k]=man[k]; car.src[k]='manual'; } });
     if(S.manualGear){ car.gear=S.manualGear; car.src.gear='manual'; }
     if(f.eng){ car.engineL=f.eng; car.src.engine='manual'; } else if(car.engineL) car.src.engine=car.src.engine||'table';
+    if(f.drive){ car.drive=f.drive; car.src.drive='manual'; } else if(!car.drive){ var dd=driveOf([car.title,car.rawModel,car.desc,f.text].join(' ')); if(dd){ car.drive=dd; car.src.drive='text'; } }
     /* 5. hints from the link */
     if(hint&&!hint.bad) mergeCar(car,{make:hint.make,model:hint.model,year:hint.year},'link');
     /* ss.com lists less common brands (GWM, BYD, ...) under "Others": take the real make from the ad text */
@@ -1864,6 +1866,9 @@ function pickRelevant(items,car){
   if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===car.fuel}); if(same.length>=5) sel=same; }
   var engN=null; if(car.engineL&&!isEvCar(car)){ var itemEng=function(i){ if(i.engine_l) return +i.engine_l; var m=String(i.title||'').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m?parseFloat(m[1].replace(',','.')):null; };
     var sameE=sel.filter(function(i){ var e=itemEng(i); return e!=null&&Math.abs(e-car.engineL)<=0.15; }); if(sameE.length>=5){ sel=sameE; engN=sameE.length; } }
+  var drvN=null, drvFew=null; if(car.drive){ var dOf=function(i){ return i.drive||driveOf([i.title,i.model_raw].join(' ')); };
+    if(car.drive==='awd'){ var aw=sel.filter(function(i){return dOf(i)==='awd'}); if(aw.length>=5){ sel=aw; drvN=aw.length; } else drvFew=aw.length; }
+    else { var nw=sel.filter(function(i){return dOf(i)!=='awd'}); if(nw.length>=5&&nw.length<sel.length){ sel=nw; drvN=nw.length; } } }
   var med=median(sel.map(function(i){return i.price})); if(med) sel=sel.filter(function(i){return i.price>=med*0.4&&i.price<=med*2.5});
   var pre=sel, trimNote=null, mine=car.trims||[];
   if(mine.length){
@@ -1873,7 +1878,7 @@ function pickRelevant(items,car){
     var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title,car.make))});
     if(plain.length>=6&&plain.length<sel.length){ sel=plain; trimNote={mode:'plain',n:plain.length}; }
   }
-  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote,engN:engN};
+  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote,engN:engN,drvN:drvN,drvFew:drvFew};
 }
 function fairOf(st){
   if(!st) return null;
@@ -1888,7 +1893,7 @@ function compute(car,results,f,notes){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:(function(){return errText(j)}),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
       var pr=pickRelevant((j.items||[]).map(function(i){return Object.assign({src:r.label,region:r.region},i)}),car);
-      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN;
+      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN; row.drvN=pr.drvN; row.drvFew=pr.drvFew;
       row.stats=compStats(pr.items.map(function(i){return {price:i.price,km:i.km}}),{km:car.km});
       row.fair=fairOf(row.stats);
       if(row.fair&&row.n>=3&&car.price>0&&(row.fair.mid<car.price*0.45||row.fair.mid>car.price*2.2)){
@@ -1907,6 +1912,8 @@ function compute(car,results,f,notes){
   var solid=function(r){return r.fair&&r.n>=5};
   var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
   if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push((function(){return L('В '+rloc(want)+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку '+rgen(home.region)+(FAR[home.region]?' (цены без учёта ввоза: доставка и регистрация добавят примерно 800–1500 €)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(FAR[home.region]?' (prices before import costs)':'')+'.')})); }
+  if(home&&home.drvN&&car.drive){ var dN=home.drvN, dw=car.drive; notes.push(function(){ return dw==='awd'?L('Сравнение только с полноприводными машинами: '+dN+' объявл.','Compared only with all-wheel-drive cars: '+dN+' ads','Salīdzināts tikai ar pilnpiedziņas auto: '+dN+' sludin.'):L('Полноприводные версии исключены из сравнения ('+dN+' объявл. осталось).','All-wheel-drive versions were excluded from the comparison ('+dN+' ads left).','Pilnpiedziņas versijas izslēgtas no salīdzināšanas (palika '+dN+' sludin.).'); }); }
+  else if(home&&car.drive==='awd'&&home.drvFew!=null){ var dF=home.drvFew; notes.push(function(){ return L('Полный привод указан в заголовках только у '+dF+' объявл., поэтому сравнение идёт со всеми версиями. Полноприводная машина обычно стоит на 5–10% дороже.','All-wheel drive is named in only '+dF+' ad titles, so all versions are compared. An all-wheel-drive car usually costs 5–10% more.','Pilnpiedziņa norādīta tikai '+dF+' sludinājumu virsrakstos, tāpēc salīdzinātas visas versijas. Pilnpiedziņas auto parasti ir par 5–10% dārgāks.'); }); }
   if(home&&home.engN){ var eN=home.engN, eL=car.engineL; notes.push(function(){ return L('Сравнение только с машинами с тем же объёмом двигателя ('+eL.toFixed(1)+' л): '+eN+' объявл.','Compared only with cars with the same engine size ('+eL.toFixed(1)+' l): '+eN+' ads','Salīdzināts tikai ar auto ar tādu pašu motora tilpumu ('+eL.toFixed(1)+' l): '+eN+' sludin.'); }); }
   var fair=home?home.fair:null, ver=verdictOf(car.price,fair?fair.mid:null), score=ver.delta!=null?priceScore(ver.delta):null;
   if(home&&home.fair&&!(home.stats&&home.stats.reg)&&car.km!=null){
@@ -2293,7 +2300,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.15', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.16', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3711,10 +3718,13 @@ var SELL_COND={top:[1.04,'отличное','excellent','izcils'],good:[1,'хо�
   grid.parentNode.insertBefore(bar,grid);
   /* extra fields shown only when valuing your own car */
   var mk=document.querySelector('#manual .stack');
-  if(mk){ var row=document.createElement('div'); row.className='row2 sell-only';
-    row.innerHTML='<div class="fld"><label for="f-gear" data-ru="Коробка передач" data-en="Gearbox" data-lv="Ātrumkārba"></label><select class="in" id="f-gear"><option value="" data-ru="не важно" data-en="any" data-lv="nav svarīgi"></option><option value="automatic" data-ru="Автомат" data-en="Automatic" data-lv="Automāts"></option><option value="manual" data-ru="Механика" data-en="Manual" data-lv="Manuāla"></option></select></div>'+
-      '<div class="fld"><label for="f-cond" data-ru="Состояние" data-en="Condition" data-lv="Stāvoklis"></label><select class="in" id="f-cond"><option value="good" data-ru="Хорошее, обычный износ" data-en="Good, normal wear" data-lv="Labs, parasts nolietojums"></option><option value="top" data-ru="Отличное, без вложений, история" data-en="Excellent, no work needed, history" data-lv="Izcils, bez ieguldījumiem, vēsture"></option><option value="work" data-ru="Нужны вложения или ремонт" data-en="Needs work or repair" data-lv="Vajadzīgi ieguldījumi vai remonts"></option></select></div>';
+  if(mk){ var row=document.createElement('div'); row.className='row2';
+    row.innerHTML='<div class="fld"><label for="f-gear" data-ru="Коробка передач" data-en="Gearbox" data-lv="Ātrumkārba"></label><select class="in" id="f-gear"><option value="" data-ru="не указана" data-en="not set" data-lv="nav norādīta"></option><option value="automatic" data-ru="Автомат" data-en="Automatic" data-lv="Automāts"></option><option value="manual" data-ru="Механика" data-en="Manual" data-lv="Manuāla"></option></select></div>'+
+      '<div class="fld"><label for="f-drive" data-ru="Привод" data-en="Drive" data-lv="Piedziņa"></label><select class="in" id="f-drive"><option value="" data-ru="не указан" data-en="not set" data-lv="nav norādīta"></option><option value="awd" data-ru="Полный (4x4, quattro, xDrive…)" data-en="All-wheel (4x4, quattro, xDrive…)" data-lv="Pilnpiedziņa (4x4, quattro, xDrive…)"></option><option value="fwd" data-ru="Передний" data-en="Front-wheel" data-lv="Priekšpiedziņa"></option><option value="rwd" data-ru="Задний" data-en="Rear-wheel" data-lv="Aizmugurējā piedziņa"></option></select></div>';
     mk.appendChild(row);
+    var row2=document.createElement('div'); row2.className='row2 sell-only';
+    row2.innerHTML='<div class="fld"><label for="f-cond" data-ru="Состояние" data-en="Condition" data-lv="Stāvoklis"></label><select class="in" id="f-cond"><option value="good" data-ru="Хорошее, обычный износ" data-en="Good, normal wear" data-lv="Labs, parasts nolietojums"></option><option value="top" data-ru="Отличное, без вложений, история" data-en="Excellent, no work needed, history" data-lv="Izcils, bez ieguldījumiem, vēsture"></option><option value="work" data-ru="Нужны вложения или ремонт" data-en="Needs work or repair" data-lv="Vajadzīgi ieguldījumi vai remonts"></option></select></div>';
+    mk.appendChild(row2);
     document.getElementById('f-gear').addEventListener('change',function(e){ S.manualGear=e.target.value||null; });
   }
   var mark=function(el){ if(el) el.classList.add('buy-only'); };
@@ -3742,6 +3752,7 @@ function setMode(m){
     SELL_SAVE={url:$('#f-url').value,text:$('#f-text').value,price:$('#f-price').value}; $('#f-url').value=''; $('#f-text').value=''; $('#f-price').value='';
     S.images.forEach(function(i){URL.revokeObjectURL(i.url)}); S.images=[]; renderThumbs();
     $('#manual').open=true;
+    document.querySelectorAll('#manual input,#manual select').forEach(function(el){ if(el.dataset) el.dataset.auto=''; });
     go.setAttribute('data-ru','Оценить мой автомобиль'); go.setAttribute('data-en','Value my car'); go.setAttribute('data-lv','Novērtēt manu auto');
     if(pl){ pl.setAttribute('data-ru','Ваша цена (если есть)'); pl.setAttribute('data-en','Your price (optional)'); pl.setAttribute('data-lv','Jūsu cena (ja ir)'); }
     S.view=null; S.srcRows={}; renderSrcs(); render(); showStatus('');
@@ -3787,7 +3798,8 @@ function sellText(v,P,lang){
   var eng=c.engineL?Number(c.engineL).toFixed(1):'';
   var trim=(c.trims||[]).map(trimDisplay).join(', ')||c.trimCustom||'';
   var head=t('Продаю ','For sale: ','Pārdodu ')+[c.make,c.model].filter(Boolean).join(' ')+(trim?' '+trim:'')+', '+c.year+t(' г.','',' g.');
-  var spec=[eng&&fu?eng+' '+fu:(eng||fu),gr,c.km!=null?t('пробег ','mileage ','nobraukums ')+fmt(c.km)+' km':''].filter(Boolean).join(', ');
+  var dr=c.drive==='awd'?t('полный привод','all-wheel drive','pilnpiedziņa'):c.drive==='rwd'?t('задний привод','rear-wheel drive','aizmugurējā piedziņa'):c.drive==='fwd'?t('передний привод','front-wheel drive','priekšpiedziņa'):'';
+  var spec=[eng&&fu?eng+' '+fu:(eng||fu),gr,dr,c.km!=null?t('пробег ','mileage ','nobraukums ')+fmt(c.km)+' km':''].filter(Boolean).join(', ');
   return [head,spec?spec.charAt(0).toUpperCase()+spec.slice(1)+'.':'','',
     t('Состояние: [опишите честно: кузов, салон, что недавно меняли]','Condition: [describe honestly: body, interior, recent work]','Stāvoklis: [aprakstiet godīgi: virsbūve, salons, kas nesen mainīts]'),
     t('Обслуживание: [сервисная книжка / чеки, последнее ТО]','Service: [service book / receipts, last service]','Apkope: [servisa grāmatiņa / čeki, pēdējā apkope]'),
@@ -3798,7 +3810,7 @@ function sellText(v,P,lang){
 function renderSell(v){
   var c=v.car, P=sellCalc(v); if(!P) return sellRender0(Object.assign({},v,{sell:null}));
   var cond=SELL_COND[v.sell.cond], home=v.home, n=home?home.n:0, conf=n>=25?L('высокая','high','augsta'):n>=10?L('средняя','medium','vidēja'):L('низкая','low','zema');
-  var spec=[c.km!=null?fmt(c.km)+' km':null,c.engineL?Number(c.engineL).toFixed(1)+' l':null,fuelLabel(c)||null,c.gear==='automatic'?L('автомат','automatic','automāts'):c.gear==='manual'?L('механика','manual','manuāla'):null,(c.trims||[]).map(trimDisplay).join(', ')||null].filter(Boolean).join(' · ');
+  var spec=[c.km!=null?fmt(c.km)+' km':null,c.engineL?Number(c.engineL).toFixed(1)+' l':null,fuelLabel(c)||null,c.gear==='automatic'?L('автомат','automatic','automāts'):c.gear==='manual'?L('механика','manual','manuāla'):null,c.drive==='awd'?L('полный привод','all-wheel drive','pilnpiedziņa'):c.drive==='rwd'?L('задний привод','rear-wheel drive','aizmugurējā piedziņa'):c.drive==='fwd'?L('передний привод','front-wheel drive','priekšpiedziņa'):null,(c.trims||[]).map(trimDisplay).join(', ')||null].filter(Boolean).join(' · ');
   var h=[];
   /* 1. the valuation */
   var own=c.price>0?(c.price-P.mid)/P.mid*100:null;
@@ -3846,6 +3858,60 @@ function renderSell(v){
 }
 document.addEventListener('change',function(e){ if(e.target&&e.target.id==='sell-lang'&&S.view&&S.view.sell){ var P=sellCalc(S.view), t=$('#sell-text'); if(P&&t) t.value=sellText(S.view,P,e.target.value); } });
 document.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-act="sell-copy"]'); if(!b) return; var t=$('#sell-text'); if(t) copyText(t.value,L('Текст объявления скопирован.','Ad text copied.','Sludinājuma teksts nokopēts.')); });
+
+/* ======================= scam risk: signals put together (shown only when something is found) ======================= */
+function fraudOf(v){
+  var c=v.car||{}, tx=String(c.allText||[c.title,c.desc].join(' ')||''), sig=[], add=function(w,ru,en,lv){ sig.push({w:w,t:L(ru,en,lv)}); };
+  var d=v.ver&&v.ver.delta!=null&&v.fair?v.ver.delta:null;
+  if(d!=null&&d<=-35) add(4,'Цена на '+Math.round(-d)+'% ниже рынка — так дёшево обычно продают только битые машины без документов или это приманка','The price is '+Math.round(-d)+'% below the market — this cheap is usually a damaged car without papers, or bait','Cena ir par '+Math.round(-d)+'% zem tirgus — tik lēti parasti pārdod tikai bojātus auto bez dokumentiem vai tā ir ēsma');
+  else if(d!=null&&d<=-20) add(3,'Цена на '+Math.round(-d)+'% ниже рынка без понятной причины','The price is '+Math.round(-d)+'% below the market for no clear reason','Cena ir par '+Math.round(-d)+'% zem tirgus bez skaidra iemesla');
+  if(/предоплат|задат(ок|ка)|аванс\b|депозит|priekšapmaks|avansa maks|rokasnaud|\bdeposit\b|prepay|advance payment|western union|moneygram|перевед(и|ите) на карт|на карту|bitcoin|крипт|crypto/i.test(tx))
+    add(4,'В тексте просят предоплату, задаток или перевод денег — так работает большинство мошенников','The text asks for a prepayment, deposit or money transfer — that is how most scams work','Tekstā prasa priekšapmaksu, rokasnaudu vai naudas pārskaitījumu — tā strādā lielākā daļa krāpnieku');
+  var abroad=/(машин[аы]|авто(мобиль)?)\s+(сейчас\s+)?(находится\s+)?(в|во)\s+(германи|норвеги|англи|швеци|финлянди|польш|голланди|нидерланд|бельги|франци|итали|испани|литв|эстони)|auto\s+(šobrīd\s+)?atrodas\s+(vācij|norvēģ|anglij|zviedrij|polij|nīderland|beļģij|francij|itālij|spānij|lietuv|igaunij)|car\s+is\s+(currently\s+)?(located\s+)?in\s+(germany|norway|england|uk|sweden|poland|netherlands|belgium|france|italy|spain)|доставк[аиу]\s+(за\s+мой\s+сч|бесплатн|по\s+всей)|piegāde\s+bez\s+maksas/i.test(tx);
+  if(abroad) add(d!=null&&d<=-15?3:1,'Машина «находится за границей» и предлагают доставку: не платите ничего, пока не увидите машину и документы','The car is “abroad” and delivery is offered: pay nothing until you have seen the car and papers','Auto «atrodas ārzemēs» un piedāvā piegādi: nemaksājiet neko, kamēr neesat redzējis auto un dokumentus');
+  if(/(только|tikai|only)\s+(в\s+|uz\s+|by\s+|via\s+)?(whats\s?app|viber|telegram|e-?mail|почт|epast)|(не\s+звонить|nezvanīt|no\s+calls)/i.test(tx))
+    add(2,'Продавец просит писать только в мессенджер или на почту и не звонить','The seller asks to write only via a messenger or e-mail and not to call','Pārdevējs lūdz rakstīt tikai ziņapmaiņā vai e-pastā un nezvanīt');
+  if(v.seller&&v.seller.ok&&v.seller.phoneLinked===false&&sig.length) add(1,'Телефон продавца скрыт: проверить его другие объявления нельзя','The seller’s phone is hidden: their other ads cannot be checked','Pārdevēja tālrunis ir paslēpts: citus sludinājumus pārbaudīt nevar');
+  (v.photoMatches||[]).forEach(function(p){ var i=p.i||{};
+    if(i.km!=null&&c.km!=null&&i.km-c.km>3000) add(4,'Фото этой машины есть в другом объявлении с пробегом больше на '+fmt(i.km-c.km)+' км — возможна скрутка','Photos of this car appear in another ad with '+fmt(i.km-c.km)+' km more — possible rollback','Šī auto foto ir citā sludinājumā ar par '+fmt(i.km-c.km)+' km lielāku nobraukumu — iespējama attīšana');
+    else if(i.price&&c.price&&Math.abs(i.price-c.price)/c.price>0.2) add(3,'Те же фото в другом объявлении ('+(i.src||'')+') с ценой '+eur(i.price)+': фото могли скопировать','The same photos in another ad ('+(i.src||'')+') priced '+eur(i.price)+': the photos may be copied','Tās pašas foto citā sludinājumā ('+(i.src||'')+') ar cenu '+eur(i.price)+': foto var būt nokopētas');
+  });
+  var acc=typeof accInfo==='function'?accInfo(v):null;
+  if(acc&&acc.salvage&&/не\s+бит|не\s+крашен|без\s+(дтп|аварий)|bez\s+avārij|nav\s+sist|accident[\s-]?free|no\s+accidents|unfallfrei/i.test(tx)) add(4,'В объявлении написано «не бита», а по VIN машина была на аукционе битых авто','The ad says “no accidents”, but the VIN was at a damaged-car auction','Sludinājumā rakstīts «nav sista», bet pēc VIN auto bija bojāto auto izsolē');
+  if(acc&&acc.rollback) add(4,'На аукционе пробег был '+fmt(acc.rollback.was)+' км, сейчас '+fmt(acc.rollback.now)+' км','At the auction the mileage was '+fmt(acc.rollback.was)+' km, now '+fmt(acc.rollback.now)+' km','Izsolē nobraukums bija '+fmt(acc.rollback.was)+' km, tagad '+fmt(acc.rollback.now)+' km');
+  var vd=c.vin?decodeVin(c.vin):null;
+  if(vd&&vd.complete&&c.year&&vd.years&&vd.years.length&&vd.years.indexOf(c.year)<0&&vd.years.indexOf(c.year-1)<0&&vd.years.indexOf(c.year+1)<0) add(2,'Год по VIN не совпадает с годом в объявлении','The VIN year does not match the listing year','Gads pēc VIN nesakrīt ar gadu sludinājumā');
+  if(v.memory&&v.memory.rollback) add(4,v.memory.rollback,v.memory.rollback,v.memory.rollback);
+  var days=dayDiff(c.posted);
+  if(sig.length&&d!=null&&d<=-20&&days!=null&&days<=2) add(1,'Объявление совсем свежее и очень дешёвое: мошенники часто публикуют такие и быстро удаляют','The ad is brand new and very cheap: scammers often post these and delete them fast','Sludinājums ir pavisam svaigs un ļoti lēts: krāpnieki bieži publicē tādus un ātri dzēš');
+  if(sig.length&&String(c.desc||'').replace(/\s+/g,' ').length<60&&d!=null&&d<=-20) add(1,'Почти нет описания машины','There is almost no description of the car','Gandrīz nav auto apraksta');
+  var score=sig.reduce(function(a,s){return a+s.w},0), strong=sig.some(function(s){return s.w>=4});
+  return {sig:sig.sort(function(a,b){return b.w-a.w}),score:score,level:score>=6||(strong&&score>=4)?'high':score>=3||strong?'mid':score>0?'low':'none'};
+}
+function pFraud(v){
+  if(!v||v.sell||!v.car) return '';
+  var F=fraudOf(v); if(F.level==='none'||F.level==='low') return '';
+  var hi=F.level==='high';
+  var tips=[L('Не платите задаток и не переводите деньги, пока не увидели машину и документы вживую.','Do not pay a deposit or transfer money before you have seen the car and papers in person.','Nemaksājiet rokasnaudu un nepārskaitiet naudu, kamēr neesat klātienē redzējis auto un dokumentus.'),
+    L('Сверьте VIN на кузове с техпаспортом и проверьте владельца и запреты на csdd.lv.','Match the VIN on the body with the registration papers and check the owner and restrictions on csdd.lv.','Salīdziniet VIN uz virsbūves ar reģistrācijas apliecību un pārbaudiet īpašnieku un aizliegumus csdd.lv.'),
+    L('Оплачивайте в момент переоформления (в CSDD или банке), никому не сообщайте коды из SMS.','Pay at the moment of re-registration (at CSDD or the bank), never share SMS codes.','Maksājiet pārreģistrācijas brīdī (CSDD vai bankā), nevienam nesakiet SMS kodus.')];
+  return '<section class="ap c12 fraud '+(hi?'hi':'mid')+'" id="a-fraud">'+aHead((hi?'⚠ ':'')+L('Риск обмана: ','Scam risk: ','Krāpšanas risks: ')+(hi?L('высокий','high','augsts'):L('средний','medium','vidējs')),aMeta(F.sig.length+L(' сигн.',' signals',' signāli')))+
+    '<ul class="ls">'+F.sig.map(function(s){ return '<li>'+aIcon(s.w>=3?'warn':'info')+'<span>'+esc(s.t)+'</span></li>'; }).join('')+'</ul>'+
+    '<div class="fr-tips"><b>'+esc(L('Как не попасться','How to stay safe','Kā neiekrist'))+'</b><ul>'+tips.map(function(t){return '<li>'+esc(t)+'</li>'}).join('')+'</ul></div>'+
+    '<p class="anote">'+esc(L('Это автоматические сигналы, а не обвинение: у многих есть безобидное объяснение. Задайте продавцу вопросы и проверьте документы.','These are automatic signals, not an accusation: many have an innocent explanation. Ask the seller and check the papers.','Tie ir automātiski signāli, nevis apsūdzība: daudziem ir nevainīgs skaidrojums. Pajautājiet pārdevējam un pārbaudiet dokumentus.'))+'</p></section>';
+}
+function fraudRefresh(){
+  var v=S.view; if(!v||!v.regions) return; var html=pFraud(v), el=document.getElementById('a-fraud');
+  if(!html){ if(el) el.remove(); return; }
+  var t=document.createElement('div'); t.innerHTML=html; var n=t.firstChild;
+  if(el){ el.parentNode.replaceChild(n,el); return; }
+  var after=document.getElementById('a-acc')||document.getElementById('a-verdict')||document.getElementById('a-car'); if(after&&after.parentNode) after.parentNode.insertBefore(n,after.nextSibling);
+}
+var fraudRe0=rePanel;
+rePanel=function(id,html){ fraudRe0(id,html); if(id==='a-life'||id==='a-acc') { try{ fraudRefresh(); }catch(e){} } };
+var fraudRender0=renderA;
+renderA=function(v){ var h=fraudRender0(v); if(!v||v.sell||!v.regions||!v.regions.length) return h; var f=pFraud(v); if(!f) return h;
+  var m=h.indexOf('id="a-check"'); if(m<0) return f+h; var s=h.lastIndexOf('<section',m); return s<0?f+h:h.slice(0,s)+f+h.slice(s); };
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
