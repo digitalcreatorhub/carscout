@@ -987,6 +987,19 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 @keyframes sellbreath{from{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent),0 0 6px -4px color-mix(in srgb,var(--accent) 20%,transparent)}to{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 0 18px -4px color-mix(in srgb,var(--accent) 45%,transparent)}}
 @keyframes sellorbit{to{--nudge-a:360deg}}
 @media (prefers-reduced-motion:reduce){.modebar button.nudge,.modebar button.nudge::after{animation:none}}
+/* model price trend */
+.trend .tr-k{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:2px 0 10px}
+.trend .tr-k .tk{border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.trend .tr-k dt{font-size:11.5px;color:var(--dim)}
+.trend .tr-k dd{margin:2px 0 0;font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+.trend .tr-k dd.dn{color:var(--good)} .trend .tr-k dd.up{color:var(--bad)}
+.trend .tr-k small{font-size:11.5px;color:var(--dim)}
+.trend .tr-spark{width:100%;height:64px;display:block}
+.trend .tr-spark .ln{fill:none;stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}
+.trend .tr-spark .ar{fill:color-mix(in srgb,var(--accent) 10%,transparent)}
+.trend .tr-spark .pt{fill:var(--accent)}
+.trend .tr-v{margin:8px 0 0;font-weight:600}
+.trend .tr-ax{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:2px}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2368,7 +2381,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.27', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-14.28', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -4090,6 +4103,50 @@ function tgWatchLink(ms){
 }
 document.addEventListener('visibilitychange',function(){ var t=tgLoad(); if(document.visibilityState==='visible'&&t&&!t.linked) tgWatchLink(120000); });
 setTimeout(function(){ var t=tgLoad(); if(t&&!t.linked) tgWatchLink(60000); },3000);
+
+/* ======================= price index of the model (from CarScout memory) ======================= */
+function trendSpark(ws){
+  var pts=ws.filter(function(w){return w.n>=5&&w.med}); if(pts.length<3) return '';
+  var W=360, H=64, lo=Math.min.apply(null,pts.map(function(w){return w.med})), hi=Math.max.apply(null,pts.map(function(w){return w.med})), pad=(hi-lo)*0.15||hi*0.02;
+  lo-=pad; hi+=pad; var t0=pts[0].end, t1=pts[pts.length-1].end||t0+1;
+  var X=function(t){ return 8+(W-16)*(t1===t0?1:(t-t0)/(t1-t0)); }, Y=function(v){ return 6+(H-14)*(1-(v-lo)/(hi-lo)); };
+  var d=pts.map(function(w,i){ return (i?'L':'M')+X(w.end).toFixed(1)+','+Y(w.med).toFixed(1); }).join(' ');
+  var a=d+' L'+X(pts[pts.length-1].end).toFixed(1)+','+(H-2)+' L'+X(pts[0].end).toFixed(1)+','+(H-2)+' Z', last=pts[pts.length-1];
+  return '<svg class="tr-spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true"><path d="'+a+'" class="ar"/><path d="'+d+'" class="ln"/></svg><div class="tr-ax"><span>'+esc(memDate(pts[0].end))+'</span><span>'+esc(L('сейчас','now','tagad'))+'</span></div>';
+}
+function pTrend(v,T){
+  if(!T||!T.ok) return ''; var c=v.car, name=[c.make,c.model].filter(Boolean).join(' ')+(c.year?' ('+(c.year-1)+'–'+(c.year+1)+')':'');
+  var good=(T.weeks||[]).filter(function(w){return w.n>=5&&w.med}), enough=good.length>=3||(T.same&&T.same.pct!=null);
+  var head=aHead(L('Цены на модель','Model price trend','Modeļa cenu tendence'),aMeta(name));
+  if(!enough) return '<section class="ap c12 trend" id="a-trend">'+head+'<p class="anote" style="margin-top:0">'+esc(L('CarScout начал следить за ценами этой модели: сейчас в памяти '+(T.tracked||0)+' объявл. Динамика цен появится, когда накопится 2–3 недели наблюдений.','CarScout has started tracking this model: '+(T.tracked||0)+' ads in memory so far. The price trend appears after 2–3 weeks of observations.','CarScout sāka sekot šī modeļa cenām: atmiņā pagaidām '+(T.tracked||0)+' sludin. Cenu dinamika parādīsies pēc 2–3 nedēļu novērojumiem.'))+'</p></section>';
+  var s=T.same||{}, cu=T.cuts||{}, last=good[good.length-1], first=good[0];
+  var ch=s.pct!=null?s.pct:(first&&last?Math.round((last.med/first.med-1)*1000)/10:null);
+  var verdict=ch==null?'':ch<=-2?L('Цены снижаются — можно не спешить и смелее торговаться.','Prices are falling — no need to hurry, negotiate harder.','Cenas krītas — nav jāsteidzas, kaulējieties drošāk.'):ch>=2?L('Цены растут — с покупкой лучше не тянуть.','Prices are rising — better not to wait too long.','Cenas aug — ar pirkumu labāk nevilcināties.'):L('Цены стабильны.','Prices are stable.','Cenas ir stabilas.');
+  var k=function(t,val,sm,cls){ return '<div class="tk"><dt>'+esc(t)+'</dt><dd'+(cls?' class="'+cls+'"':'')+'>'+esc(val)+'</dd>'+(sm?'<small>'+esc(sm)+'</small>':'')+'</div>'; };
+  var kp='<dl class="tr-k">'+
+    (last?k(L('Медиана сейчас','Median now','Mediāna tagad'),eur(last.med),last.n+L(' объявл.',' ads',' sludin.')):'')+
+    (s.pct!=null?k(L('Те же объявления за 4 недели','Same ads over 4 weeks','Tie paši sludinājumi 4 nedēļās'),pct(s.pct),s.n+L(' объявл.',' ads',' sludin.'),s.pct<-0.5?'dn':s.pct>0.5?'up':''):'')+
+    (cu.active?k(L('Снизили цену за 30 дней','Cut the price in 30 days','Samazināja cenu 30 dienās'),Math.round(cu.n/cu.active*100)+'%',cu.avg!=null?L('в среднем ',' by ',' vidēji ')+pct(cu.avg):''):'')+'</dl>';
+  return '<section class="ap c12 trend" id="a-trend">'+head+kp+trendSpark(T.weeks||[])+(verdict?'<p class="tr-v">'+esc(verdict)+'</p>':'')+
+    '<p class="anote">'+esc(L('По наблюдениям CarScout за последние 3 месяца: цены предложений, а не сделок. «Те же объявления» показывает, как менялась цена у одних и тех же машин, — это честнее, чем сравнивать разные машины.','From CarScout observations over the last 3 months: asking prices, not deals. “Same ads” shows how the price of the very same cars changed — fairer than comparing different cars.','Pēc CarScout novērojumiem pēdējos 3 mēnešos: piedāvājumu cenas, nevis darījumu. «Tie paši sludinājumi» rāda, kā mainījās cena tiem pašiem auto, — tas ir godīgāk nekā salīdzināt dažādus auto.'))+'</p></section>';
+}
+async function trendLoad(v){
+  if(!S.api||!v||!v.car||!v.car.make||!v.car.model) return;
+  var j=await api('/api/trend',{make:v.car.make,model:v.car.model,year:v.car.year||''},15000);
+  if(v!==S.view||!j||!j.ok) return; v.trend=j; trendPlace(v);
+}
+function trendPlace(v){
+  var html=pTrend(v,v.trend), el=document.getElementById('a-trend'); if(!html){ if(el) el.remove(); return; }
+  var t=document.createElement('div'); t.innerHTML=html; var n=t.firstChild;
+  if(el){ el.parentNode.replaceChild(n,el); return; }
+  var before=v.sell?document.getElementById('a-sellad'):(document.getElementById('a-trims')||document.getElementById('a-flags'));
+  if(before&&before.parentNode) before.parentNode.insertBefore(n,before); else { var out=$('#out'); if(out) out.appendChild(n); }
+}
+var trendExtras0=extrasAfterRun;
+extrasAfterRun=function(v){ var r=trendExtras0(v); setTimeout(function(){ trendLoad(v); },700); return r; };
+var trendRender0=renderA;
+renderA=function(v){ var h=trendRender0(v); if(!v||!v.trend) return h; var p=pTrend(v,v.trend); if(!p) return h;
+  var key=v.sell?'id="a-sellad"':'id="a-trims"', at=h.indexOf(key); if(at<0) return h+p; var s=h.lastIndexOf('<section',at); return s<0?h+p:h.slice(0,s)+p+h.slice(s); };
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){

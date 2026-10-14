@@ -1110,6 +1110,33 @@ async function hTgLink(env, q, request) {
   return json(env, { ok: true });
 }
 
+/* Price index of a model: weekly median of the asking prices of the ads that were on sale that week,
+   and the change of the very same ads over 4 weeks (not affected by which cars happen to be listed). */
+async function hTrend(env, q) {
+  if (!(await memInit(env))) return json(env, { ok: false, error: 'no_db' });
+  const mk = memNorm(q.get('make')), md = memNorm(q.get('model')), yr = parseInt(q.get('year') || '', 10) || null;
+  if (!mk || !md) return json(env, { ok: false, error: 'need_model' }, 400);
+  const DAY = 86400000, WEEK = 7 * DAY, now = Date.now(), from = now - 13 * WEEK;
+  const r = await env.DB.prepare('SELECT a.id, a.ft, a.lt, a.gone, h.t, h.p FROM ads a JOIN hist h ON h.id = a.id WHERE a.mk = ?1 AND a.md = ?2 AND (?3 IS NULL OR a.yr IS NULL OR ABS(a.yr - ?3) <= 1) AND a.lt > ?4 ORDER BY h.t LIMIT 8000').bind(mk, md, yr, from).all();
+  const ads = {}; (r.results || []).forEach(function (x) { const a = ads[x.id] || (ads[x.id] = { ft: x.ft, lt: x.lt, gone: x.gone, h: [] }); if (x.p > 0) a.h.push([x.t, x.p]); });
+  const priceAt = function (a, t) { let p = null; for (const e of a.h) { if (e[0] <= t) p = e[1]; else break; } return p; };
+  const med = function (v) { if (!v.length) return null; const b = v.slice().sort(function (x, y) { return x - y; }); const k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; };
+  const ids = Object.keys(ads), weeks = [];
+  for (let w = 12; w >= 0; w--) {
+    const we = now - w * WEEK, ws = we - WEEK, ps = [];
+    ids.forEach(function (id) { const a = ads[id]; if (a.ft <= we && a.lt >= ws && !(a.gone && a.gone < ws)) { const p = priceAt(a, we); if (p) ps.push(p); } });
+    weeks.push({ end: we, n: ps.length, med: ps.length ? Math.round(med(ps)) : null });
+  }
+  /* the same ads: price now against 4 weeks ago */
+  const t0 = now - 4 * WEEK, rel = [];
+  ids.forEach(function (id) { const a = ads[id]; if (a.ft <= t0 && a.lt >= now - 7 * DAY) { const p0 = priceAt(a, t0), p1 = priceAt(a, now); if (p0 && p1) rel.push(p1 / p0 - 1); } });
+  /* price cuts in the last 30 days */
+  let active = 0, cut = 0; const cuts = [];
+  ids.forEach(function (id) { const a = ads[id]; if (a.lt < now - 30 * DAY) return; active++; const p0 = priceAt(a, now - 30 * DAY) || (a.h[0] && a.h[0][1]), p1 = priceAt(a, now); if (p0 && p1 && p1 < p0 - 50) { cut++; cuts.push((p1 - p0) / p0 * 100); } });
+  return json(env, { ok: true, weeks: weeks, same: rel.length >= 5 ? { n: rel.length, pct: Math.round(med(rel) * 1000) / 10 } : { n: rel.length, pct: null },
+    cuts: { active: active, n: cut, avg: cuts.length ? Math.round(med(cuts) * 10) / 10 : null }, tracked: ids.length });
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
@@ -1121,6 +1148,7 @@ export default {
       if (u.pathname === '/api/listing') return await hListing(env, u.searchParams, ctx);
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams, ctx);
       if (u.pathname === '/api/memory') return await hMemory(env, u.searchParams);
+      if (u.pathname === '/api/trend') return await hTrend(env, u.searchParams);
       if (u.pathname === '/api/watch') return await hWatchGet(env, u.searchParams);
       if (u.pathname === '/api/tg/status') return await hTgStatus(env, u.searchParams);
       if (u.pathname === '/api/tg/subs') return await hTgSubs(env, request);
