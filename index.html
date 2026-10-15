@@ -1000,6 +1000,100 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .trend .tr-spark .pt{fill:var(--accent)}
 .trend .tr-v{margin:8px 0 0;font-weight:600}
 .trend .tr-ax{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:2px}
+/* ---------- "Find me a car" ---------- */
+.find-only{display:none!important}
+#intake.find>#findbox{display:grid!important;grid-column:1/-1!important}
+#intake.find>*:not(#findbox):not(.btns):not(#status):not(#srcs){display:none!important}
+#intake.find>.btns{grid-column:1/-1!important;grid-row:auto!important;justify-content:flex-start}
+#intake.find>.btns .btn:not(#btn-go){display:none!important}
+#findbox{gap:14px}
+.fz-intro{display:grid;gap:4px}
+.fz-intro b{font:600 15.5px 'Inter Tight',Inter,system-ui,sans-serif;color:var(--ink)}
+.fz-intro span{font-size:13px;color:var(--dim);line-height:1.5;max-width:720px}
+#findbox .row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end}
+@media (max-width:760px){#findbox .row4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.fz-mk{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fz-mk>.rn{font-size:13px;color:var(--dim);margin-right:4px}
+.fz-mk label.chip{position:relative;cursor:pointer;height:32px;padding:0 14px;font-size:13px;transition:border-color .15s,color .15s,background .15s}
+.fz-mk label.chip input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.fz-mk label.chip:has(input:checked){border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.fz-mk label.chip:has(input:checked)::before{content:"✓";margin-right:6px;font-weight:700}
+.fz-mk label.chip:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.fz-opts{display:flex;flex-wrap:wrap;gap:2px 22px}
+.modebar [data-mode=find] svg path{transform-origin:12px 12px;transform-box:view-box;animation:fzspin 3.6s linear infinite}
+/* radar */
+.fz-radar{display:block;width:100%;height:auto;overflow:visible}
+.fz-disc{fill:url(#fzg)}
+.fz-ring{fill:none;stroke:color-mix(in srgb,var(--accent) 24%,transparent);stroke-width:1}
+.fz-ax{fill:none;stroke:color-mix(in srgb,var(--accent) 14%,transparent);stroke-width:1;stroke-dasharray:2 4}
+.fz-sweep{transform-origin:100px 100px;transform-box:view-box;animation:fzspin 3.6s linear infinite}
+.fz-beam{fill:url(#fzs)}
+.fz-edge{stroke:var(--accent);stroke-width:1.4;stroke-linecap:round;opacity:.85}
+.fz-core{fill:var(--accent)}
+.fz-dot{fill:var(--accent);opacity:.3;animation:fzblip 3.6s ease-out infinite backwards}
+.fz-dot.new{fill:#fff}
+.fz-ghost{fill:var(--accent);opacity:0;animation:fzghost 3.6s ease-out infinite backwards}
+@keyframes fzspin{to{transform:rotate(360deg)}}
+@keyframes fzblip{0%{opacity:1;r:5.2px}14%{opacity:.95}100%{opacity:.3}}
+@keyframes fzghost{0%{opacity:.55}40%{opacity:0}100%{opacity:0}}
+/* my searches */
+.fz-empty{display:grid;grid-template-columns:150px minmax(0,1fr);gap:22px;align-items:center;padding:4px 0 6px}
+.fz-empty b{display:block;font:600 16px 'Inter Tight',Inter,system-ui,sans-serif;color:var(--ink);margin-bottom:6px}
+.fz-empty span{display:block;color:var(--dim);font-size:13.5px;line-height:1.55;max-width:560px}
+.fz-card{display:grid;grid-template-columns:60px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.fz-card.hot .fz-info>b{color:var(--accent)}
+.fz-mini{width:60px;height:60px}
+.fz-info{display:grid;gap:3px;min-width:0}
+.fz-info>b{font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.fz-st,.fz-cnt{font-size:12.5px;color:var(--dim)}
+.fz-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:7px;vertical-align:1px;animation:fzping 2s ease-out infinite}
+@keyframes fzping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 65%,transparent)}100%{box-shadow:0 0 0 7px transparent}}
+.fz-new{color:var(--accent)}
+.fz-act{display:flex;gap:6px}
+.fz-notify{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding-top:14px;border-top:1px solid var(--line)}
+.fz-notify .hint{margin:0}
+.fz-ok{color:var(--good);font-weight:600;font-size:13.5px}
+/* matches right now */
+.fz-top{display:grid;grid-template-columns:170px minmax(0,1fr);gap:22px;align-items:center;margin-bottom:12px}
+.fz-sum{display:grid;gap:3px}
+.fz-sum b.num{font:700 46px/1 'Inter Tight',Inter,system-ui,sans-serif;color:var(--accent)}
+.fz-sum span{font-size:14.5px;color:var(--ink2)}
+.fz-sum small{font-size:12px;color:var(--dim)}
+@media (max-width:560px){
+  .fz-empty{grid-template-columns:1fr;justify-items:center;text-align:center}.fz-empty .fz-radar{width:150px}
+  .fz-top{grid-template-columns:110px minmax(0,1fr);gap:16px}.fz-sum b.num{font-size:38px}
+  .fz-card{grid-template-columns:48px minmax(0,1fr);gap:12px}.fz-mini{width:48px;height:48px}.fz-act{grid-column:1/-1;justify-content:flex-end}
+}
+@media (max-width:760px){
+  .modebar button{white-space:normal;height:auto;min-height:48px;flex-direction:column;gap:3px;padding:6px 6px;line-height:1.15;text-align:center;font-size:12px}
+}
+@media (prefers-reduced-motion:reduce){.fz-sweep,.fz-dot,.fz-ghost,.fz-live,.modebar [data-mode=find] svg path{animation:none!important}.fz-dot{opacity:.9}}
+.fz-list{display:grid}
+.fz-row{display:grid;grid-template-columns:72px minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.fz-res:not(.all) .fz-row.more{display:none}
+.fz-th{display:block;width:72px;height:52px;border-radius:8px;overflow:hidden;background:var(--surface-2,rgba(255,255,255,.04))}
+.fz-th img{width:100%;height:100%;object-fit:cover;display:block}
+.fz-ri{display:grid;gap:3px;min-width:0}
+.fz-ri .nl,.fz-ri>span{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fz-ri small,.fz-rp small{font-size:12px;color:var(--dim)}
+.fz-rp{display:grid;gap:2px;text-align:right;white-space:nowrap}
+.fz-rp b{font-variant-numeric:tabular-nums}
+.fz-all{margin-top:10px}
+@media (max-width:560px){
+  .fz-row{grid-template-columns:60px minmax(0,1fr) auto;gap:4px 12px}
+  .fz-th{width:60px;height:46px;grid-row:span 2}
+  .fz-ri{grid-row:span 2}
+  .fz-ri .nl,.fz-ri>span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .fz-row>.btn{grid-column:3;justify-self:end;min-height:30px;height:30px;padding:0 10px;font-size:12.5px}
+}
+.fz-frl{grid-column:1/-1;display:grid;gap:6px;margin-top:2px}
+.fz-fr{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:10px;row-gap:3px;align-items:center;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent) 7%,transparent);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
+.fz-frt{display:flex;align-items:center;min-width:0}
+.fz-fr .nl{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fz-fr small{grid-column:1;font-size:12px;color:var(--dim)}
+.fz-fr .btn{grid-column:2;grid-row:1/3}
+.fz-tag{display:inline-block;font:700 10.5px/1 Inter,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;padding:4px 6px;border-radius:6px;background:var(--accent);color:#0B0E12;font-style:normal;margin-right:6px;vertical-align:1px}
+.fz-row.new{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent 70%)}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2381,12 +2475,12 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.1', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.3', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
   var p=[];
-  try{ if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations) p.push(navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){return r.unregister()})); })); }catch(e){}
+  try{ if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations) p.push(navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){ /* keep a worker that carries phone notifications: update it instead */ return (r.pushManager?r.pushManager.getSubscription():Promise.resolve(null)).then(function(sub){ return sub?r.update():r.unregister(); }).catch(function(){ return r.unregister(); }); })); })); }catch(e){}
   try{ if(window.caches&&caches.keys) p.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){return caches.delete(k)})); })); }catch(e){}
   Promise.all(p).then(done,done); setTimeout(done,2500);
 }
@@ -4146,6 +4240,239 @@ extrasAfterRun=function(v){ var r=trendExtras0(v); setTimeout(function(){ trendL
 var trendRender0=renderA;
 renderA=function(v){ var h=trendRender0(v); if(!v||!v.trend) return h; var p=pTrend(v,v.trend); if(!p) return h;
   var key=v.sell?'id="a-sellad"':'id="a-trims"', at=h.indexOf(key); if(at<0) return h+p; var s=h.lastIndexOf('<section',at); return s<0?h+p:h.slice(0,s)+p+h.slice(s); };
+
+/* ======================= "Find me a car": a standing search that waits for the right car ======================= */
+var KEY_FINDS='carscout_finds';
+function findsLoad(){ try{ var a=JSON.parse(LS.get(KEY_FINDS)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function findsSave(a){ LS.set(KEY_FINDS,JSON.stringify(a.slice(0,5))); try{ if(typeof tgSync==='function'&&tgLoad()) tgSync(); }catch(e){} try{ findPushSync(); }catch(e){} }
+var FZ_BODY=[['',L('любой','any','jebkura')],['wagon',L('универсал','estate','universālis')],['sedan',L('седан','saloon','sedans')],['hatch',L('хэтчбек','hatchback','hečbeks')],['suv',L('внедорожник / кроссовер','SUV / crossover','apvidus')],['van',L('минивэн','MPV','minivens')],['coupe',L('купе / кабриолет','coupé / cabrio','kupeja / kabriolets')]];
+function fzBodyOf(t){ t=String(t||'').toLowerCase();
+  if(/universāl|универсал|wagon|kombi\b|touring|avant|variant|estate|sports ?tourer|shooting brake|allroad|alltrack|\bsw\b/.test(t)) return 'wagon';
+  if(/apvidus|внедорож|кроссов|\bsuv\b|crossover|4x4/.test(t)) return 'suv';
+  if(/minivens|минивэн|\bvan\b|mpv/.test(t)) return 'van';
+  if(/hečbek|hatchback|хэтчбек|хетчбек/.test(t)) return 'hatch';
+  if(/sedan|седан|limousine|saloon/.test(t)) return 'sedan';
+  if(/kupej|купе|coupe|coupé|cabrio|kabriolet|кабриолет|roadster/.test(t)) return 'coupe';
+  return null; }
+var FZ_BAD=/bojāt|avārij|rezerves daļ|uz daļām|на запчаст|битая|битый|после дтп|после аварии|damaged|for parts|unfall|salvage|не на ходу|nav uz ceļa/i;
+(function findSetup(){
+  var bar=document.getElementById('modebar'), form=document.getElementById('intake'); if(!bar||!form||document.getElementById('findbox')) return;
+  bar.insertAdjacentHTML('beforeend','<button type="button" role="tab" data-mode="find" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg><span data-ru="Найти мне авто" data-en="Find me a car" data-lv="Atrast man auto"></span></button>');
+  var sel=function(id,opts){ return '<select class="in" id="'+id+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[2]?' data-ru="'+o[2]+'" data-en="'+o[3]+'" data-lv="'+o[4]+'"':'')+'>'+esc(o[1]||'')+'</option>'; }).join('')+'</select>'; };
+  var fld=function(id,ru,en,lv,inner){ return '<div class="fld"><label for="'+id+'" data-ru="'+ru+'" data-en="'+en+'" data-lv="'+lv+'"></label>'+inner+'</div>'; };
+  var inp=function(id,ph,num){ return '<input class="in'+(num?' num':'')+'" id="'+id+'" type="text"'+(num?' inputmode="numeric"':'')+' placeholder="'+ph+'">'; };
+  var any=['','','любое','any','jebkura'];
+  var box=document.createElement('div'); box.id='findbox'; box.className='find-only';
+  box.innerHTML='<div class="fz-intro"><b data-ru="Опишите машину, которую ищете" data-en="Describe the car you are looking for" data-lv="Aprakstiet auto, ko meklējat"></b></div>'+
+    '<div class="row2">'+fld('fz-make','Марка','Make','Marka',inp('fz-make','Škoda'))+fld('fz-model','Модель','Model','Modelis',inp('fz-model','Superb, Octavia'))+'</div>'+
+    '<div class="row4">'+fld('fz-yf','Год от','Year from','Gads no',inp('fz-yf','2018',1))+fld('fz-yt','Год до','Year to','Gads līdz',inp('fz-yt','2021',1))+fld('fz-kmax','Пробег до, км','Mileage up to, km','Nobraukums līdz, km',inp('fz-kmax','150000',1))+fld('fz-pmax','Цена до, €','Price up to, €','Cena līdz, €',inp('fz-pmax','18000',1))+'</div>'+
+    '<div class="row4">'+fld('fz-fuel','Топливо','Fuel','Degviela',sel('fz-fuel',[['','','любое','any','jebkura'],['petrol','','бензин','petrol','benzīns'],['diesel','','дизель','diesel','dīzelis'],['hybrid','','гибрид','hybrid','hibrīds'],['electric','','электро','electric','elektro']]))+
+      fld('fz-gear','Коробка','Gearbox','Ātrumkārba',sel('fz-gear',[['','','любая','any','jebkura'],['automatic','','автомат','automatic','automāts'],['manual','','механика','manual','manuāla']]))+
+      fld('fz-drive','Привод','Drive','Piedziņa',sel('fz-drive',[['','','любой','any','jebkura'],['awd','','полный','all-wheel','pilnpiedziņa'],['fwd','','передний','front','priekšpiedziņa'],['rwd','','задний','rear','aizmugurējā']]))+
+      fld('fz-body','Кузов','Body','Virsbūve',sel('fz-body',FZ_BODY.map(function(b,i){ var t=[['любой','any','jebkura'],['универсал','estate','universālis'],['седан','saloon','sedans'],['хэтчбек','hatchback','hečbeks'],['внедорожник','SUV','apvidus'],['минивэн','MPV','minivens'],['купе / кабриолет','coupé / cabrio','kupeja / kabriolets']][i]; return [b[0],'',t[0],t[1],t[2]]; })))+'</div>'+
+    '<div class="fz-mk"><span class="rn" data-ru="Где искать:" data-en="Where to look:" data-lv="Kur meklēt:"></span>'+['LV','LT','EE','DE'].map(function(r){ return '<label class="chip"><input type="checkbox" data-fzmk="'+r+'"'+(r!=='DE'?' checked':'')+'><span class="fz-rn" data-r="'+r+'"></span></label>'; }).join('')+'</div>'+
+    '<div class="fz-opts"><label class="chk"><input type="checkbox" id="fz-cheap"><span data-ru="Только дешевле рынка" data-en="Only below the market" data-lv="Tikai lētāk par tirgu"></span></label><label class="chk"><input type="checkbox" id="fz-nobad" checked><span data-ru="Без битых и «на запчасти»" data-en="No damaged or “for parts” cars" data-lv="Bez bojātiem un «uz daļām»"></span></label></div>';
+  var btns=form.querySelector('.btns'); form.insertBefore(box,btns);
+})();
+function fzParams(){
+  var g=function(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; }, gi=function(id){ var x=g(id).replace(/[^\d]/g,''); return x?parseInt(x,10):null; };
+  var mk={}; document.querySelectorAll('[data-fzmk]').forEach(function(x){ mk[x.getAttribute('data-fzmk')]=x.checked?1:0; });
+  return {make:g('fz-make'),models:g('fz-model').split(/[,;\/]+/).map(function(s){return s.trim()}).filter(Boolean).slice(0,4),yf:gi('fz-yf'),yt:gi('fz-yt'),kmax:gi('fz-kmax'),pmax:gi('fz-pmax'),fuel:g('fz-fuel'),gear:g('fz-gear'),drive:g('fz-drive'),body:g('fz-body'),mk:mk,cheap:!!(document.getElementById('fz-cheap')||{}).checked,nobad:!!(document.getElementById('fz-nobad')||{}).checked};
+}
+function fzName(p){
+  var y=p.yf&&p.yt?' '+p.yf+'–'+p.yt:p.yf?' '+L('с ','from ','no ')+p.yf:p.yt?' '+L('до ','up to ','līdz ')+p.yt:'';
+  return [p.make,(p.models||[]).join(', ')].filter(Boolean).join(' ')+y+(p.kmax?' · ≤'+fmt(p.kmax)+' km':'')+(p.pmax?' · ≤'+eur(p.pmax):'');
+}
+function fzFilter(rows,p){
+  return rows.filter(function(x){
+    var t=[x.title,x.model_raw].join(' ');
+    if(p.nobad&&FZ_BAD.test(t)) return false;
+    if(p.drive){ var dv=x.drive||driveOf(t); if(p.drive==='awd'?dv!=='awd':dv==='awd') return false; }
+    if(p.body){ var b=fzBodyOf(t); if(b&&b!==p.body) return false; }
+    if(p.cheap&&!(x.d<-3)) return false;
+    return true; });
+}
+async function fzSearch(p){
+  var all=[], notes=[], scanned=0;
+  for(var i=0;i<(p.models.length||1);i++){
+    var D=await finderCore({make:p.make,model:p.models[i]||'',yf:p.yf,yt:p.yt,pmax:p.pmax,kmax:p.kmax,fuel:p.fuel,gear:p.gear,mk:p.mk});
+    if(!D) continue; all=all.concat(D.rows); notes=notes.concat(D.notes); scanned+=D.scanned||0;
+  }
+  var seen={}; all=all.filter(function(x){ var id=rowId(x); if(seen[id]) return false; seen[id]=1; return true; });
+  return {rows:fzFilter(all,p).sort(function(a,b){ return a.d-b.d; }),notes:notes,scanned:scanned};
+}
+/* ---- radar: the search at work; dots are the cars that match now (closer to the centre = cheaper against the market) ---- */
+function fzRadar(rows,live){
+  /* the sweep turns clockwise from its leading edge at -30°; each dot lights up exactly when the beam passes over it */
+  var R=86, c=100, T=3.6, dots='', list=(rows||[]).slice(0,18);
+  var dot=function(a,r,cls,rad){ var t=(((a+30)%360+360)%360)/360*T, ar=a*Math.PI/180;
+    return '<circle class="'+cls+'" cx="'+(c+Math.cos(ar)*r).toFixed(1)+'" cy="'+(c+Math.sin(ar)*r).toFixed(1)+'" r="'+rad+'" style="animation-delay:'+t.toFixed(2)+'s"/>'; };
+  list.forEach(function(x,i){ var d=Math.max(-30,Math.min(30,x.d||0)); dots+=dot((i*137.5+20)%360,18+(d+30)/60*(R-22),'fz-dot'+(x.fresh?' new':''),x.fresh?4.6:3.4); });
+  if(!list.length&&live) [[200,58],[312,34],[95,70],[20,46],[150,26]].forEach(function(g){ dots+=dot(g[0],g[1],'fz-ghost',2.4); });
+  return '<svg class="fz-radar'+(live?' live':'')+'" viewBox="0 0 200 200" aria-hidden="true"><defs><radialGradient id="fzg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="var(--accent)" stop-opacity=".12"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></radialGradient><linearGradient id="fzs" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--accent)" stop-opacity="0"/><stop offset="1" stop-color="var(--accent)" stop-opacity=".5"/></linearGradient></defs>'+
+    '<circle cx="100" cy="100" r="'+R+'" class="fz-disc"/><circle cx="100" cy="100" r="'+R+'" class="fz-ring"/><circle cx="100" cy="100" r="'+(R*0.66).toFixed(0)+'" class="fz-ring"/><circle cx="100" cy="100" r="'+(R*0.33).toFixed(0)+'" class="fz-ring"/><path d="M100 14V186M14 100H186" class="fz-ax"/>'+
+    '<g class="fz-sweep" style="animation-duration:'+T+'s"><path d="M100 100 L100 14 A86 86 0 0 1 174.5 57 Z" class="fz-beam"/><path d="M100 100 L174.5 57" class="fz-edge"/></g>'+dots+'<circle cx="100" cy="100" r="3" class="fz-core"/></svg>';
+}
+function fzAgo(t){ var mins=Math.max(0,Math.round((Date.now()-t)/60000)); return mins<1?L('только что','just now','tikko'):mins<60?mins+L(' мин назад',' min ago',' min atpakaļ'):mins<1440?Math.round(mins/60)+L(' ч назад',' h ago',' st. atpakaļ'):Math.round(mins/1440)+L(' дн. назад',' d ago',' d. atpakaļ'); }
+function fzCard(f,i){
+  var fresh=(f.fresh||[]), un=fresh.filter(function(x){return !x.seen}), nw=un.length, ago=f.at?fzAgo(f.at):'';
+  var dots=fresh.slice(0,6).map(function(x){ return {d:x.d||0,fresh:!x.seen}; });
+  var fl=un.slice(0,3).map(function(x){ var u=safeUrl(x.url); return '<div class="fz-fr"><div class="fz-frt"><i class="fz-tag">'+esc(L('новая','new','jauns'))+'</i>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(x.title||'').slice(0,48))+'</a>':esc(x.title||''))+'</div>'+
+    '<small>'+esc([eur(x.price),x.year,x.km!=null?aKmTxt(x.km):null,x.src,x.t?fzAgo(x.t):null].filter(Boolean).join(' · '))+'</small>'+(u?'<button class="btn sm" type="button" data-act="find-check" data-u="'+esc(u)+'">'+esc(L('Проверить','Check','Pārbaudīt'))+'</button>':'')+'</div>'; }).join('');
+  return '<div class="fz-card'+(nw?' hot':'')+'"><div class="fz-mini">'+fzRadar(dots,true)+'</div><div class="fz-info"><b>'+esc(fzName(f.p))+'</b>'+
+    '<span class="fz-st"><i class="fz-live"></i>'+esc(L('Ищу','Searching','Meklēju'))+(ago?' · '+esc(L('проверено ','checked ','pārbaudīts ')+ago):'')+'</span>'+
+    '<span class="fz-cnt">'+esc(L('на рынке сейчас: ','on the market now: ','tirgū tagad: ')+(f.now||0))+(nw?' · <b class="fz-new">+'+nw+' '+esc(L(nw%10===1&&nw%100!==11?'новая':nw%10>=2&&nw%10<=4&&(nw%100<12||nw%100>14)?'новые':'новых','new',nw===1?'jauns':'jauni'))+'</b>':'')+'</span></div>'+
+    '<div class="fz-act"><button class="btn sm" type="button" data-act="fz-show" data-i="'+i+'">'+esc(L('Показать','Show','Rādīt'))+'</button><button class="btn sm" type="button" data-act="fz-rm" data-i="'+i+'" aria-label="'+esc(L('Удалить','Delete','Dzēst'))+'">×</button></div>'+
+    (fl?'<div class="fz-frl">'+fl+'</div>':'')+'</div>';
+}
+function fzRequests(){
+  var a=findsLoad();
+  var push=pushOn();
+  var head=aHead(L('Мои заявки','My searches','Mani pieprasījumi'),aMeta(a.length?L('ищу ','searching ','meklēju ')+a.length+'/5':''));
+  if(!a.length) return '<section class="ap c12 fz-req" id="a-fzreq">'+head+'<div class="fz-empty">'+fzRadar([],true)+'<div><b>'+esc(L('Здесь будут машины, которые вы ждёте','The cars you are waiting for will appear here','Šeit būs auto, kurus gaidāt'))+'</b><span>'+esc(L('Заполните форму выше и нажмите «Начать поиск». Приложение будет проверять рынок несколько раз в час и сообщит, как только появится подходящая машина.','Fill in the form above and press “Start searching”. The app checks the market several times an hour and tells you as soon as a matching car appears.','Aizpildiet formu augstāk un nospiediet «Sākt meklēšanu». Lietotne pārbaudīs tirgu vairākas reizes stundā un paziņos, tiklīdz parādīsies piemērots auto.'))+'</span></div></div></section>';
+  return '<section class="ap c12 fz-req" id="a-fzreq">'+head+a.map(fzCard).join('')+
+    '<div class="fz-notify">'+(push?'<span class="fz-ok">✓ '+esc(L('Уведомления на телефон включены','Phone notifications are on','Paziņojumi tālrunī ieslēgti'))+'</span><span class="hint">'+esc(L('Проверка — несколько раз в час.','Checked several times an hour.','Pārbaude — vairākas reizes stundā.'))+'</span><button class="btn sm" type="button" data-act="fz-push-off">'+esc(L('Выключить','Turn off','Izslēgt'))+'</button>':'<button class="btn sm pri" type="button" data-act="fz-push">'+esc(L('Включить уведомления на телефон','Turn on phone notifications','Ieslēgt paziņojumus tālrunī'))+'</button><span class="hint">'+esc(L('Окошко появится на экране, даже когда приложение закрыто.','A pop-up appears on the screen even when the app is closed.','Logs parādīsies ekrānā arī tad, kad lietotne ir aizvērta.'))+'</span>')+'</div></section>';
+}
+function fzResults(p,R){
+  var rows=R.rows||[], head=aHead(L('Подходит сейчас','Matches right now','Atbilst tagad'),aMeta(fzName(p)));
+  var it=function(x,i){ var u=safeUrl(x.url), ti=x.img?aImg(x.img):'', col=x.d<-3?'good':x.d>3?'bad':'dim';
+    return '<div class="fz-row'+(i>=8&&!x.fresh?' more':'')+(x.fresh?' new':'')+'">'+(u?'<a class="fz-th" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" tabindex="-1">':'<span class="fz-th">')+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+(u?'</a>':'</span>')+
+      '<div class="fz-ri">'+(x.fresh?'<i class="fz-tag">'+esc(L('новая','new','jauns'))+'</i>':'')+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(x.title||'').slice(0,60))+'</a>':'<span>'+esc(String(x.title||'').slice(0,60))+'</span>')+
+      '<small>'+esc([x.year,x.km!=null?aKmTxt(x.km):null,x.src].filter(Boolean).join(' · '))+'</small></div>'+
+      '<div class="fz-rp"><b>'+esc(eur(x.price))+'</b><small style="color:var(--'+col+')">'+esc(pct(x.d)+L(' к рынку',' vs market',' pret tirgu'))+'</small></div>'+
+      (u?'<button class="btn sm" type="button" data-act="find-check" data-u="'+esc(u)+'">'+esc(L('Проверить','Check','Pārbaudīt'))+'</button>':'<span></span>')+'</div>'; };
+  return '<section class="ap c12 fz-res" id="a-fzres">'+head+'<div class="fz-top">'+fzRadar(rows,false)+'<div class="fz-sum"><b class="num">'+rows.length+'</b><span>'+esc(rows.length?L('машин подходят уже сейчас','cars match right now','auto atbilst jau tagad'):L('сейчас подходящих нет — буду искать','none match right now — I will keep looking','pašlaik neviens neatbilst — meklēšu tālāk'))+'</span><small>'+esc(L('просмотрено объявлений: ','listings scanned: ','pārskatīti sludinājumi: ')+R.scanned+L(' · сначала самые выгодные',' · best deals first',' · vispirms izdevīgākie'))+'</small></div></div>'+
+    (rows.length?'<div class="fz-list">'+rows.slice(0,40).map(it).join('')+'</div>'+(rows.length>8?'<button class="btn sm fz-all" type="button" data-act="fz-all">'+esc(L('Показать все ('+Math.min(rows.length,40)+')','Show all ('+Math.min(rows.length,40)+')','Rādīt visus ('+Math.min(rows.length,40)+')'))+'</button>':''):'')+'</section>';
+}
+function fzRender(extra){
+  var out=$('#out'); if(!out) return; document.body.classList.toggle('has-view',!!extra);
+  out.innerHTML=(extra||'')+fzRequests();
+}
+/* while this mode is open, the page shows the searches instead of an analysis (language switches re-render through here too) */
+var fzRenderMain0=render;
+render=function(){ if(S.mode!=='find') return fzRenderMain0.apply(this,arguments);
+  try{ renderFavs(); renderHist(); }catch(e){} fzLabels(); fzRender(S.fzLast?fzResults(S.fzLast.p,S.fzLast.R):''); };
+/* ---- switching to this mode ---- */
+var fzSetMode0=setMode;
+setMode=function(m){
+  var form=$('#intake'), prev=S.mode;
+  if(m==='find'){
+    if(prev==='find') return;
+    if(prev==='sell') fzSetMode0('buy');
+    S.mode='find'; form.classList.add('find'); form.classList.remove('sell'); document.body.classList.remove('mode-sell');
+    document.querySelectorAll('#modebar [data-mode]').forEach(function(b){ var on=b.getAttribute('data-mode')==='find'; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
+    var lh=document.querySelector('.lead h1'), lp=document.querySelector('.lead p');
+    [lh,lp].forEach(function(el){ if(el&&!el.hasAttribute('data-oru')){ el.setAttribute('data-oru',el.getAttribute('data-ru')||''); el.setAttribute('data-oen',el.getAttribute('data-en')||''); el.setAttribute('data-olv',el.getAttribute('data-lv')||''); } });
+    if(lh){ lh.setAttribute('data-ru','Найдём машину, которой пока нет'); lh.setAttribute('data-en','We will find the car that is not there yet'); lh.setAttribute('data-lv','Atradīsim auto, kura vēl nav'); }
+    if(lp){ lp.setAttribute('data-ru','Опишите, какую машину вы хотите. CarScout будет следить за ss.lv, autoportaal.ee, autoplius.lt и AutoScout24 и сообщит на телефон, как только она появится.'); lp.setAttribute('data-en','Describe the car you want. CarScout watches ss.lv, autoportaal.ee, autoplius.lt and AutoScout24 and notifies your phone as soon as it appears.'); lp.setAttribute('data-lv','Aprakstiet, kādu auto vēlaties. CarScout sekos ss.lv, autoportaal.ee, autoplius.lt un AutoScout24 un paziņos tālrunī, tiklīdz tas parādīsies.'); }
+    var go=$('#btn-go'); go.setAttribute('data-ru','Начать поиск'); go.setAttribute('data-en','Start searching'); go.setAttribute('data-lv','Sākt meklēšanu');
+    S.view=null; S.srcRows={}; renderSrcs(); showStatus(''); applyLang();
+    setTimeout(function(){ var f=$('#fz-make'); if(f&&!f.value&&!aMob()) f.focus(); },60);
+    try{ gcCount('find-mode','Режим «Найти мне авто»',true); }catch(e){}
+    return;
+  }
+  if(prev==='find'){ form.classList.remove('find'); S.mode='find-leaving'; var o=$('#out'); if(o) o.innerHTML=''; document.body.classList.remove('has-view');
+    var lh2=document.querySelector('.lead h1'), lp2=document.querySelector('.lead p'); [lh2,lp2].forEach(function(el){ if(el){ el.setAttribute('data-ru',el.getAttribute('data-oru')); el.setAttribute('data-en',el.getAttribute('data-oen')); if(el.getAttribute('data-olv')) el.setAttribute('data-lv',el.getAttribute('data-olv')); else el.removeAttribute('data-lv'); } });
+    if(m==='buy'){ S.mode='sell'; SELL_SAVE={}; }
+  }
+  fzSetMode0(m);
+};
+function fzLabels(){ document.querySelectorAll('.fz-rn').forEach(function(s){ s.textContent=rname(s.getAttribute('data-r')); }); }
+var fzRun0=run;
+run=function(){ if(S.mode==='find') return fzStart(); return fzRun0.apply(this,arguments); };
+async function fzStart(){
+  var p=fzParams();
+  if(!p.make||!p.models.length){ showStatus('err',function(){return L('Укажите марку и модель.','Enter the make and model.','Norādiet marku un modeli.')}); return; }
+  if(!Object.keys(p.mk).some(function(k){return p.mk[k]})){ showStatus('err',function(){return L('Отметьте хотя бы один рынок.','Tick at least one market.','Atzīmējiet vismaz vienu tirgu.')}); return; }
+  if(!S.api){ showStatus('err',function(){return L('Нужен сервер.','The server is needed.','Nepieciešams serveris.')}); return; }
+  S.busy=true; $('#btn-go').disabled=true; showStatus('busy',function(){return L('Ищу на рынках… Обычно 15–40 секунд.','Searching the markets… Usually 15–40 seconds.','Meklēju tirgos… Parasti 15–40 sekundes.')},false);
+  var R; try{ R=await fzSearch(p); }catch(e){ R={rows:[],notes:[],scanned:0}; }
+  var hi=S.fzHi||{}; S.fzHi=null; R.rows.forEach(function(x){ if(hi[x.url]) x.fresh=true; }); R.rows.sort(function(a,b){ return (b.fresh?1:0)-(a.fresh?1:0)||a.d-b.d; });
+  S.busy=false; $('#btn-go').disabled=false;
+  /* save the request with what is on the market now, so later only new cars are reported */
+  var a=findsLoad(), key=JSON.stringify([p.make,p.models,p.yf,p.yt,p.kmax,p.pmax,p.fuel,p.gear,p.drive,p.body,p.mk,p.cheap,p.nobad]).toLowerCase(), f=a.filter(function(x){return x.key===key})[0];
+  if(!f){ if(a.length>=5) a.pop(); f={key:key,id:tgCode().slice(0,12),p:p,created:Date.now(),fresh:[]}; a.unshift(f); }
+  f.seen=R.rows.map(rowId).slice(0,1500); f.now=R.rows.length; f.at=Date.now(); findsSave(a);
+  S.fzLast={p:p,R:R}; render();
+  showStatus('ok',function(){return R.rows.length?L('Найдено подходящих: '+R.rows.length+'. Заявка сохранена — сообщу о новых.','Matches: '+R.rows.length+'. The search is saved — I will tell you about new ones.','Atbilstoši: '+R.rows.length+'. Pieprasījums saglabāts — paziņošu par jauniem.'):L('Сейчас подходящих нет. Заявка сохранена — сообщу, как только появится.','Nothing matches right now. The search is saved — I will tell you as soon as one appears.','Pašlaik nekas neatbilst. Pieprasījums saglabāts — paziņošu, tiklīdz parādīsies.')});
+  try{ gcCount('find-start','Заявка «Найти мне авто»',true); }catch(e){}
+}
+/* "Check" on a found car opens the usual listing check */
+document.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-act="find-check"]'); if(!b||S.mode!=='find') return;
+  var u=b.getAttribute('data-u'), a=findsLoad(), ch=false; a.forEach(function(f){ (f.fresh||[]).forEach(function(x){ if(x.url===u&&!x.seen){ x.seen=true; ch=true; } }); }); if(ch) LS.set(KEY_FINDS,JSON.stringify(a));
+  setMode('buy'); },true);
+document.addEventListener('click',function(e){
+  var b=e.target.closest&&e.target.closest('[data-act]'); if(!b) return; var a=b.getAttribute('data-act');
+  if(a==='fz-rm'){ var fl=findsLoad(); fl.splice(+b.getAttribute('data-i'),1); findsSave(fl); render(); }
+  else if(a==='fz-show'){ var f=findsLoad()[+b.getAttribute('data-i')]; if(!f) return; var P=f.p, set=function(id,v){ var el=document.getElementById(id); if(el) el.value=v==null?'':v; };
+    set('fz-make',P.make); set('fz-model',(P.models||[]).join(', ')); set('fz-yf',P.yf); set('fz-yt',P.yt); set('fz-kmax',P.kmax); set('fz-pmax',P.pmax); set('fz-fuel',P.fuel); set('fz-gear',P.gear); set('fz-drive',P.drive); set('fz-body',P.body);
+    document.querySelectorAll('[data-fzmk]').forEach(function(x){ x.checked=!!(P.mk||{})[x.getAttribute('data-fzmk')]; }); var c1=document.getElementById('fz-cheap'), c2=document.getElementById('fz-nobad'); if(c1) c1.checked=!!P.cheap; if(c2) c2.checked=P.nobad!==false;
+    S.fzHi={}; (f.fresh||[]).forEach(function(x){ if(!x.seen&&x.url) S.fzHi[x.url]=1; x.seen=true; }); findsSave(findsLoad().map(function(x){ return x.key===f.key?f:x; })); window.scrollTo({top:0,behavior:'smooth'}); fzStart(); }
+  else if(a==='fz-push') findPushOn();
+  else if(a==='fz-push-off') findPushOff();
+  else if(a==='fz-seen'){ var fl2=findsLoad(), f2=fl2[+b.getAttribute('data-i')]; if(f2){ (f2.fresh||[]).forEach(function(x){x.seen=true}); LS.set(KEY_FINDS,JSON.stringify(fl2)); } }
+  else if(a==='fz-all'){ var sec=document.getElementById('a-fzres'); if(sec) sec.classList.add('all'); b.remove(); }
+});
+/* ---- phone notifications (Web Push): the worker checks the searches and wakes the phone ---- */
+var KEY_PUSH='carscout_push', pzT=null;
+function pushLoad(){ try{ var o=JSON.parse(LS.get(KEY_PUSH)||'null'); return o&&o.code?o:null; }catch(e){ return null; } }
+function pushOn(){ var st=pushLoad(); return !!(st&&st.on&&typeof Notification!=='undefined'&&Notification.permission==='granted'); }
+function pushCan(){ return 'serviceWorker' in navigator&&'PushManager' in window&&typeof Notification!=='undefined'; }
+function pushIos(){ return /iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1); }
+function pushStandalone(){ try{ return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true; }catch(e){ return false; } }
+function b64uBytes(s){ s=String(s).replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; var b=atob(s), a=new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return a; }
+function swReady(ms){ return Promise.race([navigator.serviceWorker.ready,new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('sw')); },ms||8000); })]); }
+function findPushSync(now){
+  var st=pushLoad(); if(!st||!st.on||!S.api||!pushCan()) return Promise.resolve(null);
+  clearTimeout(pzT);
+  var go=function(){ return swReady().then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){ if(!sub) return null;
+    return fetch(S.api+'/api/push/sub?code='+st.code,{method:'POST',headers:{'content-type':'text/plain'},body:JSON.stringify({sub:sub.toJSON(),lang:S.lang,finds:findsLoad().map(function(f){ return {id:f.id,p:f.p}; })})}).then(function(r){ return r.json(); }); }).catch(function(){ return null; }); };
+  if(now) return go(); pzT=setTimeout(go,1200); return Promise.resolve(null);
+}
+async function findPushOn(){
+  if(!pushCan()){
+    if(pushIos()&&!pushStandalone()) showStatus('info',function(){return L('На iPhone уведомления работают, когда CarScout добавлен на экран «Домой»: в Safari нажмите «Поделиться» → «На экран „Домой“», откройте CarScout оттуда и нажмите эту кнопку ещё раз.','On iPhone, notifications work once CarScout is on the Home Screen: in Safari tap Share → “Add to Home Screen”, open CarScout from there and press this button again.','iPhone paziņojumi darbojas, kad CarScout ir pievienots sākuma ekrānam: Safari nospiediet «Kopīgot» → «Pievienot sākuma ekrānam», atveriet CarScout no turienes un nospiediet šo pogu vēlreiz.')});
+    else showStatus('err',function(){return L('Этот браузер не умеет показывать уведомления. Откройте CarScout в Chrome, Edge, Firefox или Safari.','This browser cannot show notifications. Open CarScout in Chrome, Edge, Firefox or Safari.','Šī pārlūkprogramma nevar rādīt paziņojumus. Atveriet CarScout Chrome, Edge, Firefox vai Safari.')});
+    return; }
+  if(!S.api){ showStatus('err',function(){return L('Нужен сервер.','The server is needed.','Nepieciešams serveris.')}); return; }
+  var perm=Notification.permission; if(perm!=='granted'){ try{ perm=await Notification.requestPermission(); }catch(e){} }
+  if(perm!=='granted'){ showStatus('err',function(){return L('Уведомления запрещены для этого сайта. Разрешите их в настройках браузера (значок замка рядом с адресом) и нажмите кнопку ещё раз.','Notifications are blocked for this site. Allow them in the browser settings (the lock icon next to the address) and press the button again.','Paziņojumi šai vietnei ir bloķēti. Atļaujiet tos pārlūka iestatījumos (slēdzenes ikona pie adreses) un nospiediet pogu vēlreiz.')}); return; }
+  showStatus('busy',function(){return L('Включаю уведомления…','Turning notifications on…','Ieslēdzu paziņojumus…')},false);
+  try{
+    var k=await fetch(S.api+'/api/push/key').then(function(r){ return r.json(); }); if(!k||!k.ok||!k.key) throw new Error('key');
+    var reg=await swReady(), key=b64uBytes(k.key), sub=await reg.pushManager.getSubscription();
+    if(sub){ var old=sub.options&&sub.options.applicationServerKey?new Uint8Array(sub.options.applicationServerKey):null; if(!old||old.length!==key.length||old.some(function(b,i){ return b!==key[i]; })){ await sub.unsubscribe(); sub=null; } }
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+    var st=pushLoad()||{code:tgCode()}; st.on=true; LS.set(KEY_PUSH,JSON.stringify(st));
+    var j=await findPushSync(true); if(!j||!j.ok) throw new Error('sync');
+    showStatus('ok',function(){return L('Уведомления включены. Как только появится новая подходящая машина, на телефон придёт сообщение — даже если приложение закрыто.','Notifications are on. As soon as a new matching car appears, your phone gets a message — even when the app is closed.','Paziņojumi ieslēgti. Tiklīdz parādīsies jauns piemērots auto, tālrunī pienāks ziņa — arī tad, ja lietotne ir aizvērta.')});
+    try{ gcCount('find-push','Включены уведомления «Найти мне авто»',true); }catch(e){}
+  }catch(e){ showStatus('err',function(){return L('Не удалось включить уведомления. Проверьте интернет и попробуйте ещё раз.','Could not turn notifications on. Check the connection and try again.','Neizdevās ieslēgt paziņojumus. Pārbaudiet savienojumu un mēģiniet vēlreiz.')}); }
+  render();
+}
+async function findPushOff(){
+  var st=pushLoad(); if(!st) return; st.on=false; LS.set(KEY_PUSH,JSON.stringify(st));
+  try{ if(S.api) await fetch(S.api+'/api/push/sub?code='+st.code,{method:'POST',headers:{'content-type':'text/plain'},body:JSON.stringify({off:true})}); }catch(e){}
+  try{ var reg=await swReady(3000), sub=await reg.pushManager.getSubscription(); if(sub) await sub.unsubscribe(); }catch(e){}
+  showStatus('info',function(){return L('Уведомления на телефон выключены.','Phone notifications are off.','Paziņojumi tālrunī izslēgti.')}); render();
+}
+/* what the server found while the app was closed */
+function findPull(){
+  var st=pushLoad(); if(!st||!st.on||!S.api) return;
+  fetch(S.api+'/api/push/finds?code='+st.code).then(function(r){ return r.json(); }).then(function(j){
+    if(!j||!j.ok) return; var a=findsLoad(), ch=false;
+    (j.finds||[]).forEach(function(sf){ var f=a.filter(function(x){ return x.id===sf.id; })[0]; if(!f) return;
+      if(sf.at>(f.at||0)){ f.at=sf.at; ch=true; } if(sf.base&&sf.now!==f.now){ f.now=sf.now; ch=true; }
+      var old={}; (f.fresh||[]).forEach(function(x){ old[x.id]=x; });
+      var nf=(sf.fresh||[]).map(function(x){ return Object.assign({},x,{seen:!!(old[x.id]&&old[x.id].seen)}); });
+      if(JSON.stringify(nf)!==JSON.stringify(f.fresh||[])){ f.fresh=nf; ch=true; } });
+    if(ch){ LS.set(KEY_FINDS,JSON.stringify(a)); if(S.mode==='find') render(); }
+  }).catch(function(){});
+}
+setTimeout(function(){ findPull(); if(pushOn()) findPushSync(); },2500);
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') findPull(); });
+/* a tap on a notification about several cars opens this mode */
+(function(){ try{ if(/[?&]find=1\b/.test(location.search)){ history.replaceState(null,'',location.pathname); setTimeout(function(){ setMode('find'); },0); } }catch(e){} })();
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){

@@ -1137,10 +1137,180 @@ async function hTrend(env, q) {
     cuts: { active: active, n: cut, avg: cuts.length ? Math.round(med(cuts) * 10) / 10 : null }, tracked: ids.length });
 }
 
+/* "Find me a car": standing searches with Web Push notifications.
+   The app subscribes the phone (VAPID), sends its searches here; the worker re-checks one search × market × model
+   per tick (cron and the GitHub job call /api/push/tick), remembers what it has already seen, and on a new matching car
+   stores a short message in the inbox and wakes the phone with an empty push; the service worker then reads the inbox. */
+const PUSH_SUB = 'https://digitalcreatorhub.github.io/carscout/';
+const PUSH_HOSTS = [/(^|\.)fcm\.googleapis\.com$/, /(^|\.)googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
+const PZ_EVERY = 15 * 60000, PZ_FRESH_DAYS = 7;
+const PZ_SRC = { LV: ['ss', null, 'ss.lv'], LT: ['autoplius', null, 'autoplius.lt'], EE: ['autoportaal', null, 'autoportaal.ee'], DE: ['as24', 'D', 'AutoScout24 DE'] };
+const PZ_BAD = /bojāt|avārij|rezerves daļ|uz daļām|на запчаст|битая|битый|после дтп|после аварии|damaged|for parts|unfall|salvage|не на ходу|nav uz ceļa/i;
+const PZT = {
+  ru: { one: 'Новая машина по вашей заявке', many: function (n) { return n + ' новых машины по вашей заявке'; }, from: 'от', cheaper: function (d) { return 'на ' + d + '% дешевле рынка'; }, km: 'км' },
+  lv: { one: 'Jauns auto pēc jūsu pieprasījuma', many: function (n) { return n + ' jauni auto pēc jūsu pieprasījuma'; }, from: 'no', cheaper: function (d) { return 'par ' + d + '% lētāk nekā tirgū'; }, km: 'km' },
+  en: { one: 'A new car for your search', many: function (n) { return n + ' new cars for your search'; }, from: 'from', cheaper: function (d) { return d + '% below the market'; }, km: 'km' }
+};
+let PUSH_READY = false, VAPID = null;
+async function pushInit(env) {
+  if (!(await memInit(env))) return false; if (PUSH_READY) return true;
+  await env.DB.batch([
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS psub(code TEXT PRIMARY KEY, ep TEXT, sub TEXT, lang TEXT, t INT)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS psub_ep ON psub(ep)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS pfind(code TEXT, fid TEXT, part TEXT, p TEXT, seen TEXT, base INT DEFAULT 0, at INT DEFAULT 0, nowc INT, fresh TEXT, PRIMARY KEY(code, fid, part))'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS pfind_at ON pfind(at)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS pinbox(code TEXT, t INT, data TEXT)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS pinbox_code ON pinbox(code)')
+  ]);
+  PUSH_READY = true; return true;
+}
+function b64u(buf) { const a = new Uint8Array(buf); let s = ''; for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+async function vapid(env) {
+  if (VAPID) return VAPID; if (!(await pushInit(env))) return null;
+  const read = async function () { const r = await env.DB.prepare("SELECT v FROM kv WHERE k = 'vapid'").first(); try { return r ? JSON.parse(r.v) : null; } catch (e) { return null; } };
+  let d = await read();
+  if (!d) {
+    const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+    const nd = { jwk: await crypto.subtle.exportKey('jwk', kp.privateKey), pub: b64u(await crypto.subtle.exportKey('raw', kp.publicKey)) };
+    await env.DB.prepare("INSERT INTO kv(k, v) VALUES('vapid', ?1) ON CONFLICT(k) DO NOTHING").bind(JSON.stringify(nd)).run();
+    d = (await read()) || nd;   /* two first calls at once: both use the one that was stored */
+  }
+  VAPID = { key: await crypto.subtle.importKey('jwk', d.jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']), pub: d.pub };
+  return VAPID;
+}
+function pushEndpointOk(ep) { try { const u = new URL(ep); return u.protocol === 'https:' && PUSH_HOSTS.some(function (re) { return re.test(u.hostname); }); } catch (e) { return false; } }
+async function pushSend(env, sub) {
+  const v = await vapid(env); if (!v || !sub || !pushEndpointOk(sub.endpoint)) return 0;
+  const enc = function (s) { return b64u(new TextEncoder().encode(s)); };
+  const h = enc(JSON.stringify({ typ: 'JWT', alg: 'ES256' })), p = enc(JSON.stringify({ aud: new URL(sub.endpoint).origin, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: PUSH_SUB }));
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, v.key, new TextEncoder().encode(h + '.' + p));
+  const r = await fetch(sub.endpoint, { method: 'POST', headers: { 'TTL': '86400', 'Urgency': 'high', 'Authorization': 'vapid t=' + h + '.' + p + '.' + b64u(sig) + ', k=' + v.pub }, body: '' });
+  return r.status;
+}
+function pushCode(q) { const c = String(q.get('code') || ''); return /^[a-z0-9]{16,40}$/.test(c) ? c : null; }
+function pzClean(p) {
+  p = p && typeof p === 'object' ? p : {}; const s = function (x, n) { return String(x || '').replace(/[<>]/g, '').trim().slice(0, n || 40); }, n = function (x) { x = parseInt(x, 10); return x > 0 && x < 1e8 ? x : null; };
+  const en = function (x, a) { return a.indexOf(x) > -1 ? x : ''; }, mk = {};
+  Object.keys(PZ_SRC).forEach(function (k) { mk[k] = p.mk && p.mk[k] ? 1 : 0; });
+  return { make: s(p.make), models: (Array.isArray(p.models) ? p.models : []).map(function (x) { return s(x); }).filter(Boolean).slice(0, 3), yf: n(p.yf), yt: n(p.yt), kmax: n(p.kmax), pmax: n(p.pmax),
+    fuel: en(p.fuel, ['petrol', 'diesel', 'hybrid', 'electric']), gear: en(p.gear, ['automatic', 'manual']), drive: en(p.drive, ['awd', 'fwd', 'rwd']), body: en(p.body, ['wagon', 'sedan', 'hatch', 'suv', 'van', 'coupe']), mk: mk, cheap: !!p.cheap, nobad: p.nobad !== false };
+}
+function pzBody(t) {
+  t = String(t || '').toLowerCase();
+  if (/universāl|универсал|wagon|kombi\b|touring|avant|variant|estate|sports ?tourer|shooting brake|allroad|alltrack|\bsw\b/.test(t)) return 'wagon';
+  if (/apvidus|внедорож|кроссов|\bsuv\b|crossover|4x4/.test(t)) return 'suv';
+  if (/minivens|минивэн|\bvan\b|mpv/.test(t)) return 'van';
+  if (/hečbek|hatchback|хэтчбек|хетчбек/.test(t)) return 'hatch';
+  if (/sedan|седан|limousine|saloon/.test(t)) return 'sedan';
+  if (/kupej|купе|coupe|coupé|cabrio|kabriolet|кабриолет|roadster/.test(t)) return 'coupe';
+  return null;
+}
+function pzDrive(i) { if (i.drive) return i.drive; const t = String((i.title || '') + ' ' + (i.model_raw || '')); return /quattro|xdrive|4motion|4matic|\bawd\b|4x4|4wd|all.?wheel|allrad|\bq4\b|e-four|pilnpiedz|полный привод/i.test(t) ? 'awd' : null; }
+function pzMatches(items, p) {
+  const med = function (a) { if (!a.length) return null; const b = a.slice().sort(function (x, y) { return x - y; }); const k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; };
+  const all = items.filter(function (i) { return i && i.url && i.price >= 500; }), out = [];
+  all.forEach(function (i) {
+    if ((p.yf || p.yt) && !i.year) return; if (p.yf && i.year < p.yf) return; if (p.yt && i.year > p.yt) return;
+    if (p.pmax && i.price > p.pmax) return; if (p.kmax && i.km != null && i.km > p.kmax) return;
+    if (p.fuel && i.fuel && (i.fuel === 'lpg' ? 'petrol' : i.fuel) !== p.fuel) return; if (p.gear && i.gear && i.gear !== p.gear) return;
+    const t = (i.title || '') + ' ' + (i.model_raw || '');
+    if (p.nobad && PZ_BAD.test(t)) return;
+    if (p.drive) { const dv = pzDrive(i); if (p.drive === 'awd' ? dv !== 'awd' : dv === 'awd') return; }
+    if (p.body) { const b = pzBody(t); if (b && b !== p.body) return; }
+    const near = all.filter(function (x) { return x.year && i.year && Math.abs(x.year - i.year) <= 1; }).map(function (x) { return x.price; });
+    const est = near.length >= 4 ? med(near) : med(all.map(function (x) { return x.price; })), d = est ? Math.round((i.price / est - 1) * 100) : 0;
+    if (p.cheap && !(d <= -5)) return;
+    out.push(Object.assign({}, i, { d: d }));
+  });
+  return out;
+}
+async function hPushKey(env) { const v = await vapid(env); return v ? json(env, { ok: true, key: v.pub }) : json(env, { ok: false, error: 'no_db' }); }
+async function hPushSub(env, q, request) {
+  const code = pushCode(q); if (!code) return json(env, { ok: false, error: 'bad_code' }, 400);
+  if (!(await pushInit(env))) return json(env, { ok: false, error: 'no_db' });
+  const txt = await request.text(); if (txt.length > 20000) return json(env, { ok: false, error: 'too_big' }, 413);
+  let d; try { d = JSON.parse(txt); } catch (e) { return json(env, { ok: false, error: 'bad_json' }, 400); }
+  if (d.off) { await env.DB.batch([env.DB.prepare('DELETE FROM psub WHERE code = ?1').bind(code), env.DB.prepare('DELETE FROM pfind WHERE code = ?1').bind(code), env.DB.prepare('DELETE FROM pinbox WHERE code = ?1').bind(code)]); return json(env, { ok: true, off: true }); }
+  const sub = d.sub && typeof d.sub === 'object' ? { endpoint: String(d.sub.endpoint || ''), keys: d.sub.keys && typeof d.sub.keys === 'object' ? { p256dh: String(d.sub.keys.p256dh || '').slice(0, 200), auth: String(d.sub.keys.auth || '').slice(0, 60) } : {} } : null;
+  if (!sub || !pushEndpointOk(sub.endpoint) || sub.endpoint.length > 800) return json(env, { ok: false, error: 'bad_sub' }, 400);
+  const lang = /^(ru|en|lv)$/.test(d.lang) ? d.lang : 'en', now = Date.now();
+  /* every search becomes one row per market and model, so each tick does a single site request */
+  const rows = [];
+  (Array.isArray(d.finds) ? d.finds : []).slice(0, 5).forEach(function (f) {
+    const fid = String(f && f.id || ''); if (!/^[a-z0-9]{6,20}$/.test(fid)) return; const p = pzClean(f.p); if (!p.make || !p.models.length) return;
+    Object.keys(PZ_SRC).forEach(function (m) { if (p.mk[m]) p.models.forEach(function (md) { rows.push({ fid: fid, part: m + '|' + md, p: JSON.stringify(p) }); }); });
+  });
+  const keep = rows.slice(0, 30), js = JSON.stringify(keep);
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO psub(code, ep, sub, lang, t) VALUES(?1, ?2, ?3, ?4, ?5) ON CONFLICT(code) DO UPDATE SET ep = excluded.ep, sub = excluded.sub, lang = excluded.lang, t = excluded.t').bind(code, sub.endpoint, JSON.stringify(sub), lang, now),
+    env.DB.prepare("DELETE FROM pfind WHERE code = ?1 AND (fid || '#' || part) NOT IN (SELECT (j.value->>'fid') || '#' || (j.value->>'part') FROM json_each(?2) j)").bind(code, js),
+    env.DB.prepare("INSERT INTO pfind(code, fid, part, p, seen, base, at) SELECT ?1, j.value->>'fid', j.value->>'part', j.value->>'p', '[]', 0, 0 FROM json_each(?2) j WHERE true ON CONFLICT(code, fid, part) DO UPDATE SET p = excluded.p").bind(code, js)
+  ]);
+  return json(env, { ok: true, parts: keep.length });
+}
+async function hPushFinds(env, q) {
+  const code = pushCode(q); if (!code) return json(env, { ok: false, error: 'bad_code' }, 400);
+  if (!(await pushInit(env))) return json(env, { ok: false, error: 'no_db' });
+  const r = await env.DB.prepare('SELECT fid, part, base, at, nowc, fresh FROM pfind WHERE code = ?1').bind(code).all();
+  const by = {}, lim = Date.now() - PZ_FRESH_DAYS * 86400000;
+  (r.results || []).forEach(function (x) {
+    const f = by[x.fid] || (by[x.fid] = { id: x.fid, at: 0, now: 0, base: true, fresh: [] });
+    f.at = Math.max(f.at, x.at || 0); f.base = f.base && !!x.base; f.now += x.nowc || 0;
+    let fr = []; try { fr = JSON.parse(x.fresh || '[]'); } catch (e) { } f.fresh = f.fresh.concat(fr.filter(function (i) { return i.t > lim; }));
+  });
+  return json(env, { ok: true, finds: Object.keys(by).map(function (k) { const f = by[k]; f.fresh.sort(function (a, b) { return b.t - a.t; }); f.fresh = f.fresh.slice(0, 12); return f; }) });
+}
+async function hPushInbox(env, request) {
+  if (!(await pushInit(env))) return json(env, { ok: false, error: 'no_db' });
+  let d = {}; try { d = JSON.parse(await request.text()); } catch (e) { }
+  const ep = String(d.ep || ''); if (!ep) return json(env, { ok: true, items: [] });
+  const s = await env.DB.prepare('SELECT code FROM psub WHERE ep = ?1').bind(ep).first(); if (!s) return json(env, { ok: true, items: [] });
+  const r = await env.DB.prepare('SELECT t, data FROM pinbox WHERE code = ?1 ORDER BY t DESC LIMIT 5').bind(s.code).all();
+  await env.DB.prepare('DELETE FROM pinbox WHERE code = ?1').bind(s.code).run();
+  return json(env, { ok: true, items: (r.results || []).map(function (x) { try { return JSON.parse(x.data); } catch (e) { return null; } }).filter(Boolean) });
+}
+async function pushTick(env, ctx) {
+  if (!(await pushInit(env))) return { ok: false, error: 'no_db' };
+  const now = Date.now();
+  const r = await env.DB.prepare('SELECT f.code, f.fid, f.part, f.p, f.seen, f.base, f.at, f.fresh, s.sub, s.lang FROM pfind f JOIN psub s ON s.code = f.code WHERE f.at < ?1 ORDER BY f.at LIMIT 1').bind(now - PZ_EVERY).first();
+  if (!r) return { ok: true, idle: true };
+  const claim = await env.DB.prepare('UPDATE pfind SET at = ?4 WHERE code = ?1 AND fid = ?2 AND part = ?3 AND at = ?5').bind(r.code, r.fid, r.part, now, r.at).run();
+  if (claim && claim.meta && claim.meta.changes === 0) return { ok: true, busy: true };
+  let p = {}; try { p = JSON.parse(r.p); } catch (e) { }
+  const cut = r.part.indexOf('|'), mkt = r.part.slice(0, cut), model = r.part.slice(cut + 1), src = PZ_SRC[mkt];
+  if (!src || !p.make) return { ok: true, skip: r.part };
+  const yf = p.yf || (p.yt ? p.yt - 3 : ''), yt = p.yt || (p.yf ? p.yf + 3 : ''), mid = yf && yt ? Math.round((yf + yt) / 2) : '';
+  const qs = new URLSearchParams({ source: src[0], make: p.make, model: model, year: String(mid || ''), yfrom: String(yf || ''), yto: String(yt || ''), fuel: p.fuel || '' }); if (src[1]) qs.set('cy', src[1]);
+  let j = {}; try { j = await (await hComps(env, qs, ctx)).json(); } catch (e) { j = { ok: false, error: 'worker_error' }; }
+  if (!j.ok) return { ok: true, part: r.part, error: j.error || 'failed' };
+  const match = pzMatches(j.items || [], p), idOf = function (i) { return adKey(i.url) || String(i.url).slice(0, 200); };
+  let seen = []; try { seen = JSON.parse(r.seen || '[]'); } catch (e) { }
+  const was = new Set(seen), fresh = r.base ? match.filter(function (i) { return !was.has(idOf(i)); }) : [];
+  const ids = match.map(idOf); seen = ids.concat(seen.filter(function (x) { return ids.indexOf(x) < 0; })).slice(0, 1500);
+  let fr = []; try { fr = JSON.parse(r.fresh || '[]'); } catch (e) { }
+  const lim = now - PZ_FRESH_DAYS * 86400000;
+  fr = fresh.slice(0, 10).map(function (i) { return { id: idOf(i), url: String(i.url).slice(0, 400), title: String(i.title || '').slice(0, 80), price: Math.round(i.price), year: i.year || null, km: i.km != null ? Math.round(i.km) : null, img: i.img ? String(i.img).slice(0, 400) : null, src: src[2], d: i.d, t: now }; })
+    .concat(fr.filter(function (i) { return i.t > lim; })).slice(0, 15);
+  await env.DB.prepare('UPDATE pfind SET seen = ?4, base = 1, nowc = ?5, fresh = ?6 WHERE code = ?1 AND fid = ?2 AND part = ?3').bind(r.code, r.fid, r.part, JSON.stringify(seen), match.length, JSON.stringify(fr)).run();
+  if (!fresh.length) return { ok: true, part: r.part, base: !r.base, n: match.length, fresh: 0 };
+  const T = PZT[r.lang] || PZT.en, best = fresh.slice().sort(function (a, b) { return a.d - b.d; })[0];
+  const line = function (i) { return [Math.round(i.price).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €', i.year, i.km != null ? Math.round(i.km).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ' + T.km : null, src[2]].filter(Boolean).join(' · ') + (i.d <= -3 ? ' · ' + T.cheaper(-i.d) : ''); };
+  const msg = fresh.length === 1 ? { title: T.one, body: String(best.title || p.make + ' ' + model).slice(0, 70) + '\n' + line(best), url: String(best.url).slice(0, 400), img: best.img || null, tag: 'cs-' + r.fid }
+    : { title: T.many(fresh.length), body: (p.make + ' ' + model).slice(0, 60) + ' — ' + T.from + ' ' + Math.round(Math.min.apply(null, fresh.map(function (i) { return i.price; }))).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €\n' + line(best), url: null, img: best.img || null, tag: 'cs-' + r.fid };
+  await env.DB.prepare('INSERT INTO pinbox(code, t, data) VALUES(?1, ?2, ?3)').bind(r.code, now, JSON.stringify(msg)).run();
+  let st = 0; try { st = await pushSend(env, JSON.parse(r.sub)); } catch (e) { st = -1; }
+  if (st === 404 || st === 410) await env.DB.batch([env.DB.prepare('DELETE FROM psub WHERE code = ?1').bind(r.code), env.DB.prepare('DELETE FROM pfind WHERE code = ?1').bind(r.code), env.DB.prepare('DELETE FROM pinbox WHERE code = ?1').bind(r.code)]);
+  return { ok: true, part: r.part, n: match.length, fresh: fresh.length, push: st };
+}
+async function hPushTick(env, ctx) { return json(env, await pushTick(env, ctx)); }
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
     const u = new URL(request.url);
+    if (request.method === 'POST' && u.pathname === '/api/push/sub') { try { return await hPushSub(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
+    if (request.method === 'POST' && u.pathname === '/api/push/inbox') { try { return await hPushInbox(env, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method === 'POST' && u.pathname === '/api/watch') { try { return await hWatchSave(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     try {
@@ -1150,6 +1320,9 @@ export default {
       if (u.pathname === '/api/memory') return await hMemory(env, u.searchParams);
       if (u.pathname === '/api/trend') return await hTrend(env, u.searchParams);
       if (u.pathname === '/api/watch') return await hWatchGet(env, u.searchParams);
+      if (u.pathname === '/api/push/key') return await hPushKey(env);
+      if (u.pathname === '/api/push/finds') return await hPushFinds(env, u.searchParams);
+      if (u.pathname === '/api/push/tick') return await hPushTick(env, ctx);
       if (u.pathname === '/api/tg/status') return await hTgStatus(env, u.searchParams);
       if (u.pathname === '/api/tg/subs') return await hTgSubs(env, request);
       if (u.pathname === '/api/tg/link') return await hTgLink(env, u.searchParams, request);
@@ -1163,5 +1336,5 @@ export default {
       return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500);
     }
   },
-  async scheduled(event, env, ctx) { ctx.waitUntil(tgPoll(env, true).catch(function () { })); }
+  async scheduled(event, env, ctx) { ctx.waitUntil(tgPoll(env, true).catch(function () { })); ctx.waitUntil(pushTick(env, ctx).catch(function () { })); }
 };
