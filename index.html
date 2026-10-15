@@ -2543,7 +2543,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.8', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.9', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -4340,7 +4340,7 @@ function fzBodyOf(t){ t=String(t||'').toLowerCase();
 var FZ_BAD=/bojāt|avārij|rezerves daļ|uz daļām|на запчаст|битая|битый|после дтп|после аварии|damaged|for parts|unfall|salvage|не на ходу|nav uz ceļa/i;
 (function findSetup(){
   var bar=document.getElementById('modebar'), form=document.getElementById('intake'); if(!bar||!form||document.getElementById('findbox')) return;
-  bar.insertAdjacentHTML('beforeend','<button type="button" role="tab" data-mode="find" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg><span data-ru="Найти мне авто" data-en="Find me a car" data-lv="Atrast man auto"></span><i class="mx" aria-hidden="true">×</i></button>');
+  bar.insertAdjacentHTML('beforeend','<button type="button" role="tab" data-mode="find" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg><span data-ru="Подключи агента" data-en="Connect an agent" data-lv="Pieslēgt aģentu"></span><i class="mx" aria-hidden="true">×</i></button>');
   var sel=function(id,opts){ return '<select class="in" id="'+id+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[2]?' data-ru="'+o[2]+'" data-en="'+o[3]+'" data-lv="'+o[4]+'"':'')+'>'+esc(o[1]||'')+'</option>'; }).join('')+'</select>'; };
   var fld=function(id,ru,en,lv,inner){ return '<div class="fld"><label for="'+id+'" data-ru="'+ru+'" data-en="'+en+'" data-lv="'+lv+'"></label>'+inner+'</div>'; };
   var inp=function(id,ph,num){ return '<input class="in'+(num?' num':'')+'" id="'+id+'" type="text"'+(num?' inputmode="numeric"':'')+' placeholder="'+ph+'">'; };
