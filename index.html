@@ -2543,7 +2543,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.9', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.10', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -4446,8 +4446,8 @@ setMode=function(m){
     document.querySelectorAll('#modebar [data-mode]').forEach(function(b){ var on=b.getAttribute('data-mode')==='find'; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
     var lh=document.querySelector('.lead h1'), lp=document.querySelector('.lead p');
     [lh,lp].forEach(function(el){ if(el&&!el.hasAttribute('data-oru')){ el.setAttribute('data-oru',el.getAttribute('data-ru')||''); el.setAttribute('data-oen',el.getAttribute('data-en')||''); el.setAttribute('data-olv',el.getAttribute('data-lv')||''); } });
-    if(lh){ lh.setAttribute('data-ru','Найдём машину, которой пока нет'); lh.setAttribute('data-en','We will find the car that is not there yet'); lh.setAttribute('data-lv','Atradīsim auto, kura vēl nav'); }
-    if(lp){ lp.setAttribute('data-ru','Опишите, какую машину вы хотите. CarScout будет следить за ss.lv, autoportaal.ee, autoplius.lt и AutoScout24 и сообщит на телефон, как только она появится.'); lp.setAttribute('data-en','Describe the car you want. CarScout watches ss.lv, autoportaal.ee, autoplius.lt and AutoScout24 and notifies your phone as soon as it appears.'); lp.setAttribute('data-lv','Aprakstiet, kādu auto vēlaties. CarScout sekos ss.lv, autoportaal.ee, autoplius.lt un AutoScout24 un paziņos tālrunī, tiklīdz tas parādīsies.'); }
+    if(lh){ lh.setAttribute('data-ru','Агент найдёт машину за вас'); lh.setAttribute('data-en','The agent finds the car for you'); lh.setAttribute('data-lv','Aģents atradīs auto jūsu vietā'); }
+    if(lp){ lp.setAttribute('data-ru','Укажите параметры автомобиля. Агент несколько раз в час проверяет ss.lv, autoportaal.ee, autoplius.lt и AutoScout24 и сразу сообщит на телефон о подходящем предложении.'); lp.setAttribute('data-en','Set the car you want. The agent checks ss.lv, autoportaal.ee, autoplius.lt and AutoScout24 several times an hour and notifies your phone as soon as a matching car appears.'); lp.setAttribute('data-lv','Norādiet vēlamā auto parametrus. Aģents vairākas reizes stundā pārbauda ss.lv, autoportaal.ee, autoplius.lt un AutoScout24 un uzreiz paziņos tālrunī par piemērotu piedāvājumu.'); }
     var go=$('#btn-go'); go.setAttribute('data-ru','Начать поиск'); go.setAttribute('data-en','Start searching'); go.setAttribute('data-lv','Sākt meklēšanu');
     S.view=null; S.srcRows={}; renderSrcs(); showStatus(''); applyLang();
     setTimeout(function(){ var f=$('#fz-make'); if(f&&!f.value&&!aMob()) f.focus(); },60);
