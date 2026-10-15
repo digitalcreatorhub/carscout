@@ -841,7 +841,9 @@ async function hComps(env, q, ctx) {
   if (source === 'autoportaal') {
     if (!make || !model) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
     const apMk = /^mercedes/i.test(make) ? 'Mercedes-Benz' : /^vw$/i.test(make) ? 'Volkswagen' : make;
-    const mkUrl = function (p) { return 'https://autoportaal.ee/et/kasutatud-autod?make=' + encodeURIComponent(apMk) + '&model=' + encodeURIComponent(/^mazda$/i.test(make) ? model.replace(/^mazda\s*/i, '') : model) + (yf ? '&year_min=' + yf : '') + (yt ? '&year_max=' + yt : '') + (p > 1 ? '&page=' + p : ''); };
+    /* autoportaal.ee has no "5 Series" or "E-Class" in its model search: take the make and keep that model line */
+    const apFam = (/^bmw$/i.test(make) && /^\d\s*series$/i.test(model)) || (/^mercedes/i.test(make) && /^[a-z]{1,3}-?class$/i.test(model));
+    const mkUrl = function (p) { return 'https://autoportaal.ee/et/kasutatud-autod?make=' + encodeURIComponent(apMk) + (apFam ? '' : '&model=' + encodeURIComponent(/^mazda$/i.test(make) ? model.replace(/^mazda\s*/i, '') : model)) + (yf ? '&year_min=' + yf : '') + (yt ? '&year_max=' + yt : '') + (p > 1 ? '&page=' + p : ''); };
     const pages = await Promise.all([1, 2, 3, 4].map(function (n) { return getPage(mkUrl(n), 1800).catch(function () { return { status: 0, text: '', url: mkUrl(n) }; }); }));
     const search = mkUrl(1), b = blockedBy(pages[0]);
     if (b) return json(env, { ok: false, source: 'autoportaal', error: 'blocked', message: 'autoportaal.ee refused the server request (' + b + ').', searchUrl: search });
