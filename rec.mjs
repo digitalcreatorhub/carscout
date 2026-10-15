@@ -1,13 +1,10 @@
 import fs from 'node:fs';
-const UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-const get=async u=>{ for(let i=0;i<3;i++){ try{ const r=await fetch(u,{headers:{'user-agent':UA,'accept-language':'ru'}}); return await r.text(); }catch(e){ await new Promise(z=>setTimeout(z,1500)); } } return ''; };
-const strip=s=>s.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ').trim();
-const base='https://www.ss.com/ru/transport/cars/';
-const h=await get(base); const makes=[]; const re=/<a[^>]+href="\/ru\/transport\/cars\/([a-z0-9\-]+)\/"[^>]*>([\s\S]*?)<\/a>/g; let m;
-while((m=re.exec(h))){ const t=strip(m[2]); if(t&&!makes.find(x=>x.slug===m[1])) makes.push({slug:m[1],name:t}); }
-const out={};
-for(const mk of makes){ const p=await get(base+mk.slug+'/'); const r2=new RegExp('<a[^>]+href="/ru/transport/cars/'+mk.slug+'/([a-z0-9\\-]+)/"[^>]*>([\\s\\S]*?)</a>','g'); const md=[]; let x;
-  while((x=r2.exec(p))){ const t=strip(x[2]); if(t&&!md.find(y=>y[0]===x[1])) md.push([x[1],t]); }
-  out[mk.slug]={name:mk.name,models:md}; await new Promise(z=>setTimeout(z,300)); }
-fs.writeFileSync('out/ss_models.json',JSON.stringify({makes,out}));
-console.log(makes.length);
+const W='https://carscout.pmax70095.workers.dev', H={origin:'https://digitalcreatorhub.github.io'};
+const C=[['BMW','5 Series'],['BMW','520'],['BMW','X5'],['BMW','3 Series'],['Mercedes-Benz','E-Class'],['Mercedes-Benz','E 220'],['Mercedes-Benz','C-Class'],['Mercedes-Benz','GLC'],['Mercedes-Benz','GLC-Class'],['Mazda','Mazda6'],['Mazda','6'],['Mazda','CX-5'],['Land Rover','Range Rover Sport'],['Land Rover','Discovery'],['Toyota','RAV4'],['Toyota','RAV 4'],['Volkswagen','Passat'],['Tesla','Model 3'],['Hyundai','Santa Fe'],['Škoda','Enyaq'],['Škoda','Enyaq iV'],['Volvo','XC60'],['Volvo','XC 60'],['Honda','CR-V'],['Kia','Ceed'],['Citroën','C5 Aircross'],['Mini','Cooper'],['Lexus','RX']];
+const S=[['ss',''],['autoplius',''],['autoportaal',''],['as24','D']];
+const out=[];
+await Promise.all(C.map(async([mk,md])=>{ const row={mk,md};
+  for(const [s,cy] of S){ const q=new URLSearchParams({source:s,make:mk,model:md,year:'2018'}); if(cy) q.set('cy',cy);
+    try{ const r=await fetch(W+'/api/comps?'+q,{headers:H}); const j=await r.json(); row[s]=j.ok?(j.items||[]).length:('x:'+j.error); row[s+'_u']=j.searchUrl||''; }catch(e){ row[s]='err'; } }
+  out.push(row); }));
+fs.writeFileSync('out/models_check.json',JSON.stringify(out,null,0));
