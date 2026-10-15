@@ -2317,11 +2317,14 @@ function secVin(v){
 function secCalc(v){
   var de=v.regions.filter(function(r){return r.region==='DE'&&r.fair})[0], lv=v.regions.filter(function(r){return r.region==='LV'&&r.fair})[0];
   if(!de&&!lv&&!(v.car.price>0)) return '';
-  var dePrice=de?Math.round(de.fair.mid):'', lvPrice=lv?Math.round(lv.fair.mid):(v.car.price||'');
+  var c0=v.car, ab=isAbroad(c0), cc=ab?c0.cc:'DE', abR=v.regions.filter(function(r){return r.region===cc&&r.fair})[0];
+  /* the car being checked goes on its own side: a car abroad is the import price, a Latvian car is the Latvian price */
+  var dePrice=ab&&c0.price>0?c0.price:(abR?Math.round(abR.fair.mid):''), lvPrice=!ab&&c0.price>0?c0.price:(lv?Math.round(lv.fair.mid):'');
+  var trans=/^(LT|EE)$/.test(cc)?250:550;
   var row=function(id,label,val,ph){return '<div class="crow"><label for="'+id+'">'+esc(label)+'</label><input class="in num" id="'+id+'" type="text" inputmode="numeric" value="'+esc(val)+'" placeholder="'+esc(ph||'')+'"></div>'};
-  return '<section class="sec" id="sec-calc"><h3 class="sh">'+esc(L('Латвия или ввоз из Германии','Latvia or import from Germany'))+'</h3><div class="calc" style="margin-top:14px">'+
+  return '<section class="sec" id="sec-calc"><h3 class="sh">'+esc(L('Латвия или ввоз из '+rgen(cc),'Latvia or import from '+rname(cc),'Latvija vai ievešana no '+rname(cc)))+'</h3><div class="calc" style="margin-top:14px">'+
     '<div class="cbox"><h4>'+esc(L('Купить в Латвии','Buy in Latvia'))+'</h4>'+row('k-lv',L('Цена похожей машины, €','Price of a similar car, €'),lvPrice)+'<div class="ctotal"><span>'+esc(L('Итого','Total'))+'</span><b id="k-lv-t">–</b></div></div>'+
-    '<div class="cbox"><h4>'+esc(L('Привезти из Германии','Import from Germany'))+'</h4>'+row('k-de',L('Цена в Германии, €','Price in Germany, €'),dePrice)+row('k-tr',L('Доставка, €','Transport, €'),550)+row('k-rg',L('Регистрация в CSDD, €','CSDD registration, €'),'','csdd.lv')+row('k-tx',L('Налог / пошлины, €','Tax / duties, €'),'','csdd.lv')+'<div class="ctotal"><span>'+esc(L('Итого','Total'))+'</span><b id="k-de-t">–</b></div></div></div>'+
+    '<div class="cbox"><h4>'+esc(L('Привезти из '+rgen(cc),'Import from '+rname(cc),'Ievest no '+rname(cc)))+'</h4>'+row('k-de',L('Цена в '+rloc(cc)+', €','Price in '+rname(cc)+', €','Cena '+rloc(cc)+', €'),dePrice)+row('k-tr',L('Доставка, €','Transport, €'),trans)+row('k-rg',L('Регистрация в CSDD, €','CSDD registration, €'),'','csdd.lv')+row('k-tx',L('Налог / пошлины, €','Tax / duties, €'),'','csdd.lv')+'<div class="ctotal"><span>'+esc(L('Итого','Total'))+'</span><b id="k-de-t">–</b></div></div></div>'+
     '<p class="cdiff" id="k-diff" style="margin-top:12px"></p><p class="hint" id="k-warn"></p><p class="hint">'+esc(L('Доставка 400–700 € типична для дороги из Германии, это допущение. Сборы и налог зависят от машины: возьмите их из калькуляторов на csdd.lv. Пустое поле считается нулём, поэтому итог по Германии может быть занижен.','Transport of €400–700 is typical for Germany to Latvia and is an assumption. Fees and tax depend on the car: take them from the calculators on csdd.lv. An empty field counts as zero, so the Germany total may be understated.'))+'</p></section>';
 }
 function updateCalc(){
@@ -2437,6 +2440,13 @@ function secFlags(v){
     '<div class="cbox"><h4>'+esc(L('Плюсы','Pros'))+'</h4>'+list(f.pros,'good',L('Явных плюсов в данных объявления не найдено.','No obvious pros in the listing data.'))+'</div></div>'+
     '<p class="hint" style="margin-top:10px">'+esc(L('Список строится из цифр сравнения и текста самого объявления, а не из догадок о конкретной машине.','The list is built from the comparison numbers and the listing text itself, not from guesses about this particular car.'))+'</p></section>';
 }
+/* CarScout users buy from Latvia: a listing from another country means a person in Latvia looks at a car abroad */
+function isAbroad(c){ return !!(c&&c.cc&&c.cc!=='LV'); }
+var HIST_SITE={LV:['csdd.lv','https://www.csdd.lv/'],LT:['regitra.lt','https://www.regitra.lt/'],EE:['transpordiamet.ee','https://eteenindus.mnt.ee/']};
+function histLine(c){ var cc=c&&c.cc||'LV', hs=HIST_SITE[cc];
+  if(hs) return L('Сверить пробег с историей техосмотров ('+hs[0]+')','Compare the mileage with the inspection history ('+hs[0]+')','Salīdzināt nobraukumu ar tehnisko apskašu vēsturi ('+hs[0]+')');
+  return L('Сверить пробег с сервисной историей и отчётом по VIN (carVertical, autoDNA)'+(cc==='DE'?'; в Германии — с отчётами техосмотра TÜV/DEKRA':''),'Compare the mileage with the service history and a VIN report (carVertical, autoDNA)'+(cc==='DE'?'; in Germany also with the TÜV/DEKRA inspection reports':''),'Salīdzināt nobraukumu ar servisa vēsturi un VIN atskaiti (carVertical, autoDNA)'+(cc==='DE'?'; Vācijā arī ar TÜV/DEKRA apskašu atskaitēm':''));
+}
 function checksOf(v){
   var c=v.car, now=new Date().getFullYear(), age=c.year?now-c.year:null, tx=String(c.allText||''), q=[], i=[], ev=isEvCar(c), tesla=/^tesla$/i.test(c.make||'');
   var hasBook=/servisa\s+grāmat|apkalpošanas\s+grāmat|сервисн\w*\s+книж|service\s+(book|history)|scheckheft/i.test(tx);
@@ -2458,11 +2468,16 @@ function checksOf(v){
     if(c.fuel==='hybrid') q.push(L('Есть ли диагностика тяговой батареи?','Is there a traction battery diagnostic report?'));
   }
   q.push(L('Можно ли проверить авто на сервисе?','Can the car be checked at a workshop?'));
+  if(isAbroad(c)&&FAR[c.cc]){
+    q.push(c.cc==='DE'?L('Есть ли оба документа на машину (Zulassungsbescheinigung Teil I и Teil II)?','Are both registration papers there (Zulassungsbescheinigung Teil I and Teil II)?','Vai ir abi reģistrācijas dokumenti (Zulassungsbescheinigung Teil I un Teil II)?'):L('Есть ли все документы на машину для регистрации в Латвии?','Are all the papers there to register the car in Latvia?','Vai ir visi dokumenti, lai auto reģistrētu Latvijā?'));
+    q.push(L('Снята ли машина с учёта, можно ли уехать на транзитных номерах?','Is the car deregistered, can it be driven away on export plates?','Vai auto ir noņemts no uzskaites, vai var aizbraukt ar tranzīta numuriem?'));
+  }
   i.push(L('Сверить VIN на табличке, стекле и в документах','Compare the VIN on the plate, the glass and the papers'));
+  if(isAbroad(c)) i.push(L('Не платить задаток и не переводить деньги, пока не увидели машину и документы вживую','Pay no deposit and transfer no money before you have seen the car and the papers in person','Nemaksāt rokasnaudu un nepārskaitīt naudu, kamēr neesat redzējis auto un dokumentus klātienē'));
   if(ev){
     i.push(L('Проверить батарею: данные о состоянии в меню или диагностика, запас хода при 100%','Check the battery: health data in the menu or a diagnostic, range at 100%'));
     i.push(L('Проверить зарядку: медленную (AC) и быструю (DC), разъём и кабель','Check charging: slow (AC) and fast (DC), the port and the cable'));
-    i.push(L('Сверить пробег с историей техосмотров (csdd.lv)','Compare the mileage with the inspection history (csdd.lv)'));
+    i.push(histLine(c));
     i.push(L('Осмотреть кузов и днище на следы ремонта: зазоры, оттенок краски, толщиномер','Inspect the body and the underbody for repairs: gaps, paint shade, thickness gauge'));
     i.push(L('Шины: износ (у электромобилей он обычно выше) и год выпуска','Tyres: wear (usually higher on electric cars) and manufacture year'));
     i.push(L('Тормоза: из-за рекуперации диски могут ржаветь, проверьте износ и коррозию','Brakes: because of regeneration the discs can rust, check wear and corrosion'));
@@ -2470,7 +2485,7 @@ function checksOf(v){
     i.push(L('Проверить экран, камеры, климат-контроль и все функции из меню','Check the screen, cameras, climate control and all menu functions'));
   } else {
     i.push(L('Прочитать ошибки по OBD','Read the OBD fault codes'));
-    i.push(L('Сверить пробег с историей техосмотров (csdd.lv)','Compare the mileage with the inspection history (csdd.lv)'));
+    i.push(histLine(c));
     i.push(L('Осмотреть кузов на следы ремонта: зазоры, оттенок краски, толщиномер','Inspect the body for repairs: gaps, paint shade, thickness gauge'));
     i.push(L('Проверить шины: износ и год выпуска','Check the tyres: wear and manufacture year'));
     i.push(L('Холодный запуск: дым, посторонние шумы, течи','Cold start: smoke, odd noises, leaks'));
@@ -2487,29 +2502,31 @@ function msgFor(v,lang){
   var c=v.car, p=planOf(v), car=[c.make,c.model,c.year].filter(Boolean).join(' '), km=c.km!=null?fmt(c.km)+' km':'';
   var T={ru:{hi:'Здравствуйте! ',a:'Интересует ваше объявление: ',m:'Сравнил с похожими машинами на рынке: типичная цена около ',k:'. С учётом пробега ',o:' могу предложить ',z:' €. Готов приехать на осмотр в ближайшие дни. Подойдёт ли такой вариант и можно ли посмотреть сервисную историю?',n:'Цена выглядит адекватной. Хотел бы приехать на осмотр: можно ли посмотреть сервисную историю и проверить авто на сервисе?'},
     lv:{hi:'Labdien! ',a:'Mani interesē Jūsu sludinājums: ',m:'Salīdzināju ar līdzīgiem auto tirgū: tipiska cena ap ',k:'. Ņemot vērā nobraukumu ',o:' varu piedāvāt ',z:' €. Esmu gatavs atbraukt apskatīt auto tuvākajās dienās. Vai šāds variants Jums der un vai varu apskatīt servisa vēsturi?',n:'Cena šķiet adekvāta. Vēlētos atbraukt apskatīt auto: vai varu apskatīt servisa vēsturi un pārbaudīt auto servisā?'},
+    de:{hi:'Guten Tag! ',a:'Ich interessiere mich für Ihr Angebot: ',m:'Ich habe es mit ähnlichen Fahrzeugen auf dem Markt verglichen: Der typische Preis liegt bei etwa ',k:'. Bei einer Laufleistung von ',o:' könnte ich ',z:' € anbieten. Ich komme aus Lettland und kann das Auto in den nächsten Tagen besichtigen. Wäre das für Sie in Ordnung, und kann ich die Servicehistorie sehen?',n:'Der Preis erscheint mir fair. Ich komme aus Lettland und würde das Auto gerne besichtigen: Kann ich die Servicehistorie sehen und das Auto in einer Werkstatt prüfen lassen?'},
     en:{hi:'Hello! ',a:'I am interested in your listing: ',m:'I compared it with similar cars on the market: the typical price is around ',k:'. Considering the mileage of ',o:' I can offer ',z:' €. I can come to see the car in the next few days. Would that work, and can I see the service history?',n:'The price looks fair. I would like to come and see the car: can I see the service history and have it checked at a workshop?'}}[lang]||null;
   if(!T) return '';
-  var s=T.hi+T.a+car+'. ', ev=isEvCar(c), EVX={ru:' Также прошу показать данные о состоянии батареи.',lv:' Lūdzu, parādiet arī informāciju par baterijas stāvokli.',en:' Please also share the battery health data.'}[lang]||'';
-  var dd=dayDiff(c.posted), DX=''; if(dd!=null&&dd>=30){ var ol=S.lang; S.lang=lang; DX={ru:'Вижу, что объявление висит уже '+nDays(dd)+'. ',lv:'Redzu, ka sludinājums ir publicēts jau '+nDays(dd)+'. ',en:'I see the ad has been up for '+nDays(dd)+'. '}[lang]||''; S.lang=ol; }
+  var s=T.hi+T.a+car+'. ', ev=isEvCar(c), EVX={de:' Bitte zeigen Sie mir auch die Daten zum Batteriezustand (SoH).',ru:' Также прошу показать данные о состоянии батареи.',lv:' Lūdzu, parādiet arī informāciju par baterijas stāvokli.',en:' Please also share the battery health data.'}[lang]||'';
+  var dd=dayDiff(c.posted), DX=''; if(dd!=null&&dd>=30){ var ol=S.lang; S.lang=lang; DX={de:'Die Anzeige ist schon seit '+dd+' Tagen online. ',ru:'Вижу, что объявление висит уже '+nDays(dd)+'. ',lv:'Redzu, ka sludinājums ir publicēts jau '+nDays(dd)+'. ',en:'I see the ad has been up for '+nDays(dd)+'. '}[lang]||''; S.lang=ol; }
   if(p&&p.offer<p.ask) return s+T.m+fmt(Math.round(p.mid))+' €. '+DX+(km?T.k.replace(/^\.\s*/,'')+km+',':'')+(km?T.o:T.o.trim().charAt(0).toUpperCase()+T.o.trim().slice(1)+' ')+fmt(p.offer)+T.z+(ev?EVX:'');
   return s+T.n+(ev?EVX:'');
 }
 function secMsg(v){
-  var lang=S.lang, txt=msgFor(v,lang);
+  var cc=v.car&&v.car.cc, lang=/^(DE|AT|CH)$/.test(cc||'')?'de':(isAbroad(v.car)&&FAR[cc])?'en':S.lang, txt=msgFor(v,lang);
   return '<section class="sec" id="sec-msg"><h3 class="sh">'+esc(L('Сообщение продавцу','Message to the seller'))+'</h3><div class="stack" style="margin-top:12px">'+
-    '<div class="crow" style="grid-template-columns:minmax(0,1fr) 140px"><label for="msg-lang">'+esc(L('Язык сообщения','Message language'))+'</label><select class="in" id="msg-lang"><option value="ru"'+(lang==='ru'?' selected':'')+'>Русский</option><option value="lv"'+(lang==='lv'?' selected':'')+'>Latviešu</option><option value="en"'+(lang==='en'?' selected':'')+'>English</option></select></div>'+
+    '<div class="crow" style="grid-template-columns:minmax(0,1fr) 140px"><label for="msg-lang">'+esc(L('Язык сообщения','Message language'))+'</label><select class="in" id="msg-lang"><option value="ru"'+(lang==='ru'?' selected':'')+'>Русский</option><option value="lv"'+(lang==='lv'?' selected':'')+'>Latviešu</option><option value="en"'+(lang==='en'?' selected':'')+'>English</option><option value="de"'+(lang==='de'?' selected':'')+'>Deutsch</option></select></div>'+
     '<textarea class="in sm" id="msg-text" rows="5" style="min-height:120px">'+esc(txt)+'</textarea>'+
     '<div class="btns"><button class="btn sm" type="button" data-act="copy-msg">'+esc(L('Копировать','Copy'))+'</button></div>'+
     '<p class="hint">'+esc(L('Цифры в сообщении взяты из сравнения с рынком. Проверьте текст перед отправкой.','The numbers come from the market comparison. Check the text before sending.'))+'</p></div></section>';
 }
 function secHistory(v){
   var c=v.car, d=decodeVin(c.vin||''), mk=function(label,url,tag){return '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+(tag?' <span class="mini">'+esc(tag)+'</span>':'')+'</a>'};
-  var links=[mk('csdd.lv','https://www.csdd.lv/',L('история техосмотров и пробег по номеру','inspection history and mileage by plate'))];
+  var hs=HIST_SITE[c.cc||'LV'], links=hs?[mk(hs[0],hs[1],L('история техосмотров и пробег по номеру','inspection history and mileage by plate'))]:[];
+  if(!d.complete&&isAbroad(c)){ links.push(mk('carVertical','https://www.carvertical.com/',L('отчёт по VIN, платно','VIN report, paid'))); links.push(mk('autoDNA','https://www.autodna.com/',L('отчёт по VIN, платно','VIN report, paid'))); }
   if(d.complete){ links.push(mk(L('Поиск VIN в Google','Search the VIN on Google'),'https://www.google.com/search?q='+encodeURIComponent(d.vin),L('прошлые объявления и фото','earlier ads and photos')));
     links.push(mk('carVertical','https://www.carvertical.com/',L('платно','paid'))); links.push(mk('autoDNA','https://www.autodna.com/',L('платно','paid'))); }
   return '<section class="sec" id="sec-history"><h3 class="sh">'+esc(L('Проверить историю','Check the history'))+'</h3><div class="links" style="margin-top:12px">'+links.join('')+'</div>'+
     (d.complete?'<div class="btns" style="margin-top:12px"><button class="btn sm" type="button" data-act="copy-vin">'+esc(L('Копировать VIN','Copy the VIN'))+'</button></div>':'')+
-    '<p class="hint" style="margin-top:10px">'+esc(L('Приложение не читает эти сайты, а только открывает их. На csdd.lv сверьте пробег с прошлыми техосмотрами: расхождение — повод для вопросов продавцу.','The app does not read these sites, it only opens them. On csdd.lv compare the mileage with past inspections: a mismatch is a reason to question the seller.'))+'</p></section>';
+    '<p class="hint" style="margin-top:10px">'+esc(hs?L('Приложение не читает эти сайты, а только открывает их. На '+hs[0]+' сверьте пробег с прошлыми техосмотрами: расхождение — повод для вопросов продавцу.','The app does not read these sites, it only opens them. On '+hs[0]+' compare the mileage with past inspections: a mismatch is a reason to question the seller.'):L('Машина ещё не зарегистрирована в Латвии, поэтому на csdd.lv её истории нет. Попросите у продавца VIN и сервисную историю и проверьте VIN по отчёту.','The car is not registered in Latvia yet, so csdd.lv has no history for it. Ask the seller for the VIN and the service history and check the VIN in a report.'))+'</p></section>';
 }
 function copyText(txt,okMsg){
   var done=function(){ showStatus('ok',function(){return okMsg||L('Скопировано.','Copied.')}); };
@@ -2526,7 +2543,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.7', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.8', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -4111,7 +4128,7 @@ function fraudOf(v){
   if(/предоплат|задат(ок|ка)|аванс\b|депозит|priekšapmaks|avansa maks|rokasnaud|\bdeposit\b|prepay|advance payment|western union|moneygram|перевед(и|ите) на карт|на карту|bitcoin|крипт|crypto/i.test(tx))
     add(4,'В тексте просят предоплату, задаток или перевод денег — так работает большинство мошенников','The text asks for a prepayment, deposit or money transfer — that is how most scams work','Tekstā prasa priekšapmaksu, rokasnaudu vai naudas pārskaitījumu — tā strādā lielākā daļa krāpnieku');
   var abroad=/(машин[аы]|авто(мобиль)?)\s+(сейчас\s+)?(находится\s+)?(в|во)\s+(германи|норвеги|англи|швеци|финлянди|польш|голланди|нидерланд|бельги|франци|итали|испани|литв|эстони)|auto\s+(šobrīd\s+)?atrodas\s+(vācij|norvēģ|anglij|zviedrij|polij|nīderland|beļģij|francij|itālij|spānij|lietuv|igaunij)|car\s+is\s+(currently\s+)?(located\s+)?in\s+(germany|norway|england|uk|sweden|poland|netherlands|belgium|france|italy|spain)|доставк[аиу]\s+(за\s+мой\s+сч|бесплатн|по\s+всей)|piegāde\s+bez\s+maksas/i.test(tx);
-  if(abroad) add(d!=null&&d<=-15?3:1,'Машина «находится за границей» и предлагают доставку: не платите ничего, пока не увидите машину и документы','The car is “abroad” and delivery is offered: pay nothing until you have seen the car and papers','Auto «atrodas ārzemēs» un piedāvā piegādi: nemaksājiet neko, kamēr neesat redzējis auto un dokumentus');
+  if(abroad&&!isAbroad(c)) add(d!=null&&d<=-15?3:1,'Машина «находится за границей» и предлагают доставку: не платите ничего, пока не увидите машину и документы','The car is “abroad” and delivery is offered: pay nothing until you have seen the car and papers','Auto «atrodas ārzemēs» un piedāvā piegādi: nemaksājiet neko, kamēr neesat redzējis auto un dokumentus');
   if(/(только|tikai|only)\s+(в\s+|uz\s+|by\s+|via\s+)?(whats\s?app|viber|telegram|e-?mail|почт|epast)|(не\s+звонить|nezvanīt|no\s+calls)/i.test(tx))
     add(2,'Продавец просит писать только в мессенджер или на почту и не звонить','The seller asks to write only via a messenger or e-mail and not to call','Pārdevējs lūdz rakstīt tikai ziņapmaiņā vai e-pastā un nezvanīt');
   if(v.seller&&v.seller.ok&&v.seller.phoneLinked===false&&sig.length) add(1,'Телефон продавца скрыт: проверить его другие объявления нельзя','The seller’s phone is hidden: their other ads cannot be checked','Pārdevēja tālrunis ir paslēpts: citus sludinājumus pārbaudīt nevar');

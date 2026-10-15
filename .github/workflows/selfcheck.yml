@@ -16,12 +16,22 @@ jobs:
         with:
           node-version: '20'
       - name: Read real ads through the worker
+        continue-on-error: true
         run: node tools/selfcheck.mjs
+      - name: Install a browser for the logic check
+        continue-on-error: true
+        run: npm i --no-save playwright@1.47.2 && npx playwright install --with-deps chromium
+      - name: Logic check (test scenarios in the live app)
+        continue-on-error: true
+        run: node tools/logiccheck.mjs
       - name: Open, update or close the alert issue
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          T="Ежедневная проверка CarScout нашла ошибки чтения"
+          T="Ежедневная проверка CarScout нашла ошибки"
+          [ -f selfcheck-report.md ] || { echo "## The data check did not finish" > selfcheck-report.md; echo 1 > selfcheck-failed.txt; }
+          grep -q "Logic check" selfcheck-report.md || { printf '\n## The logic check did not run (see the Actions log)\n' >> selfcheck-report.md; echo 1 > selfcheck-failed.txt; }
           N=$(gh issue list --state open --search "$T in:title" --json number --jq '.[0].number')
           if [ "$(cat selfcheck-failed.txt)" = "1" ]; then
             if [ -n "$N" ]; then gh issue comment "$N" --body-file selfcheck-report.md; else gh issue create --title "$T" --body-file selfcheck-report.md; fi

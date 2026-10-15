@@ -88,6 +88,58 @@ for (const [source, extra] of [['autoplius', {}], ['autoportaal', {}], ['as24', 
 // 5. salvage auction history by VIN (a known Copart lot)
 { const j = await get('/api/vinhist', { vin: 'WBA8E1C58JA756430' }); const l = (j.lots || [])[0] || {};
   if (!j.ok || !j.found || !l.damage || !l.photos || !l.photos.length) bad('vin history', (j.error || 'not found / no damage or photos')); else good('vin history: ' + l.source + ' ' + l.damage + ', photos ' + l.photos.length); }
+
+// 6. a buyer in Latvia looking at a car in Germany: the German ad is read, and both Germany and Latvia have comparables for it
+{
+  const j = await get('/api/comps', { source: 'as24', cy: 'D', make: 'Audi', model: 'A6', year: 2018 });
+  const it = (j.items || []).find(i => i.url);
+  if (!it) bad('foreign ad flow', 'no German Audi A6 ads found');
+  else {
+    const l = (await get('/api/listing', { url: it.url })).listing || {};
+    const y = l.year || 2018;
+    const de = await get('/api/comps', { source: 'as24', cy: 'D', make: l.make || 'Audi', model: l.model || 'A6', year: y });
+    const lv = await get('/api/comps', { source: 'ss', make: l.make || 'Audi', model: l.model || 'A6', year: y });
+    if (!l.asking_price || !l.year) bad('foreign ad flow', 'German ad not read: ' + it.url);
+    else if (!de.ok || (de.items || []).length < 5) bad('foreign ad flow', 'too few German comparables for its own market: ' + (de.items || []).length);
+    else if (!lv.ok || (lv.items || []).length < 5) bad('foreign ad flow', 'too few Latvian comparables to show next to it: ' + (lv.items || []).length);
+    else good(`foreign ad flow: German ad read, ${de.items.length} German and ${lv.items.length} Latvian comparables`);
+  }
+}
+
+// 7. names from the make/model picker are found on the sites (a different sample every day)
+{
+  let cat = null;
+  try { const html = await (await fetch('https://digitalcreatorhub.github.io/carscout/?r=' + Date.now(), { signal: AbortSignal.timeout(30000) })).text(); const m = html.match(/var MODEL_CAT=(\{.*?\});\n/); if (m) cat = JSON.parse(m[1]); } catch (e) { }
+  if (!cat) bad('picker catalogue', 'MODEL_CAT not found on the live page');
+  else {
+    const POP = ['Volkswagen', 'Toyota', 'Audi', 'BMW', 'Škoda', 'Mercedes-Benz', 'Volvo', 'Opel', 'Ford', 'Peugeot', 'Renault', 'Nissan', 'Kia', 'Hyundai', 'Mazda', 'Honda', 'Lexus', 'Subaru', 'Tesla', 'Citroën'];
+    const day = Math.floor(Date.now() / 86400000), pairs = [];
+    POP.forEach((mk, i) => { const ms = (cat[mk] || []).filter(m => !/^\d{2,3}$/.test(m)); if (ms.length) pairs.push([mk, ms[(day + i * 7) % ms.length]]); });
+    const sample = pairs.filter((_, i) => (i + day) % 2 === 0).slice(0, 10);
+    let found = 0; const miss = [];
+    for (const [mk, md] of sample) {
+      const r = [];
+      for (const [source, extra] of [['ss', {}], ['autoportaal', {}], ['as24', { cy: 'D' }]]) { const j = await get('/api/comps', Object.assign({ source, make: mk, model: md, year: '' }, extra)); r.push(j.ok && (j.items || []).length ? source : null); }
+      if (r.some(Boolean)) found++; else miss.push(`${mk} ${md}`);
+    }
+    if (miss.length) bad('picker names', 'not found on ss.lv, autoportaal.ee or AutoScout24: ' + miss.join(', '));
+    else good(`picker names: ${found} of ${sample.length} sampled models found`);
+  }
+}
+
+// 8. "Find me a car" phone notifications: the keys and the checking queue answer
+{
+  const k = await get('/api/push/key', {}); const t = await get('/api/push/tick', {}, 120000);
+  if (!k.ok || !k.key) bad('push key', k.error || 'no key'); else if (!t.ok) bad('push tick', t.error || JSON.stringify(t)); else good('push: key and queue ok' + (t.idle ? ' (nothing to check)' : ' (checked ' + t.part + ')'));
+}
+
+// 9. the published page is the latest version from the repository
+try {
+  const fsx = await import('node:fs'); const local = (fsx.readFileSync('index.html', 'utf8').match(/APP_VER = '([^']+)'/) || [])[1];
+  const live = ((await (await fetch('https://digitalcreatorhub.github.io/carscout/?r=' + Date.now(), { signal: AbortSignal.timeout(30000) })).text()).match(/APP_VER = '([^']+)'/) || [])[1];
+  if (local && live !== local) bad('site version', `live ${live}, repository ${local}`); else good('site version: ' + live);
+} catch (e) { warns.push('- site version: ' + e.message); }
+
 const date = new Date().toISOString().slice(0, 10);
 const report = `## CarScout self-check ${date}\n\n${fails.length ? `### Problems (${fails.length})\n${fails.join('\n')}\n\n` : '**All checks passed.**\n\n'}${warns.length ? `### Warnings\n${warns.join('\n')}\n\n` : ''}### Passed\n${oks.join('\n')}\n`;
 console.log(report);
