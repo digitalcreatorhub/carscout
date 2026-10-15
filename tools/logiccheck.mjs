@@ -77,6 +77,8 @@ for (const sc of SCEN) {
   check(await pg.$eval('#fz-engf', e => e.options.length > 5).catch(() => false) && !!(await pg.$('#fz-engt')), 'agent form: engine size from / to selects are there');
   const engOk = await pg.evaluate(() => fzFilter([{ title: 'Audi A6 2.0 TDI', d: 0 }, { title: 'Audi A6', engine_l: 3.0, d: 0 }, { title: 'Audi A6 1.8', d: 0 }, { title: 'Audi A6 plain', d: 0 }, { title: 'Audi A6 3.5 TFSI', d: 0 }], { engf: 2, engt: 3 }).map(x => x.title).join('|')).catch(e => 'error ' + e.message);
   check(engOk === 'Audi A6 2.0 TDI|Audi A6|Audi A6 plain', 'agent engine size 2.0–3.0 l: keeps matching ads and ads with no stated size, drops 1.8 and 3.5', engOk);
+  const varOk = await pg.evaluate(() => { const mk = document.getElementById('fz-make'), md = document.getElementById('fz-model'); mk.value = 'Mercedes-Benz'; const l = pickList(md, true).all; mk.value = ''; return JSON.stringify([l.includes('E 300'), l.includes('E-Class'), varFamily('Mercedes-Benz', 'E 350'), varOk('Mercedes-Benz E300 2.0', ['E 300']), varOk('Mercedes GLE 300 d', ['E 300']), varOk('Mercedes E 350 CDI', ['E 300'])]); }).catch(e => 'error ' + e.message);
+  check(varOk === '[true,true,"E-Class",true,false,false]', 'agent models: exact variants (E 300, E 350 ...) are in the Mercedes list next to the line, belong to E-Class, and filter ads (E300 yes, GLE 300 no, E 350 no for E 300)', varOk);
   await pg.tap('#fz-make'); await pg.waitForTimeout(300);
   const makes = await pg.$$eval('#pickpanel .pk-o', e => e.length).catch(() => 0);
   check(makes > 50, 'make picker lists the makes', makes + ' options');

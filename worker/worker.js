@@ -1219,7 +1219,10 @@ function pzClean(p) {
   /* engine size range in litres: swapped if the wrong way round, ignored for electric cars */
   const fuel = en(p.fuel, ['petrol', 'diesel', 'hybrid', 'electric']), ne = function (x) { x = parseFloat(x); return x >= 0.5 && x <= 10 ? Math.round(x * 10) / 10 : null; };
   let ef = ne(p.engf), et = ne(p.engt); if (ef && et && ef > et) { const sw = ef; ef = et; et = sw; } if (fuel === 'electric') { ef = null; et = null; }
-  return { make: s(p.make), models: (Array.isArray(p.models) ? p.models : []).map(function (x) { return s(x); }).filter(Boolean).slice(0, 3), yf: n(p.yf), yt: n(p.yt), kmax: n(p.kmax), pmax: n(p.pmax),
+  /* the app sends the model lines to fetch in fam (searches saved earlier only have models) and, per line, the exact models to keep in vs */
+  const fam = Array.isArray(p.fam) && p.fam.length ? p.fam : p.models, vs = {};
+  if (p.vs && typeof p.vs === 'object') Object.keys(p.vs).slice(0, 4).forEach(function (k) { const a = Array.isArray(p.vs[k]) ? p.vs[k].map(function (x) { return s(x, 24); }).filter(Boolean).slice(0, 12) : []; if (a.length) vs[s(k)] = a; });
+  return { make: s(p.make), models: (Array.isArray(fam) ? fam : []).map(function (x) { return s(x); }).filter(Boolean).slice(0, 3), vs: vs, yf: n(p.yf), yt: n(p.yt), kmax: n(p.kmax), pmax: n(p.pmax),
     fuel: fuel, engf: ef, engt: et, gear: en(p.gear, ['automatic', 'manual']), drive: en(p.drive, ['awd', 'fwd', 'rwd']), body: en(p.body, ['wagon', 'sedan', 'hatch', 'suv', 'van', 'coupe']), mk: mk, cheap: !!p.cheap, nobad: p.nobad !== false };
 }
 function pzBody(t) {
@@ -1235,7 +1238,9 @@ function pzBody(t) {
 function pzDrive(i) { if (i.drive) return i.drive; const t = String((i.title || '') + ' ' + (i.model_raw || '')); return /quattro|xdrive|4motion|4matic|\bawd\b|4x4|4wd|all.?wheel|allrad|\bq4\b|e-four|pilnpiedz|полный привод/i.test(t) ? 'awd' : null; }
 /* engine size of an ad: the listing field, else a "2.0 TDI"-style number in the title (same reading as the app) */
 function pzEng(i) { if (i.engine_l > 0.5 && i.engine_l < 10) return +i.engine_l; const m = String(i.title || '').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m ? parseFloat(m[1].replace(',', '.')) : null; }
-function pzMatches(items, p) {
+/* "E 300" matches "E300", "E-300", "E 300 d 4MATIC" but not "GLE 300" or "E 3000" (same reading as the app) */
+function pzVarOk(text, vs) { const t = String(text || '').toLowerCase(); return vs.some(function (v) { return new RegExp('(?:^|[^a-z0-9])' + String(v).toLowerCase().trim().split(/\s+/).map(function (x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('[\\s-]?') + '(?![0-9])').test(t); }); }
+function pzMatches(items, p, model) {
   const med = function (a) { if (!a.length) return null; const b = a.slice().sort(function (x, y) { return x - y; }); const k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; };
   const all = items.filter(function (i) { return i && i.url && i.price >= 500; }), out = [];
   all.forEach(function (i) {
@@ -1244,6 +1249,7 @@ function pzMatches(items, p) {
     if (p.fuel && i.fuel && (i.fuel === 'lpg' ? 'petrol' : i.fuel) !== p.fuel) return; if (p.gear && i.gear && i.gear !== p.gear) return;
     const t = (i.title || '') + ' ' + (i.model_raw || '');
     if (p.nobad && PZ_BAD.test(t)) return;
+    const vl = p.vs && model ? p.vs[model] : null; if (vl && vl.length && !pzVarOk(t, vl)) return;
     if (p.drive) { const dv = pzDrive(i); if (p.drive === 'awd' ? dv !== 'awd' : dv === 'awd') return; }
     if (p.body) { const b = pzBody(t); if (b && b !== p.body) return; }
     if (p.engf || p.engt) { const e = pzEng(i); if (e != null && ((p.engf && e < p.engf - 0.05) || (p.engt && e > p.engt + 0.05))) return; }
@@ -1313,7 +1319,7 @@ async function pushTick(env, ctx) {
   const qs = new URLSearchParams({ source: src[0], make: p.make, model: model, year: String(mid || ''), yfrom: String(yf || ''), yto: String(yt || ''), fuel: p.fuel || '' }); if (src[1]) qs.set('cy', src[1]);
   let j = {}; try { j = await (await hComps(env, qs, ctx)).json(); } catch (e) { j = { ok: false, error: 'worker_error' }; }
   if (!j.ok) return { ok: true, part: r.part, error: j.error || 'failed' };
-  const match = pzMatches(j.items || [], p), idOf = function (i) { return adKey(i.url) || String(i.url).slice(0, 200); };
+  const match = pzMatches(j.items || [], p, model), idOf = function (i) { return adKey(i.url) || String(i.url).slice(0, 200); };
   let seen = []; try { seen = JSON.parse(r.seen || '[]'); } catch (e) { }
   const was = new Set(seen), fresh = r.base ? match.filter(function (i) { return !was.has(idOf(i)); }) : [];
   const ids = match.map(idOf); seen = ids.concat(seen.filter(function (x) { return ids.indexOf(x) < 0; })).slice(0, 1500);
