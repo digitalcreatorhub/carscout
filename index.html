@@ -1128,6 +1128,10 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .pk-e{padding:10px;color:var(--dim);font-size:13px}
 .pk-rm{padding:6px 11px;border:1px solid var(--accent);border-radius:999px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font:600 13px Inter,system-ui,sans-serif;cursor:pointer}
 .pk-use{color:var(--accent)!important;font-weight:600!important}
+.vbase{display:grid;gap:4px;margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--field,rgba(255,255,255,.04));border:1px solid var(--line);font-size:12.5px;line-height:1.45;color:var(--ink2)}
+.vbase .lnk{justify-self:start;padding:0;border:0;background:none;color:var(--accent);font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer}
+.vbase{display:grid;gap:4px;margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--field,rgba(255,255,255,.04));border:1px solid var(--line);font-size:12.5px;line-height:1.45;color:var(--ink2)}
+.vbase .lnk{justify-self:start;padding:0;border:0;background:none;color:var(--accent);font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2116,6 +2120,9 @@ function compute(car,results,f,notes){
   /* home market: the one the user chose, falling back to any region that has enough data */
   var want=f.market||'LV';
   var solid=function(r){return r.fair&&r.n>=5};
+  /* a car on sale abroad is first compared with that country's market (in Germany cars are usually cheaper than in Latvia) */
+  var ccHome=car.cc&&car.cc!==want&&FAR[car.cc]?regions.filter(function(r){return r.region===car.cc&&solid(r)})[0]:null;
+  if(ccHome){ var wantR=regions.filter(function(r){return r.region===want&&solid(r)})[0]; if(wantR) car._cross=wantR.region; want=car.cc; }
   var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
   if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push((function(){return L('В '+rloc(want)+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку '+rgen(home.region)+(FAR[home.region]?' (цены без учёта ввоза: доставка и регистрация добавят примерно 800–1500 €)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(FAR[home.region]?' (prices before import costs)':'')+'.')})); }
   if(home&&home.stats&&home.stats.reg&&(home.stats.reg.extrap==='above'||home.stats.reg.extrap==='below')&&car.km!=null){ var xr=home.stats.reg, ab=xr.extrap==='above', ck=car.km;
@@ -2143,7 +2150,17 @@ function compute(car,results,f,notes){
     return {i:i,d:d};
   }).sort(function(a,b){return a.d-b.d||a.i.price-b.i.price}).slice(0,8).map(function(x){return x.i});
   var conf=!home?'low':home.n>=15?'high':home.n>=8?'medium':'low';
-  return {car:car,notes:notes,regions:regions,home:home,fair:fair,ver:ver,score:score,medKm:medKm,near:near,conf:conf,totalUsed:totalUsed,at:new Date()};
+  /* "suspiciously cheap" only when there is enough to compare with, and only against the car's own country */
+  if(ver.key==='too_cheap'&&home){
+    var fewN=home.n<8, otherC=car.cc&&FAR[car.cc]&&home.region!==car.cc;
+    if(fewN||otherC){ ver={key:'good',delta:ver.delta,capped:fewN?'few':'abroad'}; score=priceScore(Math.max(ver.delta,-12));
+      var hn=home.n, hr=home.region, cc0=car.cc;
+      notes.push(fewN?function(){ return L('Для вывода «подозрительно дёшево» похожих объявлений мало ('+hn+'), поэтому показано просто «ниже рынка». Сравните сами с машинами в списке ниже.','Too few similar ads ('+hn+') to call it suspiciously cheap, so it is shown as below the market. Compare with the cars in the list below.','Lai teiktu «aizdomīgi lēti», līdzīgu sludinājumu ir par maz ('+hn+'), tāpēc parādīts vienkārši «zem tirgus». Salīdziniet paši ar auto sarakstā zemāk.'); }
+        :function(){ return L('Машина продаётся в '+rloc(cc0)+', а сравнение сделано с рынком '+rgen(hr)+': там такие машины обычно дороже, поэтому низкая цена сама по себе не тревожный признак.','The car is on sale in '+rname(cc0)+' but is compared with the '+rname(hr)+' market, where such cars usually cost more, so a low price alone is not a warning sign.','Auto tiek pārdots '+rloc(cc0)+', bet salīdzināts ar '+rgen(hr)+' tirgu, kur šādi auto parasti ir dārgāki, tāpēc zema cena pati par sevi nav brīdinājuma zīme.'); }); }
+  }
+  var cross=null;
+  if(car._cross&&home&&home.region!==car._cross){ var cr=regions.filter(function(r){return r.region===car._cross&&r.fair})[0]; if(cr&&car.price>0) cross={region:cr.region,mid:cr.fair.mid,n:cr.n,diff:cr.fair.mid-car.price}; }
+  return {car:car,notes:notes,regions:regions,home:home,fair:fair,ver:ver,score:score,medKm:medKm,near:near,conf:conf,cross:cross,totalUsed:totalUsed,at:new Date()};
 }
 
 /* ---------- rendering ---------- */
@@ -2509,7 +2526,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.6', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.7', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -2781,12 +2798,24 @@ function aPos(v,w){
   s+='<text x="'+X(F.low)+'" y="'+(y+27)+'" text-anchor="middle" class="tx">'+esc(eur(F.low))+'</text><text x="'+X(F.high)+'" y="'+(y+27)+'" text-anchor="middle" class="tx">'+esc(eur(F.high))+'</text>';
   return s+'</svg>';
 }
+/* what the verdict is based on: which market, how many ads and what they cost */
+function vBasis(v){
+  var h=v.home, F0=v.fair; if(!h||!F0) return ''; var r50=function(x){ return Math.round(x/50)*50; }, F={mid:r50(F0.mid),low:r50(F0.low),high:r50(F0.high)};
+  var t=L('Сравнение: '+h.n+' похожих объявл. в '+rloc(h.region)+(h.tol?' (год ±'+h.tol+')':'')+'. Обычная цена '+eur(F.mid)+' (от '+eur(F.low)+' до '+eur(F.high)+').',
+    'Compared with: '+h.n+' similar ads in '+rname(h.region)+(h.tol?' (year ±'+h.tol+')':'')+'. Typical price '+eur(F.mid)+' ('+eur(F.low)+' to '+eur(F.high)+').',
+    'Salīdzināts ar: '+h.n+' līdzīgiem sludin. '+rloc(h.region)+(h.tol?' (gads ±'+h.tol+')':'')+'. Parastā cena '+eur(F.mid)+' (no '+eur(F.low)+' līdz '+eur(F.high)+').');
+  var x=v.cross?{region:v.cross.region,n:v.cross.n,mid:Math.round(v.cross.mid/50)*50,diff:Math.round(v.cross.diff/50)*50}:null, xt='';
+  if(x) xt=x.diff>0?L('В '+rloc(x.region)+' похожие стоят около '+eur(x.mid)+' ('+x.n+' объявл.) — на '+eur(x.diff)+' дороже. Доставка и регистрация не учтены.','In '+rname(x.region)+' similar cars cost about '+eur(x.mid)+' ('+x.n+' ads) — '+eur(x.diff)+' more. Transport and registration not included.','Līdzīgi auto '+rloc(x.region)+' maksā ap '+eur(x.mid)+' ('+x.n+' sludin.) — par '+eur(x.diff)+' dārgāk. Transports un reģistrācija nav ieskaitīti.')
+    :L('В '+rloc(x.region)+' похожие стоят около '+eur(x.mid)+' ('+x.n+' объявл.) — не дороже, чем эта машина.','In '+rname(x.region)+' similar cars cost about '+eur(x.mid)+' ('+x.n+' ads) — not more than this one.','Līdzīgi auto '+rloc(x.region)+' maksā ap '+eur(x.mid)+' ('+x.n+' sludin.) — ne dārgāk par šo.');
+  if(v.ver.capped==='abroad'&&v.car.cc) xt=L('Машина продаётся в '+rloc(v.car.cc)+', но похожих там нашлось мало, поэтому сравнение с '+({LV:'Латвией',LT:'Литвой',EE:'Эстонией',DE:'Германией'}[h.region]||rname(h.region))+'. Там такие обычно дороже, так что «ниже рынка» здесь ожидаемо.','The car is on sale in '+rname(v.car.cc)+', but few similar cars were found there, so it is compared with '+rname(h.region)+', where such cars usually cost more.','Auto tiek pārdots '+rloc(v.car.cc)+', bet tur atrasts maz līdzīgu, tāpēc salīdzināts ar '+rname(h.region)+', kur tie parasti ir dārgāki.');
+  return '<div class="vbase"><span>'+esc(t)+'</span>'+(xt?'<span>'+esc(xt)+'</span>':'')+'<button type="button" class="lnk" data-act="go-comps">'+esc(L('Показать эти машины','Show these cars','Rādīt šos auto'))+' →</button></div>';
+}
 function pVerdict(v){
   var k=v.ver.key, vn=LP(VNAME[k]), h=v.home, bars={high:3,medium:2,low:1}[v.conf]||0;
   var meta=h?rname(h.region)+(h.tol?L(' · аналоги ±',' · comparables ±')+h.tol+L(' г.',' y.'):''):'';
   var conf='<div class="conf">'+esc(L('Достоверность','Confidence'))+' '+[1,2,3,4].map(function(i){return '<i'+(i<=bars?'':' class="o"')+'></i>'}).join('')+' '+esc({high:L('высокая','high'),medium:L('средняя','medium'),low:L('низкая','low')}[v.conf]||'')+(h?' · '+h.n+L(' аналогов',' comparables'):'')+'</div>';
   return aPanel('a-verdict','c5',aHead(L('Вердикт','Verdict'),aMeta(meta)),
-    '<div class="verd">'+aRing(v.score)+'<div><div class="vk">'+esc(vn)+(v.ver.delta!=null?' · <em class="'+(v.ver.delta>0?'up':'dn')+'">'+esc(pct(v.ver.delta))+'</em>':'')+'</div><div class="vd">'+esc(aVerdictText(v))+'</div>'+conf+'</div></div>'+
+    '<div class="verd">'+aRing(v.score)+'<div><div class="vk">'+esc(vn)+(v.ver.delta!=null?' · <em class="'+(v.ver.delta>0?'up':'dn')+'">'+esc(pct(v.ver.delta))+'</em>':'')+'</div><div class="vd">'+esc(aVerdictText(v))+'</div>'+vBasis(v)+conf+'</div></div>'+
     '<div class="apos">'+aPos(v,aMob()?330:520)+'</div>');
 }
 /* ---- KPI strip ---- */
@@ -4076,7 +4105,7 @@ document.addEventListener('click',function(e){ var b=e.target.closest&&e.target.
 /* ======================= scam risk: signals put together (shown only when something is found) ======================= */
 function fraudOf(v){
   var c=v.car||{}, tx=String(c.allText||[c.title,c.desc].join(' ')||''), sig=[], add=function(w,ru,en,lv){ sig.push({w:w,t:L(ru,en,lv)}); };
-  var d=v.ver&&v.ver.delta!=null&&v.fair?v.ver.delta:null;
+  var d=v.ver&&v.ver.delta!=null&&v.fair&&!v.ver.capped?v.ver.delta:null;
   if(d!=null&&d<=-35) add(4,'Цена на '+Math.round(-d)+'% ниже рынка — так дёшево обычно продают только битые машины без документов или это приманка','The price is '+Math.round(-d)+'% below the market — this cheap is usually a damaged car without papers, or bait','Cena ir par '+Math.round(-d)+'% zem tirgus — tik lēti parasti pārdod tikai bojātus auto bez dokumentiem vai tā ir ēsma');
   else if(d!=null&&d<=-20) add(3,'Цена на '+Math.round(-d)+'% ниже рынка без понятной причины','The price is '+Math.round(-d)+'% below the market for no clear reason','Cena ir par '+Math.round(-d)+'% zem tirgus bez skaidra iemesla');
   if(/предоплат|задат(ок|ка)|аванс\b|депозит|priekšapmaks|avansa maks|rokasnaud|\bdeposit\b|prepay|advance payment|western union|moneygram|перевед(и|ите) на карт|на карту|bitcoin|крипт|crypto/i.test(tx))
@@ -4605,6 +4634,7 @@ document.addEventListener('click',function(e){
   else if(a==='fav-toggle') favToggle();
   else if(a==='recheck') applyCheck();
   else if(a==='more'){ var fm=$('#intake'); fm.classList.toggle('open'); b.setAttribute('aria-expanded',fm.classList.contains('open')?'true':'false'); }
+  else if(a==='go-comps'){ var gc=document.getElementById('a-near')||document.getElementById('a-scatter'); if(gc){ var yg=gc.getBoundingClientRect().top+window.scrollY-80; window.scrollTo({top:yg,behavior:'smooth'}); } }
   else if(a==='hreg'){ S.histReg=b.getAttribute('data-r'); var hp=document.getElementById('a-hist'); if(hp&&S.view){ var nh=pHist(S.view,S.histReg); var tmp=document.createElement('div'); tmp.innerHTML=nh; hp.parentNode.replaceChild(tmp.firstChild,hp); } }
   else if(a==='ck-tab'){ var pn=b.closest('.ap'); pn.querySelectorAll('[data-act=ck-tab]').forEach(function(x){x.classList.toggle('on',x===b)}); pn.querySelectorAll('.cklist').forEach(function(x){x.hidden=x.getAttribute('data-t')!==b.getAttribute('data-t')}); }
   else if(a==='go-acc'){ var ac=document.getElementById('a-acc'); if(ac){ var yy=ac.getBoundingClientRect().top+window.pageYOffset-(aMob()?70:16); window.scrollTo({top:Math.max(0,yy),behavior:'smooth'}); } }
