@@ -810,6 +810,13 @@ async function hComps(env, q, ctx) {
       const inY = items.filter(function (i) { return i.year == null || (i.year >= (yf || year - 1) && i.year <= (yt || year + 1)); }).length;
       if (inY / items.length < 0.5) return json(env, { ok: false, source: srcName, error: 'filters_ignored', message: 'AutoScout24 did not apply the model/year filters.', searchUrl: search });
     }
+    /* an unknown model name can quietly give the whole make: then most titles do not mention the model */
+    if (md && items.length >= 10) {
+      const ww = function (x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ''); };
+      const fam = ww(model), mkw = ww(make), tok = fam.replace(/(series|class|klasse)$/, '');
+      const hit = items.filter(function (i) { const t = ww(i.title).replace(mkw, ''); return (tok && t.indexOf(tok) > -1) || modelFamilyOk(mkw, fam, t); }).length;
+      if (tok && hit / items.length < 0.3) return json(env, { ok: false, source: srcName, error: 'not_found', message: 'AutoScout24 does not know this model name.', searchUrl: search });
+    }
     if (usedTrim) items.forEach(function (i) { i.trimMatch = usedTrim; });
     later(ctx, memSave(env, memRowsFromItems(items, make, model, 'as24')));
     return json(env, { ok: items.length > 0, source: srcName, region: CY[cy], label: 'AutoScout24 (' + CY[cy] + ')', searchUrl: search, trimFilter: usedTrim || null, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
