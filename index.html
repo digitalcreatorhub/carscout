@@ -2509,7 +2509,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.5', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.6', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -4566,8 +4566,9 @@ function pickOpen(inp,full,fromField){
   var sl=l.querySelector('.pk-o.sel'); if(sl&&full) l.scrollTop=Math.max(0,sl.offsetTop-l.clientHeight/2);
 }
 function pickListQ(inp,q){ var keep=inp.value; try{ if(PICK_MULTI[inp.id]){ var parts=(inp.value||'').split(','); parts.pop(); inp.value=parts.join(',')+(parts.length?',':'')+q; } else inp.value=q; return pickList(inp,!q); } finally { inp.value=keep; } }
+function MODEL_CAT_HAS(inp,m){ var mk=pickMakeKey(pickMakeOf(inp.id)); return !!(mk&&MODEL_CAT[mk].some(function(x){ return pickNorm(x)===pickNorm(m); })); }
 function pickChoose(inp,v){
-  if(PICK_MULTI[inp.id]){ var parts=(inp.value||'').split(','); if(!PICK_TOUCH) parts.pop(); parts=parts.map(function(s){return s.trim()}).filter(Boolean); if(parts.map(pickNorm).indexOf(pickNorm(v))<0) parts.push(v); inp.value=parts.join(', ')+(PICK_TOUCH?'':', '); }
+  if(PICK_MULTI[inp.id]){ var parts=(inp.value||'').split(','); if(!PICK_TOUCH&&!/,\s*$/.test(inp.value||'')&&parts.length&&pickNorm(parts[parts.length-1])&&!MODEL_CAT_HAS(inp,parts[parts.length-1])) parts.pop(); parts=parts.map(function(s){return s.trim()}).filter(Boolean); if(parts.map(pickNorm).indexOf(pickNorm(v))<0) parts.push(v); inp.value=parts.join(', '); }
   else inp.value=v;
   inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true}));
   var mid=PICK_PAIRS[inp.id];
@@ -4575,8 +4576,8 @@ function pickChoose(inp,v){
     if(me){ var keep=(me.value||'').split(',').map(function(s){return s.trim()}).filter(Boolean).every(function(m){ return mk&&MODEL_CAT[mk].some(function(x){ return pickNorm(x)===pickNorm(m)||pickNorm(m).indexOf(pickNorm(x))===0; }); });
       if(!keep){ me.value=''; me.dispatchEvent(new Event('input',{bubbles:true})); }
       pickClose(); setTimeout(function(){ me.focus(); pickOpen(me,true); },30); return; } }
-  if(PICK_MULTI[inp.id]){ pickOpen(inp,true); if(!PICK_TOUCH) inp.focus(); return; }
-  pickClose(); if(PICK_TOUCH) inp.blur();
+  /* the list closes after every pick (also when several models can be chosen: tap the field again to add one) */
+  pickClose(); inp.blur();
 }
 document.addEventListener('focusin',function(e){ var t=e.target; if(pickIs(t)){ t.setAttribute('autocomplete','off'); if(PICK_TOUCH) t.setAttribute('inputmode','none'); if(!(pickCur===t&&document.getElementById('pickpanel'))) pickOpen(t,true); } });
 document.addEventListener('input',function(e){ var t=e.target;
