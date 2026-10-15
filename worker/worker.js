@@ -112,7 +112,7 @@ function cleanMakeModel(make, model) {
 /* a model line chosen in the app ("5 Series", "E-Class", "Mazda6") against the exact models in an ad (520d, E 220, 6) */
 function modelFamilyOk(mk, fam, it) {
   let m;
-  if (mk === 'bmw' && (m = fam.match(/^(\d)series$/))) return new RegExp('^(' + m[1] + '\\d\\d|' + m[1] + 'series|m' + m[1] + ')').test(it);
+  if (mk === 'bmw' && (m = fam.match(/^(\d)series$/))) return new RegExp('^(' + m[1] + '\\d\\d|' + m[1] + '$|' + m[1] + 'series|m' + m[1] + ')').test(it);
   if (/^mercedes/.test(mk) && (m = fam.match(/^([a-z]{1,3})(class)?$/))) return new RegExp('^' + m[1] + '(\\d|class|klass|$)').test(it);
   if (mk === 'mazda') return it.replace(/^mazda/, '') === fam.replace(/^mazda/, '') || it.replace(/^mazda/, '').indexOf(fam.replace(/^mazda/, '')) === 0;
   return false;
