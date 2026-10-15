@@ -1094,6 +1094,20 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .fz-fr .btn{grid-column:2;grid-row:1/3}
 .fz-tag{display:inline-block;font:700 10.5px/1 Inter,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;padding:4px 6px;border-radius:6px;background:var(--accent);color:#0B0E12;font-style:normal;margin-right:6px;vertical-align:1px}
 .fz-row.new{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent 70%)}
+/* two mode buttons; "Check a listing" is the default screen */
+.modebar [data-mode=buy]{display:none!important}
+.modebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:min(100%,560px);gap:6px}
+.modebar button{position:relative;height:auto;min-height:52px;padding:8px 16px;justify-content:center;font-size:14px;border-radius:10px;white-space:normal;line-height:1.2;text-align:center}
+.modebar button svg{width:18px;height:18px;flex:none}
+.modebar button:not(.on){color:var(--ink)}
+.modebar button:not(.on) svg{color:var(--accent)}
+.modebar .mx{display:none;position:absolute;top:5px;right:7px;width:18px;height:18px;border-radius:50%;place-items:center;font:700 13px/1 Inter,system-ui,sans-serif;font-style:normal;background:rgba(11,14,18,.14);color:#0B0E12}
+.modebar button.on .mx{display:inline-grid}
+@media (max-width:760px){
+  .modebar{width:100%}
+  .modebar button{flex-direction:column;gap:5px;min-height:70px;padding:10px 8px;font-size:13.5px}
+  .modebar button svg{width:20px;height:20px}
+}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2475,7 +2489,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.3', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.4', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3908,7 +3922,10 @@ var SELL_COND={top:[1.04,'отличное','excellent','izcils'],good:[1,'хо�
   mark(document.getElementById('extra-d')); mark(document.getElementById('f-photos')&&document.getElementById('f-photos').closest('label')); mark(form.querySelector('[data-act="more"]'));
   /* a soft glow on "Value my car" (always, while the other mode is open) */
   bar.querySelector('[data-mode=sell]').classList.add('nudge');
-  bar.addEventListener('click',function(e){ var b=e.target.closest('[data-mode]'); if(b) setMode(b.getAttribute('data-mode')); });
+  /* "Check a listing" is the default screen (the big green button), so only the two other modes are buttons; a second tap closes them */
+  bar.querySelectorAll('[data-mode=sell]').forEach(function(b){ b.insertAdjacentHTML('beforeend','<i class="mx" aria-hidden="true">×</i>'); });
+  var gb=document.getElementById('btn-go'); if(gb){ gb.setAttribute('data-ru','Проверить объявление'); gb.setAttribute('data-en','Check the listing'); gb.setAttribute('data-lv','Pārbaudīt sludinājumu'); }
+  bar.addEventListener('click',function(e){ var b=e.target.closest('[data-mode]'); if(!b) return; var m=b.getAttribute('data-mode'); setMode(m===S.mode?'buy':m); });
 })();
 var SELL_SAVE={};
 function setMode(m){
@@ -3937,7 +3954,7 @@ function setMode(m){
     setTimeout(function(){ var f=$('#f-make'); if(f&&!f.value) f.focus(); },60);
   } else {
     if(SELL_SAVE.url!=null){ $('#f-url').value=SELL_SAVE.url; $('#f-text').value=SELL_SAVE.text||''; }
-    go.setAttribute('data-ru','Проверить автомобиль'); go.setAttribute('data-en','Check this car'); go.removeAttribute('data-lv');
+    go.setAttribute('data-ru','Проверить объявление'); go.setAttribute('data-en','Check the listing'); go.setAttribute('data-lv','Pārbaudīt sludinājumu');
     if(pl){ pl.setAttribute('data-ru','Цена, €'); pl.setAttribute('data-en','Price, €'); pl.removeAttribute('data-lv'); }
     if(S.view&&S.view.sell){ S.view=null; S.srcRows={}; renderSrcs(); render(); }
   }
@@ -4257,7 +4274,7 @@ function fzBodyOf(t){ t=String(t||'').toLowerCase();
 var FZ_BAD=/bojāt|avārij|rezerves daļ|uz daļām|на запчаст|битая|битый|после дтп|после аварии|damaged|for parts|unfall|salvage|не на ходу|nav uz ceļa/i;
 (function findSetup(){
   var bar=document.getElementById('modebar'), form=document.getElementById('intake'); if(!bar||!form||document.getElementById('findbox')) return;
-  bar.insertAdjacentHTML('beforeend','<button type="button" role="tab" data-mode="find" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg><span data-ru="Найти мне авто" data-en="Find me a car" data-lv="Atrast man auto"></span></button>');
+  bar.insertAdjacentHTML('beforeend','<button type="button" role="tab" data-mode="find" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg><span data-ru="Найти мне авто" data-en="Find me a car" data-lv="Atrast man auto"></span><i class="mx" aria-hidden="true">×</i></button>');
   var sel=function(id,opts){ return '<select class="in" id="'+id+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[2]?' data-ru="'+o[2]+'" data-en="'+o[3]+'" data-lv="'+o[4]+'"':'')+'>'+esc(o[1]||'')+'</option>'; }).join('')+'</select>'; };
   var fld=function(id,ru,en,lv,inner){ return '<div class="fld"><label for="'+id+'" data-ru="'+ru+'" data-en="'+en+'" data-lv="'+lv+'"></label>'+inner+'</div>'; };
   var inp=function(id,ph,num){ return '<input class="in'+(num?' num':'')+'" id="'+id+'" type="text"'+(num?' inputmode="numeric"':'')+' placeholder="'+ph+'">'; };
