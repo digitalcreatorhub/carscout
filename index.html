@@ -984,6 +984,9 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .modebar button.nudge:not(.on)::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
   background:conic-gradient(from var(--nudge-a),transparent 0deg,transparent 250deg,color-mix(in srgb,var(--accent) 55%,transparent) 310deg,var(--accent) 340deg,transparent 360deg);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:sellorbit 5s linear infinite}
+/* the second shimmering button runs out of phase with the first, so the two do not blink in sync */
+.modebar button[data-mode=find].nudge:not(.on){animation-delay:-2.1s}
+.modebar button[data-mode=find].nudge:not(.on)::after{animation-delay:-2.5s}
 @keyframes sellbreath{from{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent),0 0 6px -4px color-mix(in srgb,var(--accent) 20%,transparent)}to{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 0 18px -4px color-mix(in srgb,var(--accent) 45%,transparent)}}
 @keyframes sellorbit{to{--nudge-a:360deg}}
 @media (prefers-reduced-motion:reduce){.modebar button.nudge,.modebar button.nudge::after{animation:none}}
@@ -4346,6 +4349,8 @@ var FZ_BAD=/bojāt|avārij|rezerves daļ|uz daļām|на запчаст|бита
 (function findSetup(){
   var bar=document.getElementById('modebar'), form=document.getElementById('intake'); if(!bar||!form||document.getElementById('findbox')) return;
   bar.insertAdjacentHTML('beforeend','<button type="button" role="tab" data-mode="find" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg><span data-ru="Подключи агента" data-en="Connect an agent" data-lv="Pieslēgt aģentu"></span><i class="mx" aria-hidden="true">×</i></button>');
+  /* same soft shimmer as "Value my car" (the .nudge style), until this mode is opened */
+  bar.querySelector('[data-mode=find]').classList.add('nudge');
   var sel=function(id,opts){ return '<select class="in" id="'+id+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[2]?' data-ru="'+o[2]+'" data-en="'+o[3]+'" data-lv="'+o[4]+'"':'')+'>'+esc(o[1]||'')+'</option>'; }).join('')+'</select>'; };
   var fld=function(id,ru,en,lv,inner){ return '<div class="fld"><label for="'+id+'" data-ru="'+ru+'" data-en="'+en+'" data-lv="'+lv+'"></label>'+inner+'</div>'; };
   var inp=function(id,ph,num){ return '<input class="in'+(num?' num':'')+'" id="'+id+'" type="text"'+(num?' inputmode="numeric"':'')+' placeholder="'+ph+'">'; };
