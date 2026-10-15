@@ -109,6 +109,14 @@ function cleanMakeModel(make, model) {
   if (md && mk) md = md.replace(re, '');
   return { make: mk || null, model: md || null };
 }
+/* a model line chosen in the app ("5 Series", "E-Class", "Mazda6") against the exact models in an ad (520d, E 220, 6) */
+function modelFamilyOk(mk, fam, it) {
+  let m;
+  if (mk === 'bmw' && (m = fam.match(/^(\d)series$/))) return new RegExp('^(' + m[1] + '\\d\\d|' + m[1] + 'series|m' + m[1] + ')').test(it);
+  if (/^mercedes/.test(mk) && (m = fam.match(/^([a-z]{1,3})(class)?$/))) return new RegExp('^' + m[1] + '(\\d|class|klass|$)').test(it);
+  if (mk === 'mazda') return it.replace(/^mazda/, '') === fam.replace(/^mazda/, '') || it.replace(/^mazda/, '').indexOf(fam.replace(/^mazda/, '')) === 0;
+  return false;
+}
 function as24Model(mk, md) {
   // AutoScout24 names Mercedes models like "e-350", "c-220", "gle-350"; most other makes keep the plain model name.
   if (mk === 'mercedes-benz') { const m = md.match(/^([a-z]{1,4})-?(\d{2,3})(?:-?[a-z]+)?$/); if (m) return m[1] + '-' + m[2]; }
@@ -709,6 +717,7 @@ function filterOthers(items, make, model) {
   if (byModel.length >= 3) return byModel;
   return items.filter(function (i) { return (md && has(i.title, md)) || has(i.title, mk) || (mk === 'gwm' && (has(i.title, 'great wall') || has(i.title, 'ora'))); });
 }
+const SS_ALIAS = {"audi": {"a6-allroad": "allroad"}, "bmw": {"i": "i-series", "x": "x-series"}, "chevrolet": {"suburban": "saburban"}, "chrysler": {"lebaron": "le-baron"}, "citroen": {"c4-picasso": "c4picasso", "xsara-picasso": "xsarapicasso"}, "fiat": {"grande-punto": "grandepunto"}, "ford": {"c-max": "focusc-max"}, "lexus": {"ls": "lls"}, "mercedes-benz": {"cl": "cl-class", "cla": "cla-class", "clk": "clk-class", "cls": "cls-class", "gl": "gl-clase", "gla": "gla-class", "glb": "glb-class", "glc": "glc-class", "gle": "gle-class", "glk": "glk-clase", "gls": "gls-class", "ml": "ml-class", "sl": "sl-class", "slk": "slk-class"}, "mini": {"cooper-s": "coopers"}, "mitsubishi": {"l200": "l-200", "lancer-evolution": "evolution", "pajero-pinin": "pajeropinin"}, "nissan": {"almera-tino": "almeratino", "king-cab": "kingcab", "terrano": "terrano-ii"}, "opel": {"kadett": "kadet"}, "renault": {"grand-scenic": "grandscenic"}, "skoda": {"enyaq": "enyaq-iv"}, "subaru": {"tribeca": "b9tridelle"}, "toyota": {"rav4": "rav-4"}, "volkswagen": {"beetle": "new-beetle"}, "volvo": {"xc40": "xc-40"}};
 const SS_GEN = {
   golf: { 'golf-4': [1997, 2004], 'golf-5': [2003, 2009], 'golf-6': [2008, 2013], 'golf-7': [2012, 2020], 'golf-8': [2019, 2030], 'golf-variant': [1993, 2030] },
   passat: { 'passat-b5': [1996, 2005], 'passat-b6': [2005, 2011], 'passat-b7': [2010, 2015], 'passat-b8': [2014, 2030], 'passat-variant': [1988, 2030] }
@@ -723,8 +732,12 @@ async function hComps(env, q, ctx) {
     let path = q.get('ssPath');
     let others = !!path && /^\/[a-z]{2}\/transport\/cars\/others\/$/i.test(path);
     if (!others && (!path || !/^\/[a-z]{2}\/transport\/cars\/[a-z0-9\-]+\/[a-z0-9\-]+\/$/i.test(path))) {
-      let mk = slugify(make); if (mk === 'mercedes-benz') mk = 'mercedes'; if (mk === 'vw') mk = 'volkswagen'; if (mk === 'land-rover') mk = 'rover';
+      const mk0 = slugify(make); let mk = mk0; if (mk === 'mercedes-benz') mk = 'mercedes'; if (mk === 'vw') mk = 'volkswagen';
       let md = slugify(model);
+      /* names from the app's make/model picker that ss.com spells differently */
+      const al = SS_ALIAS[mk0 === 'vw' ? 'volkswagen' : mk0]; if (al && al[md]) md = al[md];
+      if (mk === 'bmw' && /^i(\d|x)/.test(md)) md = 'i-series';
+      if (mk === 'mazda' && /^\d$/.test(md)) md = 'mazda' + md;
       if (/^bmw$/.test(mk) && /^\d{3}[a-z]*$/.test(md)) md = md.slice(0, 3);
       if (mk === 'toyota' && md === 'rav4') md = 'rav-4';
       if (mk === 'mercedes') { const mm2 = md.match(/^([a-z]{1,4})-?(\d{2,3})(?!\d)/); if (mm2) md = mm2[1] + mm2[2]; }
@@ -792,6 +805,7 @@ async function hComps(env, q, ctx) {
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseAs24List(p.text, 'https://www.autoscout24.com/lst/')); });
     items = dedupe(items);
     if (/\/lst\//.test(pages[0].url || '') === false || (pages[0].url || '').toLowerCase().indexOf('/lst/' + mk) === -1) return json(env, { ok: false, source: srcName, error: 'not_found', message: 'AutoScout24 redirected away from this make/model.', searchUrl: search });
+    try { if (md && new URL(pages[0].url || search).pathname.replace(/\/+$/, '').toLowerCase() === '/lst/' + mk) return json(env, { ok: false, source: srcName, error: 'not_found', message: 'AutoScout24 does not know this model name.', searchUrl: search }); } catch (e) { }
     if (year && items.length >= 10) {
       const inY = items.filter(function (i) { return i.year == null || (i.year >= (yf || year - 1) && i.year <= (yt || year + 1)); }).length;
       if (inY / items.length < 0.5) return json(env, { ok: false, source: srcName, error: 'filters_ignored', message: 'AutoScout24 did not apply the model/year filters.', searchUrl: search });
@@ -820,7 +834,7 @@ async function hComps(env, q, ctx) {
   if (source === 'autoportaal') {
     if (!make || !model) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
     const apMk = /^mercedes/i.test(make) ? 'Mercedes-Benz' : /^vw$/i.test(make) ? 'Volkswagen' : make;
-    const mkUrl = function (p) { return 'https://autoportaal.ee/et/kasutatud-autod?make=' + encodeURIComponent(apMk) + '&model=' + encodeURIComponent(model) + (yf ? '&year_min=' + yf : '') + (yt ? '&year_max=' + yt : '') + (p > 1 ? '&page=' + p : ''); };
+    const mkUrl = function (p) { return 'https://autoportaal.ee/et/kasutatud-autod?make=' + encodeURIComponent(apMk) + '&model=' + encodeURIComponent(/^mazda$/i.test(make) ? model.replace(/^mazda\s*/i, '') : model) + (yf ? '&year_min=' + yf : '') + (yt ? '&year_max=' + yt : '') + (p > 1 ? '&page=' + p : ''); };
     const pages = await Promise.all([1, 2, 3, 4].map(function (n) { return getPage(mkUrl(n), 1800).catch(function () { return { status: 0, text: '', url: mkUrl(n) }; }); }));
     const search = mkUrl(1), b = blockedBy(pages[0]);
     if (b) return json(env, { ok: false, source: 'autoportaal', error: 'blocked', message: 'autoportaal.ee refused the server request (' + b + ').', searchUrl: search });
@@ -829,7 +843,7 @@ async function hComps(env, q, ctx) {
     items = dedupe(items);
     const w = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); };
     const mw = w(model), mkw = w(apMk);
-    items = items.filter(function (i) { return (!i.make || w(i.make) === mkw || w(i.make).indexOf(mkw) === 0 || mkw.indexOf(w(i.make)) === 0) && (!i.model || w(i.model) === mw || w(i.model).indexOf(mw) === 0); });
+    items = items.filter(function (i) { return (!i.make || w(i.make) === mkw || w(i.make).indexOf(mkw) === 0 || mkw.indexOf(w(i.make)) === 0) && (!i.model || w(i.model) === mw || w(i.model).indexOf(mw) === 0 || modelFamilyOk(mkw, mw, w(i.model))); });
     if (year && items.length >= 10) {
       const inY = items.filter(function (i) { return i.year == null || (i.year >= (yf || year - 1) && i.year <= (yt || year + 1)); }).length;
       if (inY / items.length < 0.5) return json(env, { ok: false, source: 'autoportaal', error: 'filters_ignored', message: 'autoportaal.ee did not apply the model/year filters.', searchUrl: search });

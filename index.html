@@ -1108,6 +1108,26 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
   .modebar button{flex-direction:column;gap:5px;min-height:70px;padding:10px 8px;font-size:13.5px}
   .modebar button svg{width:20px;height:20px}
 }
+/* make and model pickers */
+.pk-host{position:relative}
+.pk-host>input{padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238b95a3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+.pk{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;display:flex;flex-direction:column;max-height:min(360px,52vh);padding:6px;border:1px solid var(--line2,var(--line));border-radius:12px;background:var(--surface,#12161c);box-shadow:0 18px 40px -12px rgba(0,0,0,.6);-webkit-overflow-scrolling:touch}
+.pk-h{padding:8px 8px 4px;font:600 11px Inter,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.pk-pop{display:flex;flex-wrap:wrap;gap:6px;padding:2px 4px 6px}
+.pk-pop .pk-o{width:auto;padding:6px 11px;border:1px solid var(--line2,var(--line));border-radius:999px;font-size:13px}
+.pk-o{display:block;width:100%;text-align:left;padding:9px 10px;border:0;border-radius:8px;background:none;color:var(--ink);font:500 14px Inter,system-ui,sans-serif;cursor:pointer}
+.pk-o:hover,.pk-o.hi{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--ink)}
+.pk-pop .pk-o:hover,.pk-pop .pk-o.hi{border-color:var(--accent)}
+@media (pointer:coarse){.pk-o{padding:11px 12px;font-size:15px}}
+.pk-o.sel{color:var(--accent);font-weight:600}
+
+.pk-l{overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;min-height:0}
+.pk-s{padding:2px 2px 6px}
+.pk-q{width:100%;height:40px;padding:0 12px;border:1px solid var(--line2,var(--line));border-radius:9px;background:var(--field,rgba(255,255,255,.04));color:var(--ink);font:500 15px Inter,system-ui,sans-serif;outline:none}
+.pk-q:focus{border-color:var(--accent)}
+.pk-e{padding:10px;color:var(--dim);font-size:13px}
+.pk-rm{padding:6px 11px;border:1px solid var(--accent);border-radius:999px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font:600 13px Inter,system-ui,sans-serif;cursor:pointer}
+.pk-use{color:var(--accent)!important;font-weight:600!important}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -2489,7 +2509,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.4', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.5', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -4490,6 +4510,90 @@ setTimeout(function(){ findPull(); if(pushOn()) findPushSync(); },2500);
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') findPull(); });
 /* a tap on a notification about several cars opens this mode */
 (function(){ try{ if(/[?&]find=1\b/.test(location.search)){ history.replaceState(null,'',location.pathname); setTimeout(function(){ setMode('find'); },0); } }catch(e){} })();
+
+/* make → models, from the ss.com categories plus newer models (as the app and the sites spell them) */
+var MODEL_CAT={"Alfa Romeo": ["147", "156", "159", "164", "166", "33", "Brera", "Giulia", "Giulietta", "GT", "GTV", "MiTo", "Spider", "Stelvio", "Tonale"], "Audi": ["100", "200", "80", "90", "A1", "A2", "A3", "A4", "A5", "A6", "A6 allroad", "A6 e-tron", "A7", "A8", "E-tron", "e-tron GT", "Q2", "Q3", "Q4 e-tron", "Q5", "Q7", "Q8", "Q8 e-tron", "R8", "RS Q8", "RS3", "RS4", "RS5", "RS6", "S3", "S4", "S5", "S6", "S7", "S8", "SQ5", "SQ7", "TT"], "BMW": ["1 Series", "2 Series", "3 Series", "4 Series", "5 Series", "6 Series", "7 Series", "8 Series", "i3", "i4", "i5", "i7", "iX", "iX1", "iX3", "M2", "M3", "M4", "M5", "M8", "X1", "X2", "X3", "X4", "X5", "X6", "X7", "XM", "Z4"], "Chevrolet": ["Astro", "Aveo", "Camaro", "Captiva", "Corvette", "Cruze", "Epica", "Express", "Kalos", "Lacetti", "Malibu", "Matiz", "Nubira", "Orlando", "Silverado", "Spark", "SSR", "Suburban", "Tahoe", "Trax"], "Chrysler": ["200", "300C", "300M", "Crossfire", "Grand Voyager", "LeBaron", "Pacifica", "PT Cruiser", "Sebring", "Stratus", "Town & Country", "Voyager"], "Citroën": ["Ami", "Berlingo", "C-Crosser", "C-Elysee", "C-Zero", "C1", "C2", "C3", "C3 Aircross", "C3 Picasso", "C4", "C4 Aircross", "C4 Cactus", "C4 Picasso", "C4 X", "C5", "C5 Aircross", "C5 Tourer", "C5 X", "C6", "Jumper", "Jumpy", "Nemo", "SpaceTourer", "Xantia", "Xsara Picasso", "ZX", "ë-C4"], "Cupra": ["Ateca", "Born", "Formentor", "Leon", "Leon Sportstourer", "Tavascan", "Terramar"], "Dacia": ["Bigster", "Dokker", "Duster", "Jogger", "Lodgy", "Logan", "Sandero", "Spring"], "Dodge": ["Avenger", "Caliber", "Challenger", "Charger", "Dakota", "Durango", "Grand Caravan", "Journey", "Magnum", "Nitro", "RAM"], "Fiat": ["500", "500L", "500X", "600", "Bravo", "Doblo", "Ducato", "Fiorino", "Freemont", "Grande Punto", "Panda", "Punto", "Scudo", "Sedici", "Stilo", "Talento", "Tipo"], "Ford": ["B-Max", "Bronco", "C-Max", "Capri", "Cougar", "Courier", "Econoline", "EcoSport", "Edge", "Escort", "Excursion", "Expedition", "Explorer", "Explorer EV", "F150", "F250", "F350", "Fiesta", "Focus", "Fusion", "Galaxy", "Ka", "Kuga", "Maverick", "Mondeo", "Mustang", "Mustang Mach-E", "Puma", "Ranger", "Raptor", "S-Max", "Scorpio", "Sierra", "Thunderbird", "Tourneo", "Tourneo Connect", "Transit", "Transit Connect", "Transit Custom"], "Honda": ["Accord", "Civic", "CR-V", "e", "e:Ny1", "FR-V", "HR-V", "Insight", "Jazz", "Shuttle", "ZR-V"], "Hyundai": ["Bayon", "Elantra", "Galloper", "Genesis", "Getz", "H-1", "i10", "i20", "i30", "i40", "Inster", "Ioniq", "Ioniq 5", "Ioniq 6", "ix20", "ix35", "ix55", "Kona", "Kona Electric", "Matrix", "Santa Fe", "Sonata", "Staria", "Terracan", "Trajet", "Tucson"], "Jaguar": ["E-Pace", "E-Type", "F-Pace", "F-Type", "I-Pace", "S-Type", "X-Type", "XE", "XF", "XJ", "XJS", "XK"], "Jeep": ["Avenger", "Cherokee", "Commander", "Compass", "Grand Cherokee", "Patriot", "Renegade", "Wrangler"], "Kia": ["Carens", "Carnival", "Ceed", "e-Soul", "EV3", "EV6", "EV9", "Niro", "Niro EV", "Optima", "Picanto", "ProCeed", "Rio", "Sorento", "Soul", "Sportage", "Stinger", "Stonic", "Venga", "XCeed"], "Lancia": ["Delta", "Thema", "Thesis", "Voyager"], "Land Rover": ["Defender", "Discovery", "Discovery Sport", "Freelander", "Range Rover", "Range Rover Evoque", "Range Rover Sport", "Range Rover Velar"], "Lexus": ["CT", "ES", "GS", "IS", "LBX", "LC", "LS", "LX", "NX", "RC", "RX", "RZ", "UX"], "Mazda": ["323", "626", "B2500", "CX-3", "CX-30", "CX-5", "CX-60", "CX-7", "CX-80", "CX-9", "Mazda2", "Mazda3", "Mazda5", "Mazda6", "MX-30", "MX-5", "Premacy"], "Mercedes-Benz": ["A-Class", "AMG GT", "B-Class", "C-Class", "Citan", "CL", "CLA", "CLK", "CLS", "E-Class", "EQA", "EQB", "EQC", "EQE", "EQS", "G-Class", "GL", "GLA", "GLB", "GLC", "GLE", "GLK", "GLS", "ML", "R-Class", "S-Class", "SL", "SLK", "Sprinter", "T-Class", "V-Class", "Vaneo", "Viano", "Vito", "X-Class"], "MINI": ["Aceman", "Clubman", "Cooper", "Cooper S", "Countryman", "Electric", "One", "Paceman", "Roadster"], "Mitsubishi": ["3000 GT", "ASX", "Carisma", "Colt", "Eclipse", "Eclipse Cross", "Galant", "Grandis", "L200", "Lancer", "Lancer Evolution", "Montero", "Outlander", "Outlander PHEV", "Pajero", "Pajero Pinin", "Space Star"], "Nissan": ["Almera", "Almera Tino", "Ariya", "Interstar", "Juke", "King Cab", "Leaf", "Micra", "Murano", "Navara", "Note", "NV200", "NV300", "Pathfinder", "Patrol", "Primastar", "Primera", "Pulsar", "Qashqai", "Quest", "Serena", "Silvia", "Terrano", "Townstar", "X-Trail"], "Opel": ["Adam", "Agila", "Antara", "Astra", "Campo", "Combo", "Corsa", "Crossland X", "Frontera", "Grandland", "Grandland X", "Insignia", "Kadett", "Meriva", "Mokka", "Monterey", "Movano", "Omega", "Senator", "Signum", "Tigra", "Vectra", "Vivaro", "Zafira", "Zafira Life"], "Peugeot": ["1007", "106", "107", "108", "2008", "206", "207", "208", "3008", "301", "307", "308", "4007", "407", "408", "5008", "508", "607", "807", "Bipper", "Boxer", "e-2008", "e-208", "e-3008", "Expert", "iOn", "Partner", "RCZ", "Rifter", "Traveller"], "Porsche": ["911", "944", "Boxster", "Cayenne", "Cayman", "Macan", "Macan Electric", "Panamera", "Taycan"], "Renault": ["19", "5", "Arkana", "Austral", "Captur", "Clio", "Espace", "Express", "Fluence", "Grand Scenic", "Kadjar", "Kangoo", "Koleos", "Laguna", "Latitude", "Master", "Megane", "Megane E-Tech", "Modus", "Rafale", "Scenic", "Scenic E-Tech", "Symbioz", "Talisman", "Trafic", "Twingo", "VEL Satis", "Zoe"], "Saab": ["9-3", "9-5", "900", "9000", "96", "99"], "SEAT": ["Alhambra", "Altea", "Arona", "Arosa", "Ateca", "Cordoba", "Exeo", "Ibiza", "Leon", "Tarraco", "Toledo"], "Škoda": ["Citigo", "Elroq", "Enyaq", "Enyaq Coupe", "Fabia", "Kamiq", "Karoq", "Kodiaq", "Octavia", "Praktik", "Rapid", "Roomster", "Scala", "Superb", "Yeti"], "Smart": ["#1", "#3", "Crossblade", "ForFour", "ForTwo", "Roadster"], "SsangYong": ["Actyon", "Korando", "Kyron", "Musso", "Rexton"], "Subaru": ["Crosstrek", "Forester", "Impreza", "Legacy", "Leone", "Levorg", "Outback", "Solterra", "Tribeca", "XV"], "Suzuki": ["Across", "Baleno", "Grand Vitara", "Ignis", "Jimny", "Liana", "S-Cross", "Samurai", "Swift", "SX4", "Vitara", "X-90"], "Tesla": ["Cybertruck", "Model 3", "Model S", "Model X", "Model Y"], "Toyota": ["Auris", "Avensis", "Avensis Verso", "Aygo", "Aygo X", "bZ4X", "C-HR", "Camry", "Carina", "Celica", "Corolla", "Corolla Cross", "Corolla Verso", "Dyna", "FJ", "GR86", "Hiace", "Highlander", "Hilux", "iQ", "Land Cruiser", "Land Cruiser Prado", "Mirai", "Picnic", "Previa", "Prius", "Prius+", "Proace", "Proace City", "RAV4", "Sienna", "Supra", "Tundra", "Urban Cruiser", "Venza", "Verso", "Verso-S", "Yaris", "Yaris Cross"], "Volkswagen": ["Amarok", "Arteon", "Beetle", "Bora", "Caddy", "California", "Caravelle", "Corrado", "Crafter", "Eos", "Fox", "Golf", "Golf Plus", "Golf Sportsvan", "Golf Variant", "ID. Buzz", "ID.3", "ID.4", "ID.5", "ID.7", "Jetta", "LT", "Lupo", "Multivan", "Passat", "Passat Alltrack", "Passat CC", "Passat Variant", "Phaeton", "Polo", "Scirocco", "Sharan", "T-Cross", "T-Roc", "T3", "T4", "T5", "T6", "Taigo", "Tayron", "Tiguan", "Touareg", "Touran", "Transporter", "up!", "Vento"], "Volvo": ["245", "460", "740", "850", "940", "960", "C30", "C40", "C70", "EC40", "EX30", "EX40", "EX90", "S40", "S60", "S70", "S80", "S90", "V40", "V50", "V60", "V60 Cross Country", "V70", "V90", "V90 Cross Country", "XC40", "XC60", "XC70", "XC90"], "Polestar": ["2", "3", "4"], "BYD": ["Atto 2", "Atto 3", "Dolphin", "Dolphin Surf", "Han", "Seal", "Seal U", "Seal U DM-i", "Sealion 7", "Tang"], "MG": ["Cyberster", "EHS", "HS", "Marvel R", "MG3", "MG4", "MG5", "ZS", "ZS EV"], "Lynk & Co": ["01", "02"], "Zeekr": ["001", "7X", "X"], "XPeng": ["G6", "G9", "P7"], "NIO": ["EL6", "EL7", "ET5", "ET7"], "Leapmotor": ["C10", "T03"], "Omoda": ["5", "E5"], "Jaecoo": ["7"], "Chery": ["Tiggo 7", "Tiggo 8"], "Geely": ["Coolray", "EX5"], "GWM": ["ORA 03", "ORA 07", "WEY 05"], "Lada": ["2107", "Granta", "Kalina", "Niva", "Priora", "Vesta"], "DS": ["DS 3", "DS 4", "DS 7"], "Alpine": ["A110", "A290"], "Genesis": ["G80", "GV60", "GV70"], "Maserati": ["Ghibli", "Grecale", "Levante"], "Isuzu": ["D-Max"], "KGM": ["Korando", "Rexton", "Torres"]};
+/* ======================= make and model pickers: tap the field, pick from the list (typing still works and filters it) ======================= */
+var PICK_MAKES_POP=['Volkswagen','Toyota','Audi','BMW','Škoda','Mercedes-Benz','Volvo','Opel','Ford','Peugeot','Renault','Nissan','Kia','Hyundai','Mazda','Honda','Lexus','Subaru','Tesla','Citroën'];
+/* which model field belongs to which make field; the find form takes several models separated by commas */
+var PICK_PAIRS={'f-make':'f-model','fz-make':'fz-model','fd-make':'fd-model'}, PICK_MULTI={'fz-model':1};
+function pickNorm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9а-я]+/g,''); }
+function pickMakeKey(v){ var n=pickNorm(v); if(!n) return null; if(n==='vw') n='volkswagen'; if(n==='mercedes'||n==='mb') n='mercedesbenz'; if(n==='landrover'||n==='rangerover') n='landrover';
+  var ks=Object.keys(MODEL_CAT); for(var i=0;i<ks.length;i++) if(pickNorm(ks[i])===n) return ks[i]; return null; }
+function pickMakeOf(modelId){ for(var k in PICK_PAIRS) if(PICK_PAIRS[k]===modelId){ var e=document.getElementById(k); return e?e.value:''; } return ''; }
+function pickTerm(inp){ var v=inp.value||''; if(PICK_MULTI[inp.id]){ var i=v.lastIndexOf(','); return v.slice(i+1).trim(); } return v.trim(); }
+function pickList(inp,full){
+  var q=full?'':pickNorm(pickTerm(inp)), isMake=!!PICK_PAIRS[inp.id], all, pop=[];
+  if(isMake){ all=Object.keys(MODEL_CAT).sort(function(a,b){ return a.localeCompare(b); }); if(!q) pop=PICK_MAKES_POP.filter(function(m){ return MODEL_CAT[m]; }); }
+  else { var mk=pickMakeKey(pickMakeOf(inp.id)); if(!mk) return null; all=pickSortModels(MODEL_CAT[mk]);
+    if(PICK_MULTI[inp.id]){ var have=(inp.value||'').split(',').slice(0,-1).map(pickNorm); all=all.filter(function(m){ return have.indexOf(pickNorm(m))<0; }); } }
+  if(q){ var a=all.filter(function(x){ return pickNorm(x).indexOf(q)===0; }), b=all.filter(function(x){ var n=pickNorm(x); return n.indexOf(q)>0; }); all=a.concat(b); }
+  if(q&&all.length===1&&pickNorm(all[0])===q) all=[];
+  return {pop:pop,all:all,isMake:isMake};
+}
+function pickSortModels(a){ var dg=function(x){ return /^\d/.test(x); }, numFirst=a.filter(dg).length>a.length/2;
+  return a.slice().sort(function(x,y){ if(dg(x)!==dg(y)) return (dg(x)?1:-1)*(numFirst?-1:1); return x.localeCompare(y,undefined,{numeric:true,sensitivity:'base'}); }); }
+var pickCur=null, pickHi=-1, PICK_TOUCH=false;
+try{ PICK_TOUCH=matchMedia('(pointer: coarse)').matches; }catch(e){}
+function pickIs(t){ return !!(t&&t.tagName==='INPUT'&&t.id&&(PICK_PAIRS[t.id]||Object.keys(PICK_PAIRS).some(function(k){ return PICK_PAIRS[k]===t.id; }))); }
+function pickClose(){ var p=document.getElementById('pickpanel'); if(p) p.remove(); pickCur=null; pickHi=-1; }
+function pickPanel(inp){
+  /* the list spans the whole row of fields, so it is wide enough on a phone */
+  var host=inp.closest('.row2,.fgrid,.row4')||inp.parentNode, p=document.getElementById('pickpanel');
+  if(!p||p._for!==inp){ if(p) p.remove(); p=document.createElement('div'); p.id='pickpanel'; p.className='pk'; p._for=inp;
+    p.innerHTML=(PICK_TOUCH?'<div class="pk-s"><input class="pk-q" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div>':'')+'<div class="pk-l" role="listbox"></div>'; }
+  host.classList.add('pk-host'); if(p.parentNode!==host) host.appendChild(p);
+  p.style.top=(inp.offsetTop+inp.offsetHeight+4)+'px';
+  var q=p.querySelector('.pk-q'); if(q) q.placeholder=L('Поиск…','Search…','Meklēt…');
+  return p;
+}
+function pickOpen(inp,full,fromField){
+  var p=pickPanel(inp), q=p.querySelector('.pk-q'), L0;
+  if(q&&!fromField){ if(full&&document.activeElement!==q) q.value=''; L0=pickListQ(inp,q.value); } else { if(q) q.value=''; L0=pickList(inp,full); }
+  if(!L0||(!L0.pop.length&&!L0.all.length&&!q)){ pickClose(); return; }
+  var cur=pickNorm(PICK_MULTI[inp.id]?'':inp.value);
+  var btn=function(v){ return '<button type="button" role="option" class="pk-o'+(cur&&pickNorm(v)===cur?' sel':'')+'" data-v="'+esc(v)+'">'+esc(v)+'</button>'; };
+  var h='';
+  if(!L0.isMake&&PICK_MULTI[inp.id]){ var ch=(inp.value||'').split(',').map(function(x){return x.trim()}).filter(Boolean);
+    h+='<div class="pk-h">'+esc(ch.length?L('Выбрано (нажмите, чтобы убрать)','Picked (tap to remove)','Izvēlēti (pieskarieties, lai noņemtu)'):L('Можно выбрать несколько','You can pick several','Var izvēlēties vairākus'))+'</div>'+
+      (ch.length?'<div class="pk-pop">'+ch.map(function(v){ return '<button type="button" class="pk-rm" data-v="'+esc(v)+'">'+esc(v)+' ×</button>'; }).join('')+'</div><div class="pk-h">'+esc(L('Добавить','Add','Pievienot'))+'</div>':''); }
+  var qv=q&&!fromField?String(q.value||'').trim():'';
+  var useB=''; if(qv&&!L0.all.concat(L0.pop).some(function(x){ return pickNorm(x)===pickNorm(qv); })) useB='<button type="button" class="pk-o pk-use" data-v="'+esc(qv)+'">'+esc(L('Вписать «'+qv+'»','Use “'+qv+'”','Ierakstīt «'+qv+'»'))+'</button>';
+  if(L0.pop.length) h+='<div class="pk-h">'+esc(L('Популярные','Popular','Populārās'))+'</div><div class="pk-pop">'+L0.pop.map(btn).join('')+'</div><div class="pk-h">'+esc(L('Все марки','All makes','Visas markas'))+'</div>';
+  h+=L0.all.slice(0,300).map(btn).join('')+useB;
+  if(!L0.all.length&&!L0.pop.length&&!qv) h+='<div class="pk-e">'+esc(L('Нет в списке — впишите в поле сами','Not in the list — type it into the field','Nav sarakstā — ierakstiet laukā paši'))+'</div>';
+  var l=p.querySelector('.pk-l'); l.innerHTML=h; pickCur=inp; pickHi=-1; l.scrollTop=0;
+  var sl=l.querySelector('.pk-o.sel'); if(sl&&full) l.scrollTop=Math.max(0,sl.offsetTop-l.clientHeight/2);
+}
+function pickListQ(inp,q){ var keep=inp.value; try{ if(PICK_MULTI[inp.id]){ var parts=(inp.value||'').split(','); parts.pop(); inp.value=parts.join(',')+(parts.length?',':'')+q; } else inp.value=q; return pickList(inp,!q); } finally { inp.value=keep; } }
+function pickChoose(inp,v){
+  if(PICK_MULTI[inp.id]){ var parts=(inp.value||'').split(','); if(!PICK_TOUCH) parts.pop(); parts=parts.map(function(s){return s.trim()}).filter(Boolean); if(parts.map(pickNorm).indexOf(pickNorm(v))<0) parts.push(v); inp.value=parts.join(', ')+(PICK_TOUCH?'':', '); }
+  else inp.value=v;
+  inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true}));
+  var mid=PICK_PAIRS[inp.id];
+  if(mid){ var me=document.getElementById(mid), mk=pickMakeKey(v);
+    if(me){ var keep=(me.value||'').split(',').map(function(s){return s.trim()}).filter(Boolean).every(function(m){ return mk&&MODEL_CAT[mk].some(function(x){ return pickNorm(x)===pickNorm(m)||pickNorm(m).indexOf(pickNorm(x))===0; }); });
+      if(!keep){ me.value=''; me.dispatchEvent(new Event('input',{bubbles:true})); }
+      pickClose(); setTimeout(function(){ me.focus(); pickOpen(me,true); },30); return; } }
+  if(PICK_MULTI[inp.id]){ pickOpen(inp,true); if(!PICK_TOUCH) inp.focus(); return; }
+  pickClose(); if(PICK_TOUCH) inp.blur();
+}
+document.addEventListener('focusin',function(e){ var t=e.target; if(pickIs(t)){ t.setAttribute('autocomplete','off'); if(PICK_TOUCH) t.setAttribute('inputmode','none'); if(!(pickCur===t&&document.getElementById('pickpanel'))) pickOpen(t,true); } });
+document.addEventListener('input',function(e){ var t=e.target;
+  if(t&&t.classList&&t.classList.contains('pk-q')&&pickCur){ pickOpen(pickCur); return; }
+  if(pickIs(t)&&document.activeElement===t) pickOpen(t,false,true); });
+document.addEventListener('click',function(e){ var t=e.target; if(pickIs(t)&&!document.getElementById('pickpanel')) pickOpen(t,true); });
+/* pointerdown keeps the focus where it is, so the list does not close before the tap lands (the search box itself may take the focus) */
+document.addEventListener('pointerdown',function(e){ var o=e.target.closest&&e.target.closest('#pickpanel'); if(o&&!e.target.classList.contains('pk-q')) e.preventDefault(); });
+document.addEventListener('click',function(e){ var o=e.target.closest&&e.target.closest('#pickpanel .pk-o'); if(o&&pickCur){ e.preventDefault(); pickChoose(pickCur,o.getAttribute('data-v')); return; }
+  var r=e.target.closest&&e.target.closest('#pickpanel .pk-rm'); if(r&&pickCur){ e.preventDefault(); var v=pickNorm(r.getAttribute('data-v')); pickCur.value=(pickCur.value||'').split(',').map(function(x){return x.trim()}).filter(function(x){ return x&&pickNorm(x)!==v; }).join(', ');
+    pickCur.dispatchEvent(new Event('input',{bubbles:true})); pickOpen(pickCur,true); } });
+document.addEventListener('focusout',function(e){ var t=e.target, p=document.getElementById('pickpanel');
+  if(pickCur&&(t===pickCur||(p&&p.contains(t)))) setTimeout(function(){ var a=document.activeElement, p2=document.getElementById('pickpanel'); if(pickCur&&a!==pickCur&&!(p2&&p2.contains(a))) pickClose(); },160);
+  if(t&&PICK_MULTI[t.id]) t.value=String(t.value||'').replace(/[,\s]+$/,''); });
+document.addEventListener('keydown',function(e){ var p=document.getElementById('pickpanel'); if(!pickCur||!p||(e.target!==pickCur&&!e.target.classList.contains('pk-q'))) return; var os=p.querySelectorAll('.pk-o'); if(e.key==='Escape'){ pickClose(); return; } if(!os.length) return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); pickHi=(pickHi+(e.key==='ArrowDown'?1:-1)+os.length)%os.length; os.forEach(function(o,i){ o.classList.toggle('hi',i===pickHi); }); os[pickHi].scrollIntoView({block:'nearest'}); }
+  else if(e.key==='Enter'){ var k=pickHi>=0?pickHi:(e.target.classList.contains('pk-q')&&os.length?0:-1); if(k>=0){ e.preventDefault(); pickChoose(pickCur,os[k].getAttribute('data-v')); } } });
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
