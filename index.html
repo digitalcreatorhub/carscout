@@ -4356,7 +4356,7 @@ var FZ_BAD=/bojāt|avārij|rezerves daļ|uz daļām|на запчаст|бита
   var inp=function(id,ph,num){ return '<input class="in'+(num?' num':'')+'" id="'+id+'" type="text"'+(num?' inputmode="numeric"':'')+' placeholder="'+ph+'">'; };
   var any=['','','любое','any','jebkura'];
   var box=document.createElement('div'); box.id='findbox'; box.className='find-only';
-  box.innerHTML='<div class="fz-intro"><b data-ru="Опишите машину, которую ищете" data-en="Describe the car you are looking for" data-lv="Aprakstiet auto, ko meklējat"></b></div>'+
+  box.innerHTML='<div class="fz-intro"><b data-ru="Опишите автомобиль, который ищете" data-en="Describe the car you are looking for" data-lv="Aprakstiet auto, ko meklējat"></b></div>'+
     '<div class="row2">'+fld('fz-make','Марка','Make','Marka',inp('fz-make','Škoda'))+fld('fz-model','Модель','Model','Modelis',inp('fz-model','Superb, Octavia'))+'</div>'+
     '<div class="row4">'+fld('fz-yf','Год от','Year from','Gads no',inp('fz-yf','2018',1))+fld('fz-yt','Год до','Year to','Gads līdz',inp('fz-yt','2021',1))+fld('fz-kmax','Пробег до, км','Mileage up to, km','Nobraukums līdz, km',inp('fz-kmax','150000',1))+fld('fz-pmax','Цена до, €','Price up to, €','Cena līdz, €',inp('fz-pmax','18000',1))+'</div>'+
     '<div class="row4">'+fld('fz-fuel','Топливо','Fuel','Degviela',sel('fz-fuel',[['','','любое','any','jebkura'],['petrol','','бензин','petrol','benzīns'],['diesel','','дизель','diesel','dīzelis'],['hybrid','','гибрид','hybrid','hibrīds'],['electric','','электро','electric','elektro']]))+
@@ -4456,7 +4456,7 @@ setMode=function(m){
     document.querySelectorAll('#modebar [data-mode]').forEach(function(b){ var on=b.getAttribute('data-mode')==='find'; b.classList.toggle('on',on); b.setAttribute('aria-selected',on?'true':'false'); });
     var lh=document.querySelector('.lead h1'), lp=document.querySelector('.lead p');
     [lh,lp].forEach(function(el){ if(el&&!el.hasAttribute('data-oru')){ el.setAttribute('data-oru',el.getAttribute('data-ru')||''); el.setAttribute('data-oen',el.getAttribute('data-en')||''); el.setAttribute('data-olv',el.getAttribute('data-lv')||''); } });
-    if(lh){ lh.setAttribute('data-ru','Агент найдёт машину за вас'); lh.setAttribute('data-en','The agent finds the car for you'); lh.setAttribute('data-lv','Aģents atradīs auto jūsu vietā'); }
+    if(lh){ lh.setAttribute('data-ru','Агент найдёт автомобиль за вас'); lh.setAttribute('data-en','The agent finds the car for you'); lh.setAttribute('data-lv','Aģents atradīs auto jūsu vietā'); }
     if(lp){ lp.setAttribute('data-ru','Укажите параметры автомобиля. Агент несколько раз в час проверяет ss.lv, autoportaal.ee, autoplius.lt и AutoScout24 и сразу сообщит на телефон о подходящем предложении.'); lp.setAttribute('data-en','Set the car you want. The agent checks ss.lv, autoportaal.ee, autoplius.lt and AutoScout24 several times an hour and notifies your phone as soon as a matching car appears.'); lp.setAttribute('data-lv','Norādiet vēlamā auto parametrus. Aģents vairākas reizes stundā pārbauda ss.lv, autoportaal.ee, autoplius.lt un AutoScout24 un uzreiz paziņos tālrunī par piemērotu piedāvājumu.'); }
     var go=$('#btn-go'); go.setAttribute('data-ru','Начать поиск'); go.setAttribute('data-en','Start searching'); go.setAttribute('data-lv','Sākt meklēšanu');
     S.view=null; S.srcRows={}; renderSrcs(); showStatus(''); applyLang();
