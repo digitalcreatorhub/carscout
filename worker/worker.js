@@ -1216,8 +1216,11 @@ function pzClean(p) {
   p = p && typeof p === 'object' ? p : {}; const s = function (x, n) { return String(x || '').replace(/[<>]/g, '').trim().slice(0, n || 40); }, n = function (x) { x = parseInt(x, 10); return x > 0 && x < 1e8 ? x : null; };
   const en = function (x, a) { return a.indexOf(x) > -1 ? x : ''; }, mk = {};
   Object.keys(PZ_SRC).forEach(function (k) { mk[k] = p.mk && p.mk[k] ? 1 : 0; });
+  /* engine size range in litres: swapped if the wrong way round, ignored for electric cars */
+  const fuel = en(p.fuel, ['petrol', 'diesel', 'hybrid', 'electric']), ne = function (x) { x = parseFloat(x); return x >= 0.5 && x <= 10 ? Math.round(x * 10) / 10 : null; };
+  let ef = ne(p.engf), et = ne(p.engt); if (ef && et && ef > et) { const sw = ef; ef = et; et = sw; } if (fuel === 'electric') { ef = null; et = null; }
   return { make: s(p.make), models: (Array.isArray(p.models) ? p.models : []).map(function (x) { return s(x); }).filter(Boolean).slice(0, 3), yf: n(p.yf), yt: n(p.yt), kmax: n(p.kmax), pmax: n(p.pmax),
-    fuel: en(p.fuel, ['petrol', 'diesel', 'hybrid', 'electric']), gear: en(p.gear, ['automatic', 'manual']), drive: en(p.drive, ['awd', 'fwd', 'rwd']), body: en(p.body, ['wagon', 'sedan', 'hatch', 'suv', 'van', 'coupe']), mk: mk, cheap: !!p.cheap, nobad: p.nobad !== false };
+    fuel: fuel, engf: ef, engt: et, gear: en(p.gear, ['automatic', 'manual']), drive: en(p.drive, ['awd', 'fwd', 'rwd']), body: en(p.body, ['wagon', 'sedan', 'hatch', 'suv', 'van', 'coupe']), mk: mk, cheap: !!p.cheap, nobad: p.nobad !== false };
 }
 function pzBody(t) {
   t = String(t || '').toLowerCase();
@@ -1230,6 +1233,8 @@ function pzBody(t) {
   return null;
 }
 function pzDrive(i) { if (i.drive) return i.drive; const t = String((i.title || '') + ' ' + (i.model_raw || '')); return /quattro|xdrive|4motion|4matic|\bawd\b|4x4|4wd|all.?wheel|allrad|\bq4\b|e-four|pilnpiedz|полный привод/i.test(t) ? 'awd' : null; }
+/* engine size of an ad: the listing field, else a "2.0 TDI"-style number in the title (same reading as the app) */
+function pzEng(i) { if (i.engine_l > 0.5 && i.engine_l < 10) return +i.engine_l; const m = String(i.title || '').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m ? parseFloat(m[1].replace(',', '.')) : null; }
 function pzMatches(items, p) {
   const med = function (a) { if (!a.length) return null; const b = a.slice().sort(function (x, y) { return x - y; }); const k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; };
   const all = items.filter(function (i) { return i && i.url && i.price >= 500; }), out = [];
@@ -1241,6 +1246,7 @@ function pzMatches(items, p) {
     if (p.nobad && PZ_BAD.test(t)) return;
     if (p.drive) { const dv = pzDrive(i); if (p.drive === 'awd' ? dv !== 'awd' : dv === 'awd') return; }
     if (p.body) { const b = pzBody(t); if (b && b !== p.body) return; }
+    if (p.engf || p.engt) { const e = pzEng(i); if (e != null && ((p.engf && e < p.engf - 0.05) || (p.engt && e > p.engt + 0.05))) return; }
     const near = all.filter(function (x) { return x.year && i.year && Math.abs(x.year - i.year) <= 1; }).map(function (x) { return x.price; });
     const est = near.length >= 4 ? med(near) : med(all.map(function (x) { return x.price; })), d = est ? Math.round((i.price / est - 1) * 100) : 0;
     if (p.cheap && !(d <= -5)) return;

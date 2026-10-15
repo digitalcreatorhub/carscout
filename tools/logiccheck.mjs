@@ -74,6 +74,9 @@ for (const sc of SCEN) {
   check(/Проверить объявление|Check the listing|Pārbaudīt/.test(btn), 'start screen: the main button checks a listing', btn);
   await pg.tap('#modebar [data-mode=find]'); await pg.waitForTimeout(400);
   check(await pg.$eval('#findbox', e => e.offsetParent !== null).catch(() => false), 'Find me a car: the form opens');
+  check(await pg.$eval('#fz-engf', e => e.options.length > 5).catch(() => false) && !!(await pg.$('#fz-engt')), 'agent form: engine size from / to selects are there');
+  const engOk = await pg.evaluate(() => fzFilter([{ title: 'Audi A6 2.0 TDI', d: 0 }, { title: 'Audi A6', engine_l: 3.0, d: 0 }, { title: 'Audi A6 1.8', d: 0 }, { title: 'Audi A6 plain', d: 0 }, { title: 'Audi A6 3.5 TFSI', d: 0 }], { engf: 2, engt: 3 }).map(x => x.title).join('|')).catch(e => 'error ' + e.message);
+  check(engOk === 'Audi A6 2.0 TDI|Audi A6|Audi A6 plain', 'agent engine size 2.0–3.0 l: keeps matching ads and ads with no stated size, drops 1.8 and 3.5', engOk);
   await pg.tap('#fz-make'); await pg.waitForTimeout(300);
   const makes = await pg.$$eval('#pickpanel .pk-o', e => e.length).catch(() => 0);
   check(makes > 50, 'make picker lists the makes', makes + ' options');
