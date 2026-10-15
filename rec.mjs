@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-await new Promise(z=>setTimeout(z,75000));
+await new Promise(z=>setTimeout(z,200000));
 const W='https://carscout.pmax70095.workers.dev', H={origin:'https://digitalcreatorhub.github.io'};
 const C=[['ss','Land Rover','Range Rover Sport'],['ss','Mercedes-Benz','GLC'],['ss','Mercedes-Benz','CLA'],['ss','Škoda','Enyaq'],['ss','Volvo','XC40'],['ss','BMW','i4'],['ss','Mazda','6'],['autoportaal','BMW','5 Series'],['autoportaal','Mazda','Mazda6'],['autoportaal','Mercedes-Benz','E-Class'],['autoportaal','Mercedes-Benz','GLC'],['as24','Škoda','Enyaq iV'],['as24','Škoda','Enyaq'],['as24','BMW','5 Series'],['as24','Mercedes-Benz','E-Class']];
 const out=[];
