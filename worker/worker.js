@@ -1239,7 +1239,12 @@ function pzDrive(i) { if (i.drive) return i.drive; const t = String((i.title || 
 /* engine size of an ad: the listing field, else a "2.0 TDI"-style number in the title (same reading as the app) */
 function pzEng(i) { if (i.engine_l > 0.5 && i.engine_l < 10) return +i.engine_l; const m = String(i.title || '').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m ? parseFloat(m[1].replace(',', '.')) : null; }
 /* "E 300" matches "E300", "E-300", "E 300 d 4MATIC" but not "GLE 300" or "E 3000" (same reading as the app) */
-function pzVarOk(text, vs) { const t = String(text || '').toLowerCase(); return vs.some(function (v) { return new RegExp('(?:^|[^a-z0-9])' + String(v).toLowerCase().trim().split(/\s+/).map(function (x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('[\\s-]?') + '(?![0-9])').test(t); }); }
+function pzVarOk(text, vs) {
+  const t = String(text || '').toLowerCase();
+  return vs.some(function (v) { const tk = String(v).toLowerCase().trim().split(/\s+/); if (tk.length > 1 && tk[tk.length - 1] === 'amg') tk.pop(); return new RegExp('(?:^|[^a-z0-9])' + tk.map(function (x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('[\\s-]?') + '(?![0-9])').test(t); });
+}
+/* what an ad says about its model: the title, and the category in its ss.com link (/cars/mercedes/e350/...), which names the variant even when the title does not */
+function pzVarText(i) { const m = String(i.url || '').match(/\/transport\/cars\/[^/]+\/([^/]+)\//); return String((i.title || '') + ' ' + (i.model_raw || '') + ' ' + (m ? m[1] : '')); }
 function pzMatches(items, p, model) {
   const med = function (a) { if (!a.length) return null; const b = a.slice().sort(function (x, y) { return x - y; }); const k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; };
   const all = items.filter(function (i) { return i && i.url && i.price >= 500; }), out = [];
@@ -1249,7 +1254,7 @@ function pzMatches(items, p, model) {
     if (p.fuel && i.fuel && (i.fuel === 'lpg' ? 'petrol' : i.fuel) !== p.fuel) return; if (p.gear && i.gear && i.gear !== p.gear) return;
     const t = (i.title || '') + ' ' + (i.model_raw || '');
     if (p.nobad && PZ_BAD.test(t)) return;
-    const vl = p.vs && model ? p.vs[model] : null; if (vl && vl.length && !pzVarOk(t, vl)) return;
+    const vl = p.vs && model ? p.vs[model] : null; if (vl && vl.length && !pzVarOk(pzVarText(i), vl)) return;
     if (p.drive) { const dv = pzDrive(i); if (p.drive === 'awd' ? dv !== 'awd' : dv === 'awd') return; }
     if (p.body) { const b = pzBody(t); if (b && b !== p.body) return; }
     if (p.engf || p.engt) { const e = pzEng(i); if (e != null && ((p.engf && e < p.engf - 0.05) || (p.engt && e > p.engt + 0.05))) return; }
