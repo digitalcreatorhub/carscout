@@ -1,0 +1,23 @@
+== key
+{"ok":true,"key":"BKLU3IHCGIkOoa7t6KuIBF0ItCTFri3cRVQNKuk8eleD4V0uXgmqZSRbUt1lWiSlDuBZApuA4ydL-iA5yUAyt5M"}
+== key2
+{"ok":true,"key":"BKLU3IHCGIkOoa7t6KuIBF0ItCTFri3cRVQNKuk8eleD4V0uXgmqZSRbUt1lWiSlDuBZApuA4ydL-iA5yUAyt5M"}
+== badsub
+{"ok":false,"error":"bad_sub"}
+== sub
+{"ok":true,"parts":2}
+== tick 1
+{"ok":true,"part":"LV|Superb","base":true,"n":59,"fresh":0}
+== tick 2
+{"ok":true,"part":"EE|Superb","base":true,"n":26,"fresh":0}
+== tick 3
+{"ok":true,"idle":true}
+== finds
+{"ok":true,"finds":[{"id":"probe1abc","at":1792060228297,"now":85,"base":true,"fresh":[]}]}
+== inbox
+{"ok":true,"items":[]}
+== off
+{"ok":true,"off":true}
+== site
+APP_VER = '2026-10-15.3'
+1
