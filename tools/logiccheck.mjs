@@ -82,6 +82,9 @@ for (const sc of SCEN) {
   check(models.includes('A6') && !models.includes('Golf'), 'model picker shows only the models of the chosen make', models.slice(0, 6).join(','));
   await pg.tap('#pickpanel .pk-o[data-v="A6"]').catch(() => { }); await pg.waitForTimeout(400);
   check(!(await pg.$('#pickpanel')) && (await pg.$eval('#fz-model', e => e.value).catch(() => '')) === 'A6', 'the list closes after picking a model');
+  check(await pg.$eval('#mode-back', e => !e.hidden && e.offsetParent !== null).catch(() => false), 'a visible "back to checking a listing" button in the agent mode');
+  await pg.tap('#mode-back').catch(() => { }); await pg.waitForTimeout(400);
+  check(await pg.$eval('#f-url', e => e.offsetParent !== null).catch(() => false) && await pg.$eval('#mode-back', e => e.hidden).catch(() => false), 'the back button returns to the link field');
   await pg.tap('#modebar [data-mode=sell]'); await pg.waitForTimeout(400);
   check(/Оценить|Value my car/.test(await pg.$eval('#btn-go', e => e.textContent).catch(() => '')), 'Value my car: the mode opens');
   await pg.tap('#modebar [data-mode=sell]'); await pg.waitForTimeout(400);
