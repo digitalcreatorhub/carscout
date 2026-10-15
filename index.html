@@ -979,9 +979,9 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .tgb.wait{border-color:color-mix(in srgb,#f5b84b 50%,var(--line));background:color-mix(in srgb,#f5b84b 6%,transparent)}
 /* "Value my car" asks for attention softly until it has been tried: slow breathing glow and a light that circles the border without jumps */
 @property --nudge-a{syntax:'<angle>';inherits:false;initial-value:0deg}
-.modebar button.nudge{position:relative;color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent);animation:sellbreath 4.2s ease-in-out infinite alternate}
-.modebar button.nudge svg{color:var(--accent)}
-.modebar button.nudge::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
+.modebar button.nudge:not(.on){position:relative;color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent);animation:sellbreath 4.2s ease-in-out infinite alternate}
+.modebar button.nudge:not(.on) svg{color:var(--accent)}
+.modebar button.nudge:not(.on)::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1.5px;pointer-events:none;
   background:conic-gradient(from var(--nudge-a),transparent 0deg,transparent 250deg,color-mix(in srgb,var(--accent) 55%,transparent) 310deg,var(--accent) 340deg,transparent 360deg);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:sellorbit 5s linear infinite}
 @keyframes sellbreath{from{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent),0 0 6px -4px color-mix(in srgb,var(--accent) 20%,transparent)}to{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 0 18px -4px color-mix(in srgb,var(--accent) 45%,transparent)}}
@@ -2381,7 +2381,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-14.28', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-15.1', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -3812,8 +3812,8 @@ var SELL_COND={top:[1.04,'отличное','excellent','izcils'],good:[1,'хо�
   mark(document.getElementById('f-url')&&document.getElementById('f-url').closest('.fld')); mark(document.getElementById('shots-fld'));
   mark(document.getElementById('f-text')&&document.getElementById('f-text').closest('.fld')); mark(document.getElementById('f-vin')&&document.getElementById('f-vin').closest('.fld'));
   mark(document.getElementById('extra-d')); mark(document.getElementById('f-photos')&&document.getElementById('f-photos').closest('label')); mark(form.querySelector('[data-act="more"]'));
-  /* a soft glow on "Value my car" until it has been tried once in this browser */
-  try{ if(!LS.get('carscout_sell_tried')) bar.querySelector('[data-mode=sell]').classList.add('nudge'); }catch(e){}
+  /* a soft glow on "Value my car" (always, while the other mode is open) */
+  bar.querySelector('[data-mode=sell]').classList.add('nudge');
   bar.addEventListener('click',function(e){ var b=e.target.closest('[data-mode]'); if(b) setMode(b.getAttribute('data-mode')); });
 })();
 var SELL_SAVE={};
@@ -3832,7 +3832,6 @@ function setMode(m){
       'Norādiet marku, modeli, gadu un nobraukumu. Lietotne atradīs līdzīgus auto, kas tagad tiek pārdoti ss.lv, autoplius.lt, autoportaal.ee un AutoScout24, un ieteiks, par cik izlikt jūsējo: ātri, optimāli vai maksimāli. Plus gatavs sludinājuma teksts.'); }
   else [lh,lp].forEach(function(el){ if(el) setT(el,el.getAttribute('data-oru'),el.getAttribute('data-oen'),el.getAttribute('data-olv')); });
   if(sell){
-    try{ LS.set('carscout_sell_tried','1'); var nb=document.querySelector('#modebar [data-mode=sell]'); if(nb) nb.classList.remove('nudge'); }catch(e){}
     SELL_SAVE={url:$('#f-url').value,text:$('#f-text').value,price:$('#f-price').value}; $('#f-url').value=''; $('#f-text').value=''; $('#f-price').value='';
     S.images.forEach(function(i){URL.revokeObjectURL(i.url)}); S.images=[]; renderThumbs();
     $('#manual').open=true;
