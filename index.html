@@ -865,6 +865,12 @@ body.fx-busy #intake{box-shadow:0 0 0 1px rgba(198,242,78,.35),0 0 30px -6px rgb
 /* KPI values subtle gradient text */
 .kpis .kpi dd{background:linear-gradient(180deg,#fff,#c9d1db);-webkit-background-clip:text;background-clip:text;color:transparent}
 .kpis .kpi dd.up{background:none;color:var(--warn)}.kpis .kpi dd.dn{background:none;color:var(--good)}
+.dropb{display:inline-flex;align-items:center;gap:5px;margin-left:10px;padding:2px 9px;border:1px solid currentColor;border-radius:999px;font:500 13px var(--f-body);color:var(--good);white-space:nowrap;vertical-align:middle}
+.dropb i{font-style:normal;display:inline-block;animation:dropblink 1s ease-in-out 6}
+@keyframes dropblink{0%,100%{transform:translateY(-2px);opacity:1}50%{transform:translateY(3px);opacity:.25}}
+.pline{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+.betab{display:inline-block;margin-left:8px;padding:1px 7px;border:1px solid var(--line2);border-radius:999px;font:500 11px var(--f-body);color:var(--muted);letter-spacing:.04em;text-transform:uppercase;vertical-align:middle}
+@media (prefers-reduced-motion:reduce){.dropb i{animation:none}}
 @media (prefers-reduced-motion:reduce){#fxbg .a1,#fxbg .a2,#out>.fx-in,svg circle.fx-dot,svg circle.halo,#a-scatter svg circle,body.fx-busy #intake::after,.sc.ok b,.btn.pri:hover::after{animation:none!important}}
 @media print{#fxbg{display:none}}
 /* ---- data visual details ---- */
@@ -2603,6 +2609,7 @@ function favRow(f,i){
   var meta=[f.km!=null?fmt(f.km)+' km':null,f.fuel?fuelLabel({fuel:f.fuel,lpg:f.lpg}):null,f.trim||null].filter(Boolean).join(' · ');
   var vd=f.verdict&&VNAME[f.verdict]?LP(VNAME[f.verdict]):'';
   var link=f.url&&safeUrl(f.url)?'<a href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть','Open'))+'</a>':'';
+  var rd=recentDrop(f.hist,Date.now()); if(rd) badge=dropBadge(rd);
   if(f.gone) badge+='<span class="badge-gone">'+esc(L('снято с продажи','no longer listed','noņemts no pārdošanas'))+'</span>';
   var od=dayDiff(f.posted); if(od!=null&&!f.gone) meta+=(meta?' · ':'')+L('на продаже ','on sale ','pārdošanā ')+nDays(od);
   if(f.hist&&f.hist.length>1) meta+=(meta?' · ':'')+L('цены: ','prices: ','cenas: ')+f.hist.map(function(h){return fmt(h.p)}).join(' → ');
@@ -3380,7 +3387,7 @@ function pLife(v){
     if(others.length) parts+='<div class="shh"><i style="background:var(--muted)"></i>'+esc(L('Другие машины продавца','The seller’s other cars','Citi pārdevēja auto'))+' ('+others.length+')</div><div class="sthumbs">'+others.slice(0,8).map(function(i){ var u=safeUrl(i.url), ti=i.img?aImg(i.img):''; return '<a href="'+esc(u||'#')+'" target="_blank" rel="noopener noreferrer" title="'+esc(String(i.title||'').slice(0,80))+'"><span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span><small>'+esc([(i.mk||'').replace(/-/g,' '),i.year].filter(Boolean).join(' '))+'<br>'+esc(eur(i.price))+'</small></a>'; }).join('')+'</div>'+(se.searchUrl&&safeUrl(se.searchUrl)?'<p class="mini"><a class="nl" href="'+esc(safeUrl(se.searchUrl))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Все объявления продавца на ss.lv','All the seller’s ads on ss.lv','Visi pārdevēja sludinājumi ss.lv'))+'</a></p>':'');
   }
   return aPanel('a-life','c7',aHead(L('Объявление и продавец','The ad and the seller','Sludinājums un pārdevējs'),aMeta(isSs?L('данные ss.lv','ss.lv data','ss.lv dati'):(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})())),
-    (isSs||o.days!=null?kp:'')+mapBlock(c)+histBlock(v)+'<ul class="ls">'+fl+'</ul>'+parts+(v.photoState==='run'?'<p class="anote">'+esc(L('Сравниваю фото с другими объявлениями…','Comparing photos with other ads…','Salīdzinu foto ar citiem sludinājumiem…'))+'</p>':''));
+    (isSs||o.days!=null?kp:'')+mapBlock(c)+tripBeta(v)+histBlock(v)+'<ul class="ls">'+fl+'</ul>'+parts+(v.photoState==='run'?'<p class="anote">'+esc(L('Сравниваю фото с другими объявлениями…','Comparing photos with other ads…','Salīdzinu foto ar citiem sludinājumiem…'))+'</p>':''));
 }
 
 /* ---- what is known about this car's history: shown only when something was actually found ---- */
@@ -4265,13 +4272,115 @@ async function memLoad(v){
     var j=await api('/api/memory',{url:c.url||'',vin:c.vin||'',make:c.make||'',model:c.model||'',year:c.year||''},15000);
     if(v!==S.view||!j||!j.ok) return;
     if(v.sell){ var ms=memMarketLines(j.market,v), box=document.querySelector('#a-sell .anote'); if(ms.length&&box&&!document.getElementById('sv-mem')){ ms.forEach(function(t,i){ var p=document.createElement('p'); if(!i) p.id='sv-mem'; p.className='anote'; p.style.color='var(--ink)'; p.textContent=t; box.parentNode.insertBefore(p,box); }); } return; }
-    v.mem=memAnalyse(v,j); memPlace(v); try{ fraudRefresh(); }catch(e){}
+    v.mem=memAnalyse(v,j); memPlace(v); try{ fraudRefresh(); }catch(e){} try{ dropPlace(v,j); }catch(e){}
   }catch(e){}
 }
 var memExtras0=extrasAfterRun;
 extrasAfterRun=function(v){ var r=memExtras0(v); setTimeout(function(){ memLoad(v); },400); return r; };
 var memRender0=renderA;
 renderA=function(v){ var h=memRender0(v); if(!v||!v.mem||v.sell) return h; var m=pMem(v); if(!m) return h; var at=h.indexOf('id="a-check"'); if(at<0) return h+m; var s=h.lastIndexOf('<section',at); return s<0?h+m:h.slice(0,s)+m+h.slice(s); };
+
+/* ======================= BETA: price-drop arrows, price at the start of sale, cost of the trip =======================
+   Pure logic sits between the BETA-PURE markers (tools/lifecheck.mjs tests it). To drop the trip feature: set TRIP_BETA=false. */
+/*BETA-PURE-START*/
+var DROP_DAYS=5, TRIP_BETA=true;
+var FUEL_REF={date:'2026-09-28',petrol:2.038,diesel:2.133};
+/* A drop counts only when the price fell within the last `days` days and has not gone back up since. */
+function recentDrop(hist,now,days){
+  var ps=[]; (hist||[]).filter(function(x){return x&&x.p>0&&x.t>0}).sort(function(a,b){return a.t-b.t}).forEach(function(x){ if(!ps.length||ps[ps.length-1].p!==x.p) ps.push(x); });
+  var win=(days||DROP_DAYS)*86400000, i=ps.length-1, steps=0;
+  while(i>0&&ps[i].p<ps[i-1].p&&now-ps[i].t<=win){ steps++; i--; }
+  if(!steps) return null;
+  return {from:ps[i].p,to:ps[ps.length-1].p,t:ps[ps.length-1].t,steps:steps};
+}
+/* The memory may lag behind the page: if the ad shows a different price than the last stored one, that is a change seen now. */
+function histWithNow(hist,price,now){
+  var h=(hist||[]).filter(function(x){return x&&x.p>0&&x.t>0}).sort(function(a,b){return a.t-b.t}), last=h[h.length-1];
+  if(price>0&&last&&last.p!==price) h.push({t:now,p:price});
+  return h;
+}
+/* Start of sale: the ad's own date plus the first price CarScout saw. Only called a "start price" when CarScout saw it within 2 days of posting. */
+function adStart(posted,first,price,now){
+  var pt=null; if(posted){ var d=new Date(String(posted).slice(0,10)+'T12:00:00'); if(!isNaN(d)) pt=d.getTime(); }
+  var fp=first&&first.p>0?first.p:null, ft=first&&first.t>0?first.t:null;
+  if(ft!=null&&now-ft<86400000){ fp=null; ft=null; }
+  return {posted:pt,now:price>0?price:null,start:fp,seen:ft,exact:fp!=null&&pt!=null&&ft-pt<=2*86400000};
+}
+/* Rough litres per 100 km by fuel and engine size: a guide for the class of engine, not for this very car. */
+function tripCons(fuel,eL){
+  var e=eL>0.5&&eL<8?eL:null;
+  if(fuel==='hybrid') return 5.5;
+  if(fuel==='diesel') return e==null?6.0:e<1.3?5.0:e<1.7?5.4:e<2.1?6.0:e<3.1?7.5:9.5;
+  return e==null?8.0:e<1.3?6.3:e<1.7?7.0:e<2.1?8.0:e<3.1?9.8:12.5;
+}
+function tripPrice(fuel){ return fuel==='diesel'?FUEL_REF.diesel:FUEL_REF.petrol; }
+function tripCost(km,legs,cons,price){ return Math.round(km*legs*cons/100*price); }
+/* gain = how many euros the car is below the market price (negative: above it); null when there is no market comparison */
+function tripSum(cost,gain){
+  if(gain==null) return {key:'cost',cost:cost};
+  if(gain<=-50) return {key:'above',cost:cost,gain:-gain};
+  if(gain<50) return {key:'flat',cost:cost};
+  var net=Math.round(gain-cost); return {key:net>0?'win':'lose',cost:cost,gain:gain,net:net};
+}
+/*BETA-PURE-END*/
+function dropBadge(d){
+  var pc=Math.round((d.from-d.to)/d.from*100), txt='−'+eur(d.from-d.to)+(pc>=1?' (−'+pc+'%)':'')+(d.steps>1?' ×'+d.steps:'');
+  var tt=L('Цена снижена с '+eur(d.from)+' до '+eur(d.to)+'. CarScout заметил это '+memDate(d.t)+'.','The price was cut from '+eur(d.from)+' to '+eur(d.to)+'. CarScout noticed it on '+memDate(d.t)+'.','Cena samazināta no '+eur(d.from)+' uz '+eur(d.to)+'. CarScout to pamanīja '+memDate(d.t)+'.');
+  return '<span class="dropb" role="img" title="'+esc(tt)+'" aria-label="'+esc(tt)+'"><i aria-hidden="true">▼</i>'+esc(txt)+'</span>';
+}
+function startLine(s){
+  var o=[];
+  if(s.posted!=null) o.push(L('В продаже с ','On sale since ','Pārdošanā kopš ')+memDate(s.posted));
+  if(s.start!=null&&s.now!=null){
+    if(s.start===s.now) o.push(L('цена не менялась с '+memDate(s.seen)+' (наблюдение CarScout)','price unchanged since '+memDate(s.seen)+' (seen by CarScout)','cena nav mainījusies kopš '+memDate(s.seen)+' (CarScout novērojums)'));
+    else{
+      o.push((s.exact?L('цена в начале продажи ','price at the start of sale ','cena pārdošanas sākumā '):L('первая цена, которую увидел CarScout ('+memDate(s.seen)+'): ','first price CarScout saw ('+memDate(s.seen)+'): ','pirmā cena, ko redzēja CarScout ('+memDate(s.seen)+'): '))+eur(s.start));
+      o.push(L('сейчас ','now ','tagad ')+eur(s.now)+' ('+pct((s.now-s.start)/s.start*100)+')');
+    }
+  }
+  return o.join(' · ');
+}
+function dropPlace(v,j){
+  var c=v.car, now=Date.now(), self=(j&&j.self)||{};
+  v.drop=recentDrop(histWithNow(self.hist,c.price,now),now,DROP_DAYS);
+  var ask=document.querySelector('#a-car .ask'); if(!ask) return;
+  Array.prototype.forEach.call(document.querySelectorAll('#a-car .dropb,#a-car .pline'),function(n){ n.remove(); });
+  var b=ask.querySelector('b'); if(v.drop&&b) b.insertAdjacentHTML('afterend',dropBadge(v.drop));
+  var line=startLine(adStart(c.posted,self.first,c.price,now));
+  if(line) ask.insertAdjacentHTML('afterend','<div class="pline">'+esc(line)+'</div>');
+}
+function tripLine(km,legs,cons,price,gain){
+  var s=tripSum(tripCost(km,legs,cons,price),gain), x=eur(s.cost);
+  if(s.key==='win') return L('Машина ниже рынка примерно на '+eur(s.gain)+', поездка ≈ '+x+': останется выгода ≈ '+eur(s.net)+'.','The car is about '+eur(s.gain)+' below the market, the trip is ≈ '+x+': you keep ≈ '+eur(s.net)+'.','Auto ir apmēram '+eur(s.gain)+' zem tirgus, brauciens ≈ '+x+': ieguvums paliek ≈ '+eur(s.net)+'.');
+  if(s.key==='lose') return L('Машина ниже рынка примерно на '+eur(s.gain)+', но поездка ≈ '+x+' съедает эту разницу. Ехать только ради цены нет смысла.','The car is about '+eur(s.gain)+' below the market, but the trip at ≈ '+x+' eats that difference. Not worth going for the price alone.','Auto ir apmēram '+eur(s.gain)+' zem tirgus, bet brauciens ≈ '+x+' apēd šo starpību. Braukt tikai cenas dēļ nav vērts.');
+  if(s.key==='above') return L('Цена выше рынка примерно на '+eur(s.gain)+', поездка добавит ≈ '+x+'.','The price is about '+eur(s.gain)+' above the market, the trip adds ≈ '+x+'.','Cena ir apmēram '+eur(s.gain)+' virs tirgus, brauciens pievienos ≈ '+x+'.');
+  if(s.key==='flat') return L('Цена на уровне рынка, поездка добавит ≈ '+x+'.','The price is in line with the market, the trip adds ≈ '+x+'.','Cena ir tirgus līmenī, brauciens pievienos ≈ '+x+'.');
+  return L('Поездка обойдётся примерно в '+x+' на топливо.','The trip will cost about '+x+' in fuel.','Brauciens izmaksās apmēram '+x+' degvielas.');
+}
+function tripBeta(v){
+  if(!TRIP_BETA||!v||v.sell||!v.car||isAbroad(v.car)||isEvCar(v.car)) return '';
+  var c=v.car, g=geoOf(c); if(!g||!g.lat) return '';
+  var km=kmFromRiga(g), fuel=c.fuel==='diesel'?'diesel':c.fuel==='hybrid'?'hybrid':(c.fuel==='petrol'||c.lpg)?'petrol':null;
+  if(!fuel||km==null||km<10) return '';
+  var F=v.fair, h=v.home, mkt=F&&/^comps/.test(F.source||'')&&h&&c.price>0, gain=mkt?Math.round(F.mid-c.price):null;
+  var cons=tripCons(fuel,engineOf(c)), pr=tripPrice(fuel), r50=function(x){ return Math.round(x/50)*50; };
+  var age=Math.round((Date.now()-new Date(FUEL_REF.date+'T12:00:00').getTime())/86400000), fd=memDate(new Date(FUEL_REF.date+'T12:00:00').getTime());
+  var basis=mkt?L('Сравнение с рынком: '+h.n+' похожих объявл. ('+rname(h.region)+'), обычная цена '+eur(r50(F.mid))+'. ','Market comparison: '+h.n+' similar ads ('+rname(h.region)+'), typical price '+eur(r50(F.mid))+'. ','Salīdzinājums ar tirgu: '+h.n+' līdzīgi sludin. ('+rname(h.region)+'), parastā cena '+eur(r50(F.mid))+'. '):'';
+  var inp=function(id,lab,val){ return '<label class="ff"><span>'+esc(lab)+'</span><input class="in" id="'+id+'" inputmode="decimal" value="'+esc(String(val).replace('.',','))+'"></label>'; };
+  return '<div class="shh"><i style="background:var(--warn)"></i>'+esc(L('Поездка за машиной','Trip to see the car','Brauciens pēc auto'))+'<span class="betab">'+esc(L('тест','beta','tests'))+'</span></div>'+
+    '<div id="trip-beta" data-km="'+km+'" data-gain="'+(gain==null?'':gain)+'" data-cons="'+cons+'" data-price="'+pr+'">'+
+    '<div class="row3">'+inp('trip-cons',L('Расход, л/100 км','Consumption, l/100 km','Patēriņš, l/100 km'),cons)+inp('trip-price',L('Топливо, €/л','Fuel, €/l','Degviela, €/l'),pr)+
+    '<label class="ff"><span>'+esc(L('Как едете','How you go','Kā braucat'))+'</span><select class="in" id="trip-mode"><option value="2">'+esc(L('туда и обратно на своей','round trip in your car','turp un atpakaļ ar savu'))+'</option><option value="1">'+esc(L('туда не на своей, обратно на этой','there another way, back in this car','turp citādi, atpakaļ ar šo'))+'</option></select></label></div>'+
+    '<p class="rn" id="trip-out" style="margin-top:8px">'+esc(tripLine(km,2,cons,pr,gain))+'</p>'+
+    '<p class="anote">'+esc(basis+L('Расстояние ≈ '+km+' км от центра Риги по дорогам (прямая × 1,25). Расход — ориентир для такого двигателя, не для этой машины. Цена топлива — среднее по Латвии из бюллетеня цен ЕК на '+fd+' (внесено вручную, само не обновляется'+(age>14?', уже устарела, поправьте':'')+'). Время и билеты не считаются. Тестовая функция.','Distance ≈ '+km+' km from central Riga by road (straight line × 1.25). Consumption is a guide for this class of engine, not for this very car. The fuel price is the Latvian average from the EC oil bulletin on '+fd+' (entered by hand, not updated automatically'+(age>14?', now out of date, please correct it':'')+'). Time and tickets are not counted. Test feature.','Attālums ≈ '+km+' km no Rīgas centra pa ceļiem (taisne × 1,25). Patēriņš ir orientieris šādam motoram, nevis šim auto. Degvielas cena ir vidēji Latvijā no EK biļetena uz '+fd+' (ievadīta ar roku, automātiski neatjaunojas'+(age>14?', jau novecojusi, izlabojiet':'')+'). Laiks un biļetes netiek skaitīti. Testa funkcija.'))+'</p></div>';
+}
+function tripRecalc(){
+  var b=document.getElementById('trip-beta'), o=document.getElementById('trip-out'); if(!b||!o) return;
+  var num=function(id,d){ var e=document.getElementById(id), x=e?parseFloat(String(e.value).replace(',','.')):NaN; return isFinite(x)&&x>0&&x<100?x:d; };
+  var g=b.getAttribute('data-gain');
+  o.textContent=tripLine(parseFloat(b.getAttribute('data-km')),num('trip-mode',2),num('trip-cons',parseFloat(b.getAttribute('data-cons'))),num('trip-price',parseFloat(b.getAttribute('data-price'))),g===''||g==null?null:parseFloat(g));
+}
+document.addEventListener('input',function(e){ var t=e.target; if(t&&t.closest&&t.closest('#trip-beta')) tripRecalc(); });
 
 /* ======================= Telegram alerts: link this browser's favourites and saved searches to a bot chat ======================= */
 var TG_BOT='carsscout_lv_bot', KEY_TG='carscout_tg', tgTimer=null;

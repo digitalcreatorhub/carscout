@@ -177,6 +177,87 @@ check(res.ok && res.market && res.market.sold === ls.events && res.market.days =
   }
 }
 
+/* ---------- 8. BETA: price-drop arrows, the start-of-sale line, the cost of the trip (pure functions cut out of index.html) ---------- */
+{
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const line = re => { const m = html.match(re); if (!m) throw new Error('not found in index.html: ' + re); return m[0]; };
+  const pa = html.indexOf('/*BETA-PURE-START*/'), pz = html.indexOf('/*BETA-PURE-END*/');
+  const ua = html.indexOf('function dropBadge'), uz = html.indexOf('function dropPlace'), ta = html.indexOf('function tripLine'), tz = html.indexOf('function tripRecalc');
+  check(pa > 0 && pz > pa && uz > ua && ua > pz && tz > ta, 'the beta functions are found in index.html');
+  const code = [line(/^function esc\(s\)\{.*$/m), line(/^function L\(ru,en,lv\)\{.*$/m), line(/^function fmt\(n\)\{.*$/m), line(/^function eur\(n\)\{.*$/m), line(/^function pct\(d\)\{.*$/m), line(/^function memDate\(t\)\{.*$/m),
+    html.slice(pa, pz), html.slice(ua, uz), html.slice(ta, tz)].join('\n');
+  const mkctx = (lang) => { const c = vm.createContext({ S: { lang }, lvT: x => x, console }); vm.runInContext(code, c); return c; };
+  const ru = mkctx('ru');
+  const J = (c, expr) => JSON.parse((vm.runInContext('JSON.stringify(' + expr + ')', c) || 'null').replace(/[  ]/g, ' '));
+  const now = new Date(2026, 9, 16, 19, 0).getTime(), at = (days, h = 12) => new Date(2026, 9, 16 - days, h, 0).getTime();
+  const rd = (hist) => J(ru, `recentDrop(${JSON.stringify(hist)}, ${now})`);
+
+  /* arrows: only a drop seen within the last 5 days, and not one that went back up */
+  let d = rd([{ t: at(9), p: 10000 }, { t: at(1), p: 9700 }]);
+  check(d && d.from === 10000 && d.to === 9700 && d.steps === 1, 'a drop one day ago is shown', d);
+  check(rd([{ t: at(12), p: 10000 }, { t: at(8), p: 9700 }]) === null, 'a drop eight days ago is NOT shown');
+  check(rd([{ t: at(12), p: 10000 }, { t: at(6), p: 9700 }]) === null, 'a drop six days ago is NOT shown (the window is 5 days)');
+  check(rd([{ t: at(9), p: 10000 }, { t: at(4), p: 9700 }]) !== null, 'a drop four days ago is shown');
+  check(rd([{ t: at(9), p: 10000 }, { t: at(3), p: 9700 }, { t: at(1), p: 9900 }]) === null, 'a drop followed by a rise is not shown as a drop');
+  check(rd([{ t: at(2), p: 9000 }, { t: at(1), p: 9300 }]) === null, 'a rise is not shown as a drop');
+  d = rd([{ t: at(9), p: 10000 }, { t: at(3), p: 9800 }, { t: at(1), p: 9500 }]);
+  check(d && d.from === 10000 && d.to === 9500 && d.steps === 2, 'two drops inside the window are added up', d);
+  d = rd([{ t: at(10), p: 10000 }, { t: at(8), p: 9800 }, { t: at(1), p: 9500 }]);
+  check(d && d.from === 9800 && d.steps === 1, 'a drop older than the window is not counted in the total', d);
+  check(rd([{ t: at(1), p: 9500 }]) === null && rd([]) === null && rd(null) === null, 'one price point or none: nothing is shown');
+  check(rd([{ t: at(1), p: 9500 }, { t: at(0), p: 9500 }]) === null, 'the same price seen twice is not a change');
+  const wn = (hist, price) => J(ru, `recentDrop(histWithNow(${JSON.stringify(hist)}, ${price}, ${now}), ${now})`);
+  d = wn([{ t: at(9), p: 10000 }], 9600);
+  check(d && d.from === 10000 && d.to === 9600, 'if the page shows a lower price than the memory knows, that drop is seen now', d);
+  check(wn([{ t: at(9), p: 10000 }], 10000) === null && wn([{ t: at(9), p: 10000 }], 10400) === null, 'same or higher price than the memory: no arrow');
+
+  /* the start-of-sale line */
+  const st = (posted, first, price) => J(ru, `adStart(${JSON.stringify(posted)}, ${JSON.stringify(first)}, ${price}, ${now})`);
+  let s = st('2026-10-05', { t: at(10), p: 9500 }, 9200);
+  check(s.start === 9500 && s.exact === true && s.now === 9200, 'seen within 2 days of posting: it is the start price', s);
+  s = st('2026-10-05', { t: at(4), p: 9500 }, 9200);
+  check(s.start === 9500 && s.exact === false, 'seen long after posting: it is only the first price CarScout saw', s);
+  s = st('2026-10-05', { t: at(0, 8), p: 9500 }, 9500);
+  check(s.start === null, 'seen only today: nothing to compare with', s);
+  s = st(null, { t: at(5), p: 9500 }, 9200);
+  check(s.posted === null && s.exact === false && s.start === 9500, 'no posting date: never called the start price', s);
+  s = st('2026-10-05', { t: at(10), p: 9500 }, 9200);
+  const sl = (lang, x) => J(mkctx(lang), `startLine(${JSON.stringify(x)})`);
+  check(sl('ru', s) === 'В продаже с 05.10.2026 · цена в начале продажи 9 500 € · сейчас 9 200 € (−3,2%)', 'start line, ru', sl('ru', s));
+  s = st('2026-10-05', { t: at(4), p: 9500 }, 9200);
+  check(/^В продаже с 05\.10\.2026 · первая цена, которую увидел CarScout \(12\.10\.2026\): 9 500 € · сейчас 9 200 € \(−3,2%\)$/.test(sl('ru', s)), 'start line when CarScout came late says so', sl('ru', s));
+  s = st('2026-10-05', { t: at(4), p: 9500 }, 9500);
+  check(/цена не менялась с 12\.10\.2026 \(наблюдение CarScout\)/.test(sl('ru', s)), 'an unchanged price is said to be unchanged only since CarScout watched', sl('ru', s));
+  check(sl('ru', st('2026-10-05', null, 9200)) === 'В продаже с 05.10.2026', 'only the posting date known: only that is shown');
+  check(sl('ru', st(null, null, 9200)) === '', 'nothing known: no line');
+  for (const lang of ['en', 'lv']) {
+    const t = sl(lang, st('2026-10-05', { t: at(10), p: 9500 }, 9200)) + ' | ' + J(mkctx(lang), `dropBadge({from: 9500, to: 9200, t: ${at(1)}, steps: 2})`);
+    check(t.length > 60 && !/undefined|NaN|null/.test(t), lang + ': start line and arrow badge are complete', t);
+  }
+  const badge = J(ru, `dropBadge({from: 9500, to: 9200, t: ${at(1)}, steps: 2})`);
+  check(/▼/.test(badge) && /−300 € \(−3%\) ×2/.test(badge) && /Цена снижена с 9 500 € до 9 200 €/.test(badge) && /class="dropb"/.test(badge), 'the arrow badge shows the amount, the percent and when it was noticed', badge);
+
+  /* the trip */
+  const e = (x) => J(ru, x);
+  check(e('tripCons("petrol",1.6)') === 7.0 && e('tripCons("diesel",2.0)') === 6.0 && e('tripCons("hybrid",1.8)') === 5.5 && e('tripCons("petrol",null)') === 8.0 && e('tripCons("diesel",3.0)') === 7.5, 'consumption guide by fuel and engine size');
+  check(e('tripCost(100, 2, 7, 2.038)') === 29 && e('tripCost(100, 1, 7, 2.038)') === 14, 'trip cost = km × legs × l/100 × price, one leg is half');
+  check(e('tripPrice("diesel")') === 2.133 && e('tripPrice("petrol")') === 2.038 && e('tripPrice("hybrid")') === 2.038, 'diesel uses the diesel price, the rest the petrol price');
+  check(e('tripSum(29, 300)').key === 'win' && e('tripSum(29, 300)').net === 271, 'cheaper than market and the trip is small: you keep the difference');
+  check(e('tripSum(400, 300)').key === 'lose' && e('tripSum(400, 300)').net === -100, 'the trip eats the whole difference');
+  check(e('tripSum(29, -200)').key === 'above' && e('tripSum(29, -200)').gain === 200, 'dearer than market is said as dearer');
+  check(e('tripSum(29, 20)').key === 'flat' && e('tripSum(29, -20)').key === 'flat', 'within 50 euros of the market counts as the market price');
+  check(e('tripSum(29, null)').key === 'cost', 'without a market comparison only the cost is said, no verdict');
+  check(e('tripLine(100, 2, 7, 2.038, 300)') === 'Машина ниже рынка примерно на 300 €, поездка ≈ 29 €: останется выгода ≈ 271 €.', 'trip text: win', e('tripLine(100, 2, 7, 2.038, 300)'));
+  check(/съедает эту разницу/.test(e('tripLine(300, 2, 9, 2.133, 100)')), 'trip text: the trip eats the difference');
+  check(e('tripLine(100, 2, 7, 2.038, null)') === 'Поездка обойдётся примерно в 29 € на топливо.', 'trip text without a market comparison');
+  for (const lang of ['en', 'lv']) {
+    const t = ['300', '-300', '10', 'null'].map(g => J(mkctx(lang), `tripLine(100, 2, 7, 2.038, ${g})`)).join(' | ');
+    check(t.length > 80 && !/undefined|NaN|null/.test(t), lang + ': trip lines are complete', t);
+  }
+  const off = vm.createContext({ S: { lang: 'ru' }, lvT: x => x, console }); vm.runInContext(code.replace('TRIP_BETA=true', 'TRIP_BETA=false') + '\n' + html.slice(html.indexOf('function tripBeta'), tz), off);
+  check(vm.runInContext('tripBeta({ car: {} })', off) === '', 'with the test switch off the trip block is not drawn');
+}
+
 console.log(oks.map(x => '✔ ' + x).join('\n'));
 if (fails.length) { console.log('\n' + fails.map(x => '✘ ' + x).join('\n')); process.exit(1); }
 console.log(`\n${oks.length} checks passed`);
