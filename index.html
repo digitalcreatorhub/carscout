@@ -4203,18 +4203,55 @@ function memAnalyse(v,m){
   if(o.warn.length) v.memory={rollback:o.warn[0]};
   return o;
 }
-function memMarketLine(mk){
-  if(!mk||mk.days==null) return '';
-  return L('По наблюдениям CarScout ('+mk.sold+' проданных): такие машины уходят примерно за '+nDays(Math.round(mk.days))+(mk.drop!=null&&mk.drop<-0.5?', перед продажей цену снижают в среднем на '+Math.round(-mk.drop)+'%':''),
-    'From CarScout observations ('+mk.sold+' sold): such cars go in about '+nDays(Math.round(mk.days))+(mk.drop!=null&&mk.drop<-0.5?', the price is cut by '+Math.round(-mk.drop)+'% on average before the sale':''),
-    'Pēc CarScout novērojumiem ('+mk.sold+' pārdoti): šādi auto aiziet aptuveni '+nDays(Math.round(mk.days))+(mk.drop!=null&&mk.drop<-0.5?', pirms pārdošanas cenu vidēji samazina par '+Math.round(-mk.drop)+'%':''));
+/* How long such cars stay on ss.lv, MEASURED by CarScout (the worker re-checks ads and counts the ones still on sale too).
+   Nothing is shown until the worker has enough ads that left; "left" means gone from the site: sold or taken down. */
+function memPhrase(x){
+  if(!x) return '';
+  if(x.days!=null) return L('за ~'+nDays(Math.round(x.days)),'in ~'+nDays(Math.round(x.days)),'aptuveni '+nDays(Math.round(x.days)));
+  if(x.p30!=null) return L('около '+x.p30+'% за 30 дней','about '+x.p30+'% within 30 days','ap '+x.p30+'% 30 dienu laikā');
+  return '';
+}
+var MEM_GRP=[['cheap','дешевле похожих','cheaper than similar ones','lētāki par līdzīgajiem'],['mid','по цене рынка','priced like the market','tirgus cenā'],['dear','дороже похожих','dearer than similar ones','dārgāki par līdzīgajiem']];
+function memMarketLines(mk,v){
+  var out=[]; if(!mk) return out;
+  var n=mk.n||0, ev=mk.events!=null?mk.events:mk.sold||0;
+  var T=mk.days==null?(mk.p30!=null?30:mk.p14!=null?14:0):0, P=T===30?mk.p30:T===14?mk.p14:null;
+  if(mk.days!=null||T){
+    var drop=mk.drop!=null&&mk.drop<-0.5?Math.round(-mk.drop):0, since=mk.since!=null?mk.since:null;
+    var base=L('из '+n+' объявлений под наблюдением CarScout ушло '+ev+(since?', наблюдение идёт '+nDays(since):''),n+' ads watched by CarScout, '+ev+' of them left'+(since?', watching for '+nDays(since):''),'no '+n+' CarScout novērotajiem sludinājumiem pazuda '+ev+(since?', novērošana ilgst '+nDays(since):''));
+    out.push(mk.days!=null
+      ?L('На ss.lv такие машины уходят с сайта примерно за '+nDays(Math.round(mk.days))+' (медиана'+(drop?'; цену перед уходом снижали в среднем на '+drop+'%':'')+'). Основа: '+base+'.','On ss.lv such cars leave the site in about '+nDays(Math.round(mk.days))+' (median'+(drop?'; the price was cut by '+drop+'% on average before leaving':'')+'). Based on '+base+'.','Vietnē ss.lv šādi auto no vietnes pazūd aptuveni '+nDays(Math.round(mk.days))+' laikā (mediāna'+(drop?'; pirms pazušanas cenu vidēji samazināja par '+drop+'%':'')+'). Pamats: '+base+'.')
+      :L('На ss.lv за '+nDays(T)+' уходит около '+P+'% таких объявлений. Основа: '+base+'.','On ss.lv about '+P+'% of such ads leave within '+nDays(T)+'. Based on '+base+'.','Vietnē ss.lv '+nDays(T)+' laikā pazūd ap '+P+'% šādu sludinājumu. Pamats: '+base+'.'));
+  }
+  var g=mk.groups; if(g){
+    var lab=function(k){ var r=MEM_GRP.filter(function(x){return x[0]===k})[0]; return L(r[1],r[2],r[3]); };
+    var have=MEM_GRP.map(function(r){return r[0]}).filter(function(k){ return g[k]&&memPhrase(g[k]); });
+    var own=null;
+    if(v&&!v.sell&&v.car&&!isAbroad(v.car)&&v.ver&&v.ver.delta!=null){ var d=v.ver.delta; own=d<-6?'cheap':d>6?'dear':'mid'; }
+    if(v&&v.sell) own=null;
+    if(own&&have.indexOf(own)>-1){
+      var others=have.filter(function(k){return k!==own}).map(function(k){ return lab(k)+' — '+memPhrase(g[k]); });
+      out.push(L('Объявления '+lab(own)+' уходят с сайта '+memPhrase(g[own])+(others.length?'. Для сравнения: '+others.join('; '):'')+'.','Ads '+lab(own)+' leave the site '+memPhrase(g[own])+(others.length?'. For comparison: '+others.join('; '):'')+'.','Sludinājumi, kas ir '+lab(own)+', no vietnes pazūd '+memPhrase(g[own])+(others.length?'. Salīdzinājumam: '+others.join('; '):'')+'.'));
+    } else if(!own&&have.length>=2&&v&&v.sell){
+      out.push(L('Срок зависит от цены: ','The price sets the pace: ','Termiņš ir atkarīgs no cenas: ')+have.map(function(k){ return lab(k)+' — '+memPhrase(g[k]); }).join('; ')+'.');
+    }
+  }
+  /* this very ad against the typical time on sale */
+  if(mk.days!=null&&v&&!v.sell&&v.car&&!isAbroad(v.car)){
+    var dd=dayDiff(v.car.posted), md=Math.round(mk.days);
+    if(dd!=null&&md>=3){
+      if(dd>=md*2&&dd>=14) out.push(L('Это объявление висит '+nDays(dd)+', а типичный срок — '+nDays(md)+': оно засиделось, это аргумент для торга.','This ad has been up for '+nDays(dd)+' while the typical time is '+nDays(md)+': it has gone stale, a good argument to negotiate.','Šis sludinājums ir '+nDays(dd)+', bet tipiskais termiņš — '+nDays(md)+': tas ir ieilgis, labs arguments kaulēšanai.'));
+      else if(dd<=md*0.4) out.push(L('Объявление свежее ('+nDays(dd)+' при типичных '+nDays(md)+'): продавец ещё не торопится.','The ad is fresh ('+nDays(dd)+' against a typical '+nDays(md)+'): the seller is in no hurry yet.','Sludinājums ir svaigs ('+nDays(dd)+' pret tipiskajām '+nDays(md)+'): pārdevējs vēl nesteidzas.'));
+    }
+  }
+  return out;
 }
 function pMem(v){
-  var o=v.mem; if(!o) return ''; var ml=memMarketLine(o.market);
-  if(!o.lines.length&&!o.warn.length&&!ml) return '';
+  var o=v.mem; if(!o) return ''; var ml=memMarketLines(o.market,v);
+  if(!o.lines.length&&!o.warn.length&&!ml.length) return '';
   return '<section class="ap c12 mem'+(o.warn.length?' bad':'')+'" id="a-mem">'+aHead(L('Память CarScout','CarScout memory','CarScout atmiņa'),aMeta(L('что приложение видело раньше','what the app has seen before','ko lietotne redzējusi agrāk')))+
-    '<ul class="ls">'+o.warn.map(function(t){return '<li>'+aIcon('warn')+'<span><b>'+esc(t)+'</b></span></li>'}).join('')+o.lines.map(function(t){return '<li>'+aIcon('info')+'<span>'+esc(t)+'</span></li>'}).join('')+(ml?'<li>'+aIcon('ok')+'<span>'+esc(ml)+'</span></li>':'')+'</ul>'+
-    '<p class="anote">'+esc(L('CarScout запоминает объявления, которые проверяли его пользователи: цену, пробег, VIN и дату. Чем больше проверок, тем больше память.','CarScout remembers the ads its users have checked: price, mileage, VIN and date. The more checks, the bigger the memory.','CarScout atceras sludinājumus, ko pārbaudījuši tā lietotāji: cenu, nobraukumu, VIN un datumu. Jo vairāk pārbaužu, jo lielāka atmiņa.'))+'</p></section>';
+    '<ul class="ls">'+o.warn.map(function(t){return '<li>'+aIcon('warn')+'<span><b>'+esc(t)+'</b></span></li>'}).join('')+o.lines.map(function(t){return '<li>'+aIcon('info')+'<span>'+esc(t)+'</span></li>'}).join('')+ml.map(function(t){return '<li>'+aIcon('ok')+'<span>'+esc(t)+'</span></li>'}).join('')+'</ul>'+
+    '<p class="anote">'+esc(L('CarScout запоминает объявления, которые проверяли его пользователи: цену, пробег, VIN и дату. Чем больше проверок, тем больше память.','CarScout remembers the ads its users have checked: price, mileage, VIN and date. The more checks, the bigger the memory.','CarScout atceras sludinājumus, ko pārbaudījuši tā lietotāji: cenu, nobraukumu, VIN un datumu. Jo vairāk pārbaužu, jo lielāka atmiņa.')+(ml.length?L(' «Ушло» значит: объявление исчезло с сайта. Машину продали или сняли с продажи, CarScout этого не видит.',' “Left” means the ad disappeared from the site: the car was sold or taken down, CarScout cannot tell which.',' «Pazudis» nozīmē: sludinājums pazudis no vietnes. Auto pārdots vai noņemts no pārdošanas, CarScout to neredz.'):''))+'</p></section>';
 }
 function memPlace(v){
   var html=pMem(v), el=document.getElementById('a-mem'); if(!html){ if(el) el.remove(); return; }
@@ -4227,7 +4264,7 @@ async function memLoad(v){
   try{
     var j=await api('/api/memory',{url:c.url||'',vin:c.vin||'',make:c.make||'',model:c.model||'',year:c.year||''},15000);
     if(v!==S.view||!j||!j.ok) return;
-    if(v.sell){ var ml=memMarketLine(j.market), box=document.querySelector('#a-sell .anote'); if(ml&&box&&!document.getElementById('sv-mem')){ var p=document.createElement('p'); p.id='sv-mem'; p.className='anote'; p.style.color='var(--ink)'; p.textContent=ml; box.parentNode.insertBefore(p,box); } return; }
+    if(v.sell){ var ms=memMarketLines(j.market,v), box=document.querySelector('#a-sell .anote'); if(ms.length&&box&&!document.getElementById('sv-mem')){ ms.forEach(function(t,i){ var p=document.createElement('p'); if(!i) p.id='sv-mem'; p.className='anote'; p.style.color='var(--ink)'; p.textContent=t; box.parentNode.insertBefore(p,box); }); } return; }
     v.mem=memAnalyse(v,j); memPlace(v); try{ fraudRefresh(); }catch(e){}
   }catch(e){}
 }

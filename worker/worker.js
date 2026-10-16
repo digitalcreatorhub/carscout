@@ -14,7 +14,7 @@
  * Settings (Workers > your worker > Settings > Variables):
  *   ALLOW_ORIGIN  optional, e.g. https://yourname.github.io  (default: any origin)
  */
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
@@ -704,7 +704,7 @@ async function hListing(env, q, ctx) {
   if (parser === 'ss' && L.removed) { later(ctx, memGone(env, url)); } 
   if (parser === 'ss' && L.removed) return json(env, { ok: false, error: 'not_found', removed: true, message: 'The listing was removed or has expired.', source: host, parser: parser, listing: L });
   const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;
-  if (filled >= 3 && L.asking_price > 0 && adKey(url)) later(ctx, memSave(env, [{ id: adKey(url), src: parser, mk: memNorm(L.make), md: memNorm(L.model), yr: L.year || null, vin: L.vin || null, title: String(res.title || '').slice(0, 90), p: Math.round(L.asking_price), km: L.mileage_km != null ? Math.round(L.mileage_km) : null, posted: L.posted || null }]));
+  if (filled >= 3 && L.asking_price > 0 && adKey(url)) later(ctx, memSave(env, [{ id: adKey(url), src: parser, mk: memNorm(L.make), md: memNorm(L.model), yr: L.year || null, vin: L.vin || null, title: String(res.title || '').slice(0, 90), p: Math.round(L.asking_price), km: L.mileage_km != null ? Math.round(L.mileage_km) : null, posted: L.posted || null, u: parser === 'ss' ? String(url).slice(0, 220) : null, cat: parser === 'ss' ? ssCat(url) : null }]));
   return json(env, { ok: filled >= 2, error: filled >= 2 ? null : 'parse_failed', message: filled >= 2 ? null : 'Could not read the main fields from this page.', source: host, parser: parser,
     listing: L, image: res.image || null, images: res.images || collectImages(p.text, p.url), title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
 }
@@ -985,10 +985,23 @@ async function memInit(env) {
     env.DB.prepare('CREATE TABLE IF NOT EXISTS hist(id TEXT, t INT, p INT, km INT)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS hist_id ON hist(id)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS watch(code TEXT PRIMARY KEY, data TEXT, t INT)'),
-    env.DB.prepare('CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT)')
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT)'),
+    /* trk: when CarScout first read the whole list of an ss.com category (make/model). Ads first seen later than that
+       (plus a margin) were born while we were watching, so their time on the market is known; the ads that were already
+       there on the first day are not counted (their real age is unknown). */
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS trk(src TEXT, cat TEXT, t INT, PRIMARY KEY(src, cat))')
   ]);
   try { await env.DB.prepare('ALTER TABLE watch ADD COLUMN chat INTEGER').run(); } catch (e) { }
   try { await env.DB.prepare('ALTER TABLE watch ADD COLUMN lang TEXT').run(); } catch (e) { }
+  /* ads: u = the ad address (ss.com only), cat = its ss.com category, ck = last time we asked the site whether it is still
+     there, gc = the first time the page looked removed (a second look at least an hour later confirms it) */
+  let have = null;
+  try { have = ((await env.DB.prepare('PRAGMA table_info(ads)').all()).results || []).map(function (c) { return c.name; }); } catch (e) { }
+  for (const c of [['u', 'TEXT'], ['cat', 'TEXT'], ['ck', 'INT'], ['gc', 'INT']]) {
+    if (have && have.indexOf(c[0]) >= 0) continue;
+    try { await env.DB.prepare('ALTER TABLE ads ADD COLUMN ' + c[0] + ' ' + c[1]).run(); } catch (e) { }
+  }
+  try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS ads_alive ON ads(gone, lt)').run(); } catch (e) { }
   MEM_READY = true; return true;
 }
 function adKey(url) {
@@ -1001,19 +1014,27 @@ function adKey(url) {
 }
 function memNorm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/mercedes-benz/, 'mercedes').replace(/[^a-z0-9]+/g, ''); }
 function later(ctx, p) { const q = Promise.resolve(p).catch(function () { }); if (ctx && ctx.waitUntil) ctx.waitUntil(q); return q; }
+/* ss.com category of an ad address: "volkswagen/golf-7" (ads under "others" have none) */
+function ssCat(url) {
+  const m = String(url || '').match(/ss\.(?:com|lv)\/msg\/[a-z]{2}\/transport\/cars\/([a-z0-9\-]+)\/([a-z0-9\-]+)\/[a-z0-9]+\.html/i);
+  return m ? (m[1] + '/' + m[2]).toLowerCase() : null;
+}
 async function memSave(env, rows) {
   if (!rows.length || !(await memInit(env))) return;
   const now = Date.now(), js = JSON.stringify(rows.slice(0, 300));
-  await env.DB.batch([
+  const st = [
     env.DB.prepare("INSERT INTO hist(id, t, p, km) SELECT j.value->>'id', ?2, j.value->>'p', j.value->>'km' FROM json_each(?1) j LEFT JOIN ads a ON a.id = j.value->>'id' WHERE a.id IS NULL OR a.lp IS NOT (j.value->>'p') OR (j.value->>'km' IS NOT NULL AND a.lkm IS NOT (j.value->>'km'))").bind(js, now),
-    env.DB.prepare("INSERT INTO ads(id, src, mk, md, yr, vin, title, ft, fp, fkm, lt, lp, lkm, n, posted) SELECT j.value->>'id', j.value->>'src', j.value->>'mk', j.value->>'md', j.value->>'yr', j.value->>'vin', j.value->>'title', ?2, j.value->>'p', j.value->>'km', ?2, j.value->>'p', j.value->>'km', 1, j.value->>'posted' FROM json_each(?1) j WHERE true " +
-      "ON CONFLICT(id) DO UPDATE SET lt = excluded.lt, lp = excluded.lp, lkm = COALESCE(excluded.lkm, ads.lkm), n = ads.n + 1, gone = NULL, vin = COALESCE(ads.vin, excluded.vin), posted = COALESCE(ads.posted, excluded.posted), yr = COALESCE(ads.yr, excluded.yr) " +
-      "WHERE excluded.lp IS NOT ads.lp OR (excluded.lkm IS NOT NULL AND excluded.lkm IS NOT ads.lkm) OR excluded.lt - ads.lt > 259200000 OR ads.gone IS NOT NULL OR (ads.vin IS NULL AND excluded.vin IS NOT NULL) OR (ads.posted IS NULL AND excluded.posted IS NOT NULL)").bind(js, now)
-  ]);
+    env.DB.prepare("INSERT INTO ads(id, src, mk, md, yr, vin, title, ft, fp, fkm, lt, lp, lkm, n, posted, u, cat) SELECT j.value->>'id', j.value->>'src', j.value->>'mk', j.value->>'md', j.value->>'yr', j.value->>'vin', j.value->>'title', ?2, j.value->>'p', j.value->>'km', ?2, j.value->>'p', j.value->>'km', 1, j.value->>'posted', j.value->>'u', j.value->>'cat' FROM json_each(?1) j WHERE true " +
+      "ON CONFLICT(id) DO UPDATE SET lt = excluded.lt, lp = excluded.lp, lkm = COALESCE(excluded.lkm, ads.lkm), n = ads.n + 1, gone = NULL, gc = NULL, vin = COALESCE(ads.vin, excluded.vin), posted = COALESCE(ads.posted, excluded.posted), yr = COALESCE(ads.yr, excluded.yr), u = COALESCE(ads.u, excluded.u), cat = COALESCE(ads.cat, excluded.cat) " +
+      "WHERE excluded.lp IS NOT ads.lp OR (excluded.lkm IS NOT NULL AND excluded.lkm IS NOT ads.lkm) OR excluded.lt - ads.lt > 259200000 OR ads.gone IS NOT NULL OR (ads.vin IS NULL AND excluded.vin IS NOT NULL) OR (ads.posted IS NULL AND excluded.posted IS NOT NULL) OR (ads.u IS NULL AND excluded.u IS NOT NULL)").bind(js, now)
+  ];
+  /* a whole category list (not a single ad): remember when we started watching that category */
+  if (rows.length >= 5) st.unshift(env.DB.prepare("INSERT OR IGNORE INTO trk(src, cat, t) SELECT DISTINCT j.value->>'src', j.value->>'cat', ?2 FROM json_each(?1) j WHERE j.value->>'src' = 'ss' AND j.value->>'cat' IS NOT NULL").bind(js, now));
+  await env.DB.batch(st);
 }
 function memRowsFromItems(items, make, model, src) {
   const mk = memNorm(make), md = memNorm(model), out = [];
-  (items || []).forEach(function (i) { const id = adKey(i.url); if (!id || !(i.price > 0)) return; out.push({ id: id, src: src, mk: mk, md: md, yr: i.year || null, vin: i.vin || null, title: String(i.title || '').slice(0, 90), p: Math.round(i.price), km: i.km != null ? Math.round(i.km) : null, posted: null }); });
+  (items || []).forEach(function (i) { const id = adKey(i.url); if (!id || !(i.price > 0)) return; out.push({ id: id, src: src, mk: mk, md: md, yr: i.year || null, vin: i.vin || null, title: String(i.title || '').slice(0, 90), p: Math.round(i.price), km: i.km != null ? Math.round(i.km) : null, posted: null, u: src === 'ss' ? String(i.url).slice(0, 220) : null, cat: src === 'ss' ? ssCat(i.url) : null }); });
   return out;
 }
 async function memGone(env, url) { const id = adKey(url); if (!id || !(await memInit(env))) return; await env.DB.prepare('UPDATE ads SET gone = ?2 WHERE id = ?1 AND gone IS NULL').bind(id, Date.now()).run(); }
@@ -1021,6 +1042,94 @@ async function memSeller(env, url, token) {
   const id = adKey(url); if (!id || !token || !(await memInit(env))) return;
   const h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('carscout:' + token)))).slice(0, 10).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
   await env.DB.prepare('UPDATE ads SET seller = ?2 WHERE id = ?1').bind(id, h).run();
+}
+/* ---------------- did the ad leave the site? (ss.com only) ----------------
+   The daily walk re-reads the first pages of every model, but an ad that is not on those pages any more may simply have
+   moved deeper. So every few minutes the cron opens a few ads that were not seen for 4+ days and asks the site itself.
+   A page that looks removed must look removed twice (an hour or more apart) before the ad counts as gone.
+   "Gone" means gone from the site: sold or taken down, the site does not say which. */
+const DAY_MS = 86400000, ALIVE_STALE = 4 * DAY_MS, ALIVE_RETRY = 3600000, ALIVE_BATCH = 5, COHORT_MARGIN = 2 * DAY_MS, MIN_EVENTS = 8, MIN_GROUP_EVENTS = 6;
+function ssState(p) {
+  if (blockedBy(p)) return 'unknown';
+  if (p.status === 404 || p.status === 410) return 'gone';
+  if (p.status !== 200) return 'unknown';
+  if (/class="ads_price"|class="ads_opt_name"/i.test(p.text)) return 'alive';
+  if (!/\/msg\//.test(p.url || '')) return 'gone';
+  return p.text.length > 2000 ? 'gone' : 'unknown';
+}
+async function aliveTick(env, force) {
+  if (!(await memInit(env))) return { ok: false, error: 'no_db' };
+  const now = Date.now();
+  if (!force) { const last = +(await kvGet(env, 'alive_at') || 0); if (now - last < 60000) return { ok: true, skipped: true }; }
+  await kvSet(env, 'alive_at', now);
+  const r = await env.DB.prepare("SELECT id, u, gc FROM ads WHERE gone IS NULL AND src = 'ss' AND u IS NOT NULL AND lt < ?1 AND (ck IS NULL OR ck < ?2) ORDER BY lt LIMIT ?3").bind(now - ALIVE_STALE, now - ALIVE_RETRY, ALIVE_BATCH).all();
+  const rows = r.results || []; if (!rows.length) return { ok: true, idle: true };
+  const res = await Promise.all(rows.map(async function (x) {
+    if (!allowed(x.u)) return { x: x, s: 'unknown' };
+    try { return { x: x, s: ssState(await getPage(x.u, 60)) }; } catch (e) { return { x: x, s: 'unknown' }; }
+  }));
+  const out = { ok: true, checked: res.length, alive: 0, gone: 0, first: 0, unknown: 0 }, st = [];
+  res.forEach(function (o) {
+    if (o.s === 'alive') { out.alive++; st.push(env.DB.prepare('UPDATE ads SET lt = ?2, ck = ?2, gc = NULL WHERE id = ?1 AND gone IS NULL').bind(o.x.id, now)); }
+    else if (o.s === 'gone') {
+      if (o.x.gc && now - o.x.gc >= ALIVE_RETRY && now - o.x.gc < 3 * DAY_MS) { out.gone++; st.push(env.DB.prepare('UPDATE ads SET gone = ?2, ck = ?3 WHERE id = ?1 AND gone IS NULL').bind(o.x.id, o.x.gc, now)); }
+      else { out.first++; st.push(env.DB.prepare('UPDATE ads SET gc = ?2, ck = ?2 WHERE id = ?1').bind(o.x.id, now)); }
+    } else { out.unknown++; st.push(env.DB.prepare('UPDATE ads SET ck = ?2 WHERE id = ?1').bind(o.x.id, now)); }
+  });
+  await env.DB.batch(st);
+  return out;
+}
+
+/* ---------------- how long cars stay on sale: measured, with the cars still on sale counted correctly ---------------- */
+function medOf(a) { if (!a.length) return null; const b = a.slice().sort(function (x, y) { return x - y; }), k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; }
+/* Kaplan-Meier: obs = [{t: days on sale, ev: true when the ad left the site, false when it was still there when last seen}].
+   Counting only the ads that already left would make every car look quicker to sell than it is. */
+function kmCurve(obs) {
+  const o = obs.filter(function (x) { return x.t > 0 && isFinite(x.t); }).sort(function (a, b) { return a.t - b.t; });
+  const pts = []; let risk = o.length, S = 1, ev = 0;
+  for (let i = 0; i < o.length;) {
+    let j = i, d = 0; while (j < o.length && o[j].t === o[i].t) { if (o[j].ev) d++; j++; }
+    if (d) { S *= 1 - d / risk; ev += d; pts.push([o[i].t, S]); }
+    risk -= j - i; i = j;
+  }
+  const upTo = function (T) { let s = 1; for (let k = 0; k < pts.length; k++) { if (pts[k][0] <= T) s = pts[k][1]; else break; } return s; };
+  const left = function (T) { return o.filter(function (x) { return x.t >= T; }).length >= 5 ? Math.round((1 - upTo(T)) * 100) : null; };
+  let med = null; for (let k = 0; k < pts.length; k++) if (pts[k][1] <= 0.5) { med = Math.round(pts[k][0] * 10) / 10; break; }
+  return { n: o.length, events: ev, med: med, p14: left(14), p30: left(30), p60: left(60) };
+}
+/* rows: ss ads of one model (any age); trk: { category: time we started watching it }.
+   Only ads born while we were watching count; an ad that vanished and came back as the same car (same year, mileage and
+   text) is one long sale, not a sale and a new car. Price groups compare the FIRST asking price with the typical first price
+   of the same year, without a mileage correction. */
+function lifeStats(rows, trk, now) {
+  rows = rows.slice().sort(function (a, b) { return a.ft - b.ft; });
+  const key = function (r) { return r.yr != null && r.fkm != null && r.title ? r.yr + '|' + r.fkm + '|' + String(r.title).toLowerCase() : null; };
+  const last = {}, prev = {}, nxt = {};
+  rows.forEach(function (r) { const k = key(r); if (!k) return; const a = last[k]; if (a && a.gone != null && r.ft >= a.lt - DAY_MS && r.ft - a.gone <= 30 * DAY_MS) { prev[r.id] = a; nxt[a.id] = r; } last[k] = r; });
+  const chains = [];
+  rows.forEach(function (r) { if (prev[r.id]) return; const c = [r]; let x = r; while (nxt[x.id] && c.length < 12) { x = nxt[x.id]; c.push(x); } chains.push(c); });
+  const yrFp = {}; rows.forEach(function (r) { if (r.yr != null && r.fp > 0) (yrFp[r.yr] = yrFp[r.yr] || []).push(r.fp); });
+  const ref = function (y) { let a = yrFp[y] || []; if (a.length < 5) a = a.concat(yrFp[y - 1] || [], yrFp[y + 1] || []); return a.length >= 5 ? medOf(a) : null; };
+  const all = [], grp = { cheap: [], mid: [], dear: [] }, drops = []; let since = null;
+  chains.forEach(function (c) {
+    const f = c[0], l = c[c.length - 1], t0 = trk[f.cat];
+    if (!t0 || f.ft < t0 + COHORT_MARGIN) return;
+    const pd = f.posted ? Date.parse(f.posted) : NaN;
+    if (!isNaN(pd) && pd + DAY_MS < t0) return;
+    const start = !isNaN(pd) ? Math.min(f.ft, pd + DAY_MS / 2) : f.ft;
+    const ev = l.gone != null, end = ev ? Math.min(l.gone, (l.lt + l.gone) / 2) : l.lt;
+    const t = (end - start) / DAY_MS; if (!(t > 0)) return;
+    since = since == null ? t0 : Math.min(since, t0);
+    const o = { t: t, ev: ev }; all.push(o);
+    if (ev && f.fp > 0 && l.lp > 0) drops.push((l.lp - f.fp) / f.fp * 100);
+    const m = f.yr != null ? ref(f.yr) : null;
+    if (m && f.fp > 0) { const rel = f.fp / m; grp[rel < 0.94 ? 'cheap' : rel > 1.06 ? 'dear' : 'mid'].push(o); }
+  });
+  const k = kmCurve(all), out = { n: k.n, events: k.events, since: since == null ? null : Math.floor((now - since) / DAY_MS) };
+  if (k.events >= MIN_EVENTS) { out.days = k.med; out.p14 = k.p14; out.p30 = k.p30; out.p60 = k.p60; out.drop = medOf(drops); }
+  const g = {}; ['cheap', 'mid', 'dear'].forEach(function (n) { const kk = kmCurve(grp[n]); if (kk.events >= MIN_GROUP_EVENTS) g[n] = { n: kk.n, events: kk.events, days: kk.med, p30: kk.p30 }; });
+  if (Object.keys(g).length) out.groups = g;
+  return out;
 }
 async function hMemory(env, q) {
   if (!(await memInit(env))) return json(env, { ok: false, error: 'no_db', message: 'Memory is not connected.' });
@@ -1036,12 +1145,15 @@ async function hMemory(env, q) {
   if (me && me.seller) { const r = await env.DB.prepare('SELECT id, src, title, yr, ft, fp, fkm, lt, lp, lkm, gone FROM ads WHERE seller = ?1 AND id IS NOT ?2 AND mk = ?3 AND md = ?4 AND (yr IS NULL OR ?5 IS NULL OR ABS(yr - ?5) <= 1) ORDER BY ft LIMIT 10').bind(me.seller, id, me.mk, me.md, me.yr).all(); out.seller = r.results || []; }
   const mk = memNorm(q.get('make') || (me && me.mk)), md = memNorm(q.get('model') || (me && me.md)), yr = parseInt(q.get('year') || (me && me.yr) || '', 10) || null;
   if (mk && md) {
-    const r = await env.DB.prepare('SELECT ft, fp, lt, lp, gone, posted FROM ads WHERE mk = ?1 AND md = ?2 AND gone IS NOT NULL AND (?3 IS NULL OR yr IS NULL OR ABS(yr - ?3) <= 2) ORDER BY gone DESC LIMIT 300').bind(mk, md, yr).all();
-    const g = r.results || [], days = [], drop = [];
-    g.forEach(function (x) { const st = x.posted ? Date.parse(x.posted) : x.ft; if (st && x.gone > st) days.push((x.gone - st) / 86400000); if (x.fp > 0 && x.lp > 0) drop.push((x.lp - x.fp) / x.fp * 100); });
-    const med = function (a) { if (!a.length) return null; const b = a.slice().sort(function (x, y) { return x - y; }); const k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; };
+    const r = await env.DB.prepare("SELECT id, yr, fp, lp, fkm, ft, lt, gone, posted, cat, title FROM ads WHERE src = 'ss' AND mk = ?1 AND md = ?2 AND (?3 IS NULL OR yr IS NULL OR ABS(yr - ?3) <= 2) ORDER BY ft DESC LIMIT 4000").bind(mk, md, yr).all();
+    const rows = r.results || [], cats = Object.keys(rows.reduce(function (a, x) { if (x.cat) a[x.cat] = 1; return a; }, {})), tk = {};
+    if (cats.length) {
+      const qs = env.DB.prepare("SELECT cat, t FROM trk WHERE src = 'ss' AND cat IN (" + cats.map(function () { return '?'; }).join(',') + ')');
+      ((await qs.bind.apply(qs, cats).all()).results || []).forEach(function (x) { tk[x.cat] = x.t; });
+    }
     const tot = await env.DB.prepare('SELECT COUNT(*) AS n FROM ads WHERE mk = ?1 AND md = ?2').bind(mk, md).first();
-    out.market = { sold: g.length, days: g.length >= 5 ? med(days) : null, drop: g.length >= 5 ? med(drop) : null, tracked: tot ? tot.n : 0 };
+    const ls = lifeStats(rows, tk, Date.now());
+    out.market = Object.assign({ tracked: tot ? tot.n : 0, sold: ls.events }, ls);
   }
   return json(env, out);
 }
@@ -1363,6 +1475,7 @@ export default {
       if (u.pathname === '/api/push/key') return await hPushKey(env);
       if (u.pathname === '/api/push/finds') return await hPushFinds(env, u.searchParams);
       if (u.pathname === '/api/push/tick') return await hPushTick(env, ctx);
+      if (u.pathname === '/api/alive/tick') return json(env, await aliveTick(env, false));
       if (u.pathname === '/api/tg/status') return await hTgStatus(env, u.searchParams);
       if (u.pathname === '/api/tg/subs') return await hTgSubs(env, request);
       if (u.pathname === '/api/tg/link') return await hTgLink(env, u.searchParams, request);
@@ -1376,5 +1489,5 @@ export default {
       return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500);
     }
   },
-  async scheduled(event, env, ctx) { ctx.waitUntil(tgPoll(env, true).catch(function () { })); ctx.waitUntil(pushTick(env, ctx).catch(function () { })); }
+  async scheduled(event, env, ctx) { ctx.waitUntil(tgPoll(env, true).catch(function () { })); ctx.waitUntil(pushTick(env, ctx).catch(function () { })); ctx.waitUntil(aliveTick(env, false).catch(function () { })); }
 };

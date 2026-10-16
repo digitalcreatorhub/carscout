@@ -1,0 +1,23 @@
+name: Logic check (time on sale)
+# Runs the offline test of the "how long cars stay on sale" logic on every change of the worker or the page.
+# No network and no secrets: a real SQLite database, fixed test pages and a fixed clock.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - 'index.html'
+      - 'tools/lifecheck.mjs'
+      - '.github/workflows/lifecheck.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  life:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: node --no-warnings tools/lifecheck.mjs

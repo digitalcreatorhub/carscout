@@ -9,3 +9,6 @@
 - Only free services. No CAPTCHA or anti-bot bypassing.
 - Daily checks: .github/workflows/selfcheck.yml runs tools/selfcheck.mjs (real ads through the worker) and
   tools/logiccheck.mjs (fixed scenarios in the live app). Add a scenario there for every logic bug that is fixed.
+- Time on sale ("how long such cars stay on ss.lv") is measured, never guessed: the worker cron re-checks ads and
+  tools/lifecheck.mjs (Node 22, offline, runs on every push) tests it on a real SQLite database. Show a figure only
+  when there are enough ads that left (8+, 6+ per price group); "left" means gone from the site, not necessarily sold.
