@@ -258,6 +258,55 @@ check(res.ok && res.market && res.market.sold === ls.events && res.market.days =
   check(vm.runInContext('tripBeta({ car: {} })', off) === '', 'with the test switch off the trip block is not drawn');
 }
 
+/* ---------- 9. the verdict picture: what it says (the drawing itself is checked by looking at it in a browser) ---------- */
+{
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const line = re => { const m = html.match(re); if (!m) throw new Error('not found in index.html: ' + re); return m[0]; };
+  const sl = (a, z) => html.slice(html.indexOf(a), html.indexOf(z));
+  const code = [line(/^function esc\(s\)\{.*$/m), line(/^function L\(ru,en,lv\)\{.*$/m), line(/^function LP\(a\)\{.*$/m), line(/^function fmt\(n\)\{.*$/m), line(/^function eur\(n\)\{.*$/m), line(/^function pct\(d\)\{.*$/m), line(/^function memDate\(t\)\{.*$/m), line(/^var VNAME=.*$/m),
+    sl('/*BETA-PURE-START*/', '/*BETA-PURE-END*/'), sl('function dropBadge', 'function dropPlace'), sl('/*CARD-PURE-START*/', '/*CARD-PURE-END*/')].join('\n');
+  const stubs = `function trimDisplay(k){return k} function fuelLabel(c){return c.fuel==='diesel'?'дизель':''} function aGear(g){return g==='automatic'?'Автомат':'Механика'}
+    function rname(cc){return cc} function rloc(cc){return cc} function planOf(v){return v.car.price&&v.fair?{offer:8800,max:9300}:null}
+    function flagsOf(){return {risks:['r1','r2','r3','r4'],pros:['p1','p2','p3','p4']}}`;
+  const mk = (lang) => { const c = vm.createContext({ S: { lang }, lvT: x => x, console }); vm.runInContext(code + '\n' + stubs, c); return c; };
+  const J = (c, expr) => JSON.parse((vm.runInContext('JSON.stringify(' + expr + ')', c) || 'null').replace(/[  ]/g, ' '));
+  const ru = mk('ru');
+  check(/function cardLines/.test(code) && /function cardWrap/.test(code), 'the picture functions are found in index.html');
+
+  const meas = 'function(t){return t.length*10}';
+  check(JSON.stringify(vm.runInContext(`cardWrap(${meas}, 'aaa bbb ccc ddd', 70)`, ru)) === '["aaa bbb","ccc ddd"]', 'text wraps at the width');
+  const wrapped = vm.runInContext(`cardWrap(${meas}, 'сейчас 9\\u00a0200 € (−3,2%) ещё', 80)`, ru);
+  check(wrapped.every(l => !/9$/.test(l) && !/^200/.test(l)), 'a number with a non-breaking space is never split across lines', wrapped);
+  check(JSON.stringify(vm.runInContext(`cardClamp(['a','b','c','d','e'], 3)`, ru)) === '["a","b","c…"]' && JSON.stringify(vm.runInContext(`cardClamp(['a','b'], 3)`, ru)) === '["a","b"]', 'too many lines are cut with …, short text is left alone');
+
+  const now = Date.now(), day = 86400000;
+  const view = (x = {}) => Object.assign({ car: { make: 'Volkswagen', model: 'Golf', year: 2017, km: 148000, fuel: 'diesel', gear: 'manual', price: 9200, posted: '2026-10-05', trims: [], phone: '+371 20000000', sellerName: 'Jānis' },
+    ver: { key: 'good', delta: -9.1 }, fair: { mid: 10120, low: 9500, high: 10800, source: 'comps-reg' }, home: { n: 23, region: 'LV', tol: 1 },
+    drop: { from: 9500, to: 9200, t: now - day, steps: 1 }, mem: { raw: { self: { first: { t: now - 10 * day, p: 9500 } } } }, cross: null }, x);
+  const cl = (lang, v) => J(mk(lang), `cardLines(${JSON.stringify(v)})`);
+  let d = cl('ru', view());
+  check(d.title === 'Volkswagen Golf 2017' && d.price === '9 200 €' && d.priceNote === 'цена в объявлении' && d.verdict === 'Ниже рынка · −9,1% к рынку', 'title, price and verdict are written', d);
+  check(/^Сравнение: 23 похожих объявл\. в LV \(год ±1\)\. Обычная цена 10 100 € \(от 9 500 € до 10 800 €\)\.$/.test(d.basis), 'the verdict says what it was compared with: number of ads, market, typical price and range', d.basis);
+  check(d.plan === 'Торг: предложить 8 800 €, максимум 9 300 €', 'the negotiation line is there', d.plan);
+  check(/^Цена снижена на 300 € \(−3,2%\)/.test(d.drop) && /цена в начале продажи 9 500 €/.test(d.start), 'the recent price drop and the start of sale are written', d);
+  check(d.risks.length === 3 && d.pros.length === 3, 'at most three risks and three pros', d);
+  check(!/Jānis|\+371/.test(JSON.stringify(d)), 'no seller name or phone ends up in the picture');
+  d = cl('ru', view({ drop: null }));
+  check(d.drop === '', 'no recent drop: no arrow line');
+  d = cl('ru', view({ home: null }));
+  check(/без сопоставимых объявлений/.test(d.basis), 'a verdict from an estimate says that no comparable ads were used', d.basis);
+  d = cl('ru', view({ fair: null, home: null, ver: { key: 'unknown', delta: null } }));
+  check(d.basis === '' && d.plan === '' && d.verdict === 'Нет данных', 'without a fair price there is no basis line, no plan and the verdict says no data', d);
+  d = cl('ru', view({ cross: { region: 'LV', n: 31, mid: 11410, diff: 2200 } }));
+  check(/^В LV похожие стоят около 11 400 € \(31 объявл\.\)\.$/.test(d.cross), 'a car on sale abroad shows what similar cars cost in Latvia', d.cross);
+  d = cl('ru', view({ car: { make: '', model: '', year: null, km: null, price: 0, trims: [] } }));
+  check(d.title === 'Автомобиль' && d.price === 'цена не указана' && d.priceNote === '', 'a car with no data still gets a title and "no price"', d);
+  for (const lang of ['en', 'lv']) {
+    const t = JSON.stringify(cl(lang, view({ cross: { region: 'DE', n: 12, mid: 12000, diff: 1000 } })));
+    check(t.length > 400 && !/undefined|NaN|null/.test(t), lang + ': the picture text is complete', t);
+  }
+}
+
 console.log(oks.map(x => '✔ ' + x).join('\n'));
 if (fails.length) { console.log('\n' + fails.map(x => '✘ ' + x).join('\n')); process.exit(1); }
 console.log(`\n${oks.length} checks passed`);

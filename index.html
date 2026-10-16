@@ -2690,6 +2690,7 @@ function secShare(v){
     '<button class="btn sm primary" type="button" data-act="share-link">'+esc(L('Ссылка на анализ','Link to this analysis','Saite uz analīzi'))+'</button>'+
     '<button class="btn sm" type="button" data-act="copy-sum">'+esc(L('Копировать сводку','Copy the summary'))+'</button>'+
     (navigator.share?'<button class="btn sm" type="button" data-act="share-sum">'+esc(L('Отправить…','Send…'))+'</button>':'')+
+    '<button class="btn sm" type="button" data-act="share-img">'+esc(L('Картинка для отправки','Picture to send','Attēls nosūtīšanai'))+'</button>'+
     '<button class="btn sm" type="button" data-act="print">'+esc(L('Печать / сохранить в PDF','Print / save as PDF'))+'</button></div>'+
     '<p class="hint" style="margin-top:8px">'+esc(L('Ссылка открывает эту же проверку с актуальными ценами на любом телефоне. В сводке: цена, вердикт, план торга, риски и плюсы. Данные продавца и ваши заметки не включаются.','The link opens this same check with current prices on any phone. The summary has the price, verdict, negotiation plan, risks and pros. No seller contact data or notes are included.','Saite atver šo pašu pārbaudi ar aktuālām cenām jebkurā tālrunī. Kopsavilkumā: cena, vērtējums, kaulēšanās plāns, riski un plusi. Pārdevēja dati un jūsu piezīmes netiek iekļauti.'))+'</p></section>';
 }
@@ -4382,6 +4383,100 @@ function tripRecalc(){
 }
 document.addEventListener('input',function(e){ var t=e.target; if(t&&t.closest&&t.closest('#trip-beta')) tripRecalc(); });
 
+/* ======================= Verdict card: a picture to send. Drawn on this device; nothing is uploaded. =======================
+   No seller contact data, no photos from the ad, no notes. Text is made by cardLines (tested in tools/lifecheck.mjs). */
+/*CARD-PURE-START*/
+function cardWrap(measure,text,maxW){
+  var words=String(text==null?'':text).split(/[ \t\r\n]+/).filter(Boolean), lines=[], cur=''; /* not \s: a number like 9 200 uses a non-breaking space and must stay on one line */
+  words.forEach(function(w){ var t=cur?cur+' '+w:w; if(!cur||measure(t)<=maxW) cur=t; else{ lines.push(cur); cur=w; } });
+  if(cur) lines.push(cur); return lines;
+}
+function cardClamp(lines,max){ if(lines.length<=max) return lines; var o=lines.slice(0,max); o[max-1]=o[max-1].replace(/[\s,;:.]*$/,'')+'…'; return o; }
+function cardLines(v){
+  var c=v.car, key=v.ver&&VNAME[v.ver.key]?v.ver.key:'unknown', now=Date.now(), self=(v.mem&&v.mem.raw&&v.mem.raw.self)||{}, h=v.home, F=v.fair;
+  var r50=function(x){ return Math.round(x/50)*50; }, trims=(c.trims||[]).map(trimDisplay).join(', ');
+  var d={key:key, title:[c.make,c.model,c.year].filter(Boolean).join(' ')||L('Автомобиль','Car','Auto')};
+  d.sub=[c.km!=null?fmt(c.km)+' km':null,fuelLabel(c),c.gear?aGear(c.gear):null,trims||null].filter(Boolean).join(' · ');
+  d.price=c.price>0?eur(c.price):L('цена не указана','no price','cena nav norādīta');
+  d.priceNote=c.price>0?L('цена в объявлении','asking price','cena sludinājumā'):'';
+  d.drop=v.drop?L('Цена снижена на ','Price cut by ','Cena samazināta par ')+eur(v.drop.from-v.drop.to)+' ('+pct(-(v.drop.from-v.drop.to)/v.drop.from*100)+'), '+memDate(v.drop.t):'';
+  d.start=startLine(adStart(c.posted,self.first,c.price,now));
+  d.verdict=LP(VNAME[key])+(v.ver&&v.ver.delta!=null?' · '+pct(v.ver.delta)+' '+L('к рынку','vs market','pret tirgu'):'');
+  d.basis=(h&&F)?L('Сравнение: '+h.n+' похожих объявл. в '+rloc(h.region)+(h.tol?' (год ±'+h.tol+')':'')+'. Обычная цена '+eur(r50(F.mid))+' (от '+eur(r50(F.low))+' до '+eur(r50(F.high))+').',
+      'Compared with: '+h.n+' similar ads in '+rname(h.region)+(h.tol?' (year ±'+h.tol+')':'')+'. Typical price '+eur(r50(F.mid))+' ('+eur(r50(F.low))+' to '+eur(r50(F.high))+').',
+      'Salīdzināts ar: '+h.n+' līdzīgiem sludin. '+rloc(h.region)+(h.tol?' (gads ±'+h.tol+')':'')+'. Parastā cena '+eur(r50(F.mid))+' (no '+eur(r50(F.low))+' līdz '+eur(r50(F.high))+').')
+    :F?L('Сравнение: оценка CarScout без сопоставимых объявлений, обычная цена около '+eur(r50(F.mid))+'.','Basis: a CarScout estimate without comparable ads, typical price about '+eur(r50(F.mid))+'.','Pamats: CarScout novērtējums bez salīdzināmiem sludinājumiem, parastā cena ap '+eur(r50(F.mid))+'.'):'';
+  var x=v.cross;
+  d.cross=x&&x.mid>0&&x.n?L('В '+rloc(x.region)+' похожие стоят около '+eur(r50(x.mid))+' ('+x.n+' объявл.).','In '+rname(x.region)+' similar cars cost about '+eur(r50(x.mid))+' ('+x.n+' ads).','Līdzīgi auto '+rloc(x.region)+' maksā ap '+eur(r50(x.mid))+' ('+x.n+' sludin.).'):'';
+  var p=planOf(v); d.plan=p?L('Торг: предложить '+eur(p.offer)+', максимум '+eur(p.max),'Negotiation: offer '+eur(p.offer)+', maximum '+eur(p.max),'Kaulēšanās: piedāvāt '+eur(p.offer)+', maksimums '+eur(p.max)):'';
+  var f=flagsOf(v); d.risks=f.risks.slice(0,3); d.pros=f.pros.slice(0,3);
+  d.foot=L('Это цены предложений на момент проверки, '+memDate(now)+'. Оценка по объявлениям, а не осмотр машины.','These are asking prices at the time of the check, '+memDate(now)+'. An estimate from ads, not an inspection of the car.','Tās ir piedāvājuma cenas pārbaudes brīdī, '+memDate(now)+'. Novērtējums pēc sludinājumiem, nevis auto apskate.');
+  return d;
+}
+/*CARD-PURE-END*/
+var CARD_FONT='Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+var CARD_COL={good:['#DDF1E4','#17603A'],fair:['#E7EAF0','#33425B'],high:['#FBEBCB','#7A4B06'],overpriced:['#F8D9D5','#8E2A1F'],too_cheap:['#F8D9D5','#8E2A1F'],unknown:['#E7EAF0','#33425B']};
+/* draw=false only measures. Returns the height the picture needs. */
+function cardPaint(ctx,d,W,H,draw){
+  var P=64, mw=W-2*P, y=P, ink='#1B1F27', mut='#6B7280', line='#DAD6CC';
+  var font=function(w,s){ ctx.font=w+' '+s+'px '+CARD_FONT; };
+  var meas=function(t){ return ctx.measureText(t).width; };
+  var para=function(text,w,s,col,max,x0){
+    if(!text) return; x0=x0||0; font(w,s); var ls=cardClamp(cardWrap(meas,text,mw-x0),max||99), lh=Math.round(s*1.3);
+    if(draw){ ctx.fillStyle=col; ctx.textAlign='left'; ls.forEach(function(t,i){ ctx.fillText(t,P+x0,y+Math.round(s*0.95)+i*lh); }); }
+    y+=ls.length*lh;
+  };
+  var bullet=function(text,col,mark){ if(draw){ font('700',32); ctx.fillStyle=col; ctx.textAlign='left'; ctx.fillText(mark,P,y+30); } para(text,'400',32,ink,3,44); y+=8; };
+  var rule=function(){ y+=14; if(draw){ ctx.fillStyle=line; ctx.fillRect(P,y,mw,2); } y+=30; };
+  if(draw){ ctx.fillStyle='#F7F5F0'; ctx.fillRect(0,0,W,H); ctx.fillStyle='#D8F26A'; ctx.fillRect(0,0,W,14); }
+  if(draw){ font('700',34); ctx.fillStyle=ink; ctx.textAlign='left'; ctx.fillText('CarScout',P,y+30); font('400',28); ctx.fillStyle=mut; ctx.textAlign='right'; ctx.fillText(memDate(Date.now()),W-P,y+30); ctx.textAlign='left'; }
+  y+=70;
+  para(d.title,'700',64,ink,2); y+=4;
+  para(d.sub,'400',34,mut,2); y+=26;
+  var ps=128; font('700',ps); while(meas(d.price)>mw&&ps>40){ ps-=8; font('700',ps); }
+  if(draw){ ctx.fillStyle=d.priceNote?ink:mut; ctx.fillText(d.price,P,y+Math.round(ps*0.875)); } y+=ps;
+  para(d.priceNote,'400',30,mut,1);
+  if(d.drop){ y+=10; para('▼ '+d.drop,'600',34,'#17603A',2); }
+  if(d.start){ y+=10; para(d.start,'400',28,mut,3); }
+  y+=26;
+  var col=CARD_COL[d.key]||CARD_COL.unknown, fs=40, pw, ph=84;
+  do{ font('600',fs); pw=meas(d.verdict)+56; fs-=2; }while(pw>mw&&fs>26);
+  pw=Math.min(pw,mw);
+  if(draw){ var r=ph/2; ctx.fillStyle=col[0]; ctx.beginPath(); ctx.moveTo(P+r,y); ctx.arc(P+pw-r,y+r,r,-Math.PI/2,Math.PI/2); ctx.arc(P+r,y+r,r,Math.PI/2,Math.PI*1.5); ctx.closePath(); ctx.fill();
+    font('600',fs+2); ctx.fillStyle=col[1]; ctx.textAlign='center'; ctx.fillText(d.verdict,P+pw/2,y+ph/2+Math.round((fs+2)*0.35)); ctx.textAlign='left'; }
+  y+=ph+28;
+  para(d.basis,'400',30,mut,4); if(d.cross){ y+=8; para(d.cross,'400',30,mut,3); }
+  if(d.plan){ rule(); para(d.plan,'600',38,ink,3); }
+  if(d.risks.length){ rule(); para(L('На что обратить внимание','What to watch','Uz ko pievērst uzmanību'),'600',28,mut,1); y+=10; d.risks.forEach(function(t){ bullet(t,'#B45309','!'); }); }
+  if(d.pros.length){ y+=(d.risks.length?10:0); if(!d.risks.length) rule(); para(L('Плюсы','Pros','Plusi'),'600',28,mut,1); y+=10; d.pros.forEach(function(t){ bullet(t,'#17603A','+'); }); }
+  rule();
+  para(d.foot,'400',26,mut,3); y+=10;
+  para(String(appBase()).replace(/^https?:\/\//,'').replace(/\/$/,''),'600',26,ink,1);
+  return y+P;
+}
+async function cardBlob(v){
+  try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
+  var d=cardLines(v), W=1080, c0=document.createElement('canvas'); c0.width=W; c0.height=10;
+  var H=cardPaint(c0.getContext('2d'),d,W,0,false), cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  cardPaint(cv.getContext('2d'),d,W,H,true);
+  return await new Promise(function(res){ cv.toBlob(res,'image/png'); });
+}
+async function shareImage(){
+  var v=S.view; if(!v||!v.car||v.sell) return;
+  showStatus('busy',function(){return L('Рисую картинку…','Drawing the picture…','Zīmēju attēlu…')},false);
+  try{
+    var blob=await cardBlob(v); if(!blob) throw new Error('no image');
+    var name='carscout-'+[v.car.make,v.car.model,v.car.year].filter(Boolean).join('-').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9\-]+/g,'')+'.png', file=null;
+    try{ file=new File([blob],name,{type:'image/png'}); }catch(e){}
+    if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file],title:'CarScout',text:analysisLink(v)}); showStatus('ok',function(){return L('Картинка готова.','The picture is ready.','Attēls ir gatavs.')}); return; }
+      catch(e){ if(e&&e.name==='AbortError'){ showStatus('info',''); return; } }
+    }
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(e){} },5000);
+    showStatus('ok',function(){return L('Картинка сохранена на устройство. Её можно отправить в любой мессенджер.','The picture is saved to your device. You can send it in any messenger.','Attēls saglabāts ierīcē. To var nosūtīt jebkurā ziņapmaiņas lietotnē.')});
+  }catch(e){ showStatus('err',function(){return L('Не удалось нарисовать картинку. Попробуйте «Копировать сводку».','Could not draw the picture. Try “Copy the summary”.','Neizdevās uzzīmēt attēlu. Mēģiniet «Kopēt kopsavilkumu».')}); }
+}
+
 /* ======================= Telegram alerts: link this browser's favourites and saved searches to a bot chat ======================= */
 var TG_BOT='carsscout_lv_bot', KEY_TG='carscout_tg', tgTimer=null;
 function tgLoad(){ try{ var o=JSON.parse(LS.get(KEY_TG)||'null'); return o&&o.code?o:null; }catch(e){ return null; } }
@@ -4879,6 +4974,7 @@ document.addEventListener('click',function(e){
   else if(a==='fav-recheck') favRecheck(false);
   else if(a==='copy-sum'){ if(S.view) copyText(shareText(S.view),L('Сводка скопирована.','Summary copied.')); }
   else if(a==='share-sum'){ if(S.view&&navigator.share) navigator.share({title:'CarScout',text:shareText(S.view)}).catch(function(){}); }
+  else if(a==='share-img') shareImage();
   else if(a==='print') window.print();
   else if(a==='refresh') refreshApp();
   else if(a==='copy-msg'){ var ta=$('#msg-text'); if(ta) copyText(ta.value,L('Сообщение скопировано.','Message copied.')); }
