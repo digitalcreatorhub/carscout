@@ -542,6 +542,15 @@ body.has-view .lead{display:none}
 #intake.open>#shots-fld+.fld{grid-column:2/-1}
 #intake.open>#manual{grid-column:1}
 #intake.open>#extra-d{grid-column:2/-1}
+/* computer width: opened "Enter details manually" takes the whole width and lays its fields out in columns,
+   instead of one narrow column with an empty screen next to it (the report then starts far below) */
+@media (min-width:900px){
+  #intake.open>#manual[open]{grid-column:1/-1}
+  #manual[open]>.stack{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px 16px;align-items:end}
+  #manual[open]>.stack>.row2:not(.sell-only),#manual[open]>.stack>.row3{display:contents}
+  #manual[open]>.stack>.sell-only{grid-column:1/-1}
+  #intake.open>#manual[open]+#extra-d{grid-column:1/-1}
+}
 #intake [data-act="more"][aria-expanded="true"]{border-color:var(--accent);color:var(--accent)}
 #status:empty,#srcs:empty{display:none}
 .srcs{flex-direction:row;flex-wrap:wrap;gap:8px}
@@ -1881,7 +1890,7 @@ function driveOf(t){ t=String(t||''); if(/quattro|4\s?motion|\bx-?drive|4\s?mati
 function readForm(){
   var y=fvInt('#f-year');
   return {url:$('#f-url').value.trim(),text:$('#f-text').value.trim(),vin:fv('#f-vin'),make:fv('#f-make'),model:fv('#f-model'),trim:fv('#f-trim'),eng:(function(){ var x=parseFloat(fv('#f-eng').replace(',','.')); return x>=0.6&&x<=8?Math.round(x*10)/10:null; })(),photos:!$('#f-photos')||$('#f-photos').checked,
-    year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:fvInt('#f-km'),price:fvInt('#f-price'),fuel:fv('#f-fuel'),drive:(function(){ var e=$('#f-drive'); return e?e.value:''; })(),market:$('#f-market').value,
+    year:(y&&y>=1950&&y<=new Date().getFullYear()+1)?y:null,km:fvInt('#f-km'),price:fvInt('#f-price'),fuel:fv('#f-fuel'),drive:(function(){ var e=$('#f-drive'); return e&&e.dataset.auto!=='1'?e.value:''; })(),market:$('#f-market').value,
     extra:$('#f-extra').value.split(/\s+/).map(function(s){return s.trim()}).filter(function(s){return /^https?:\/\//i.test(s)}).slice(0,4)};
 }
 function setField(id,v){var el=$(id); if(el&&v!=null&&v!==''&&!el.value) el.value=v}
@@ -2018,7 +2027,7 @@ async function run(){
     autoSet('#f-trim',(car.trims||[]).map(trimDisplay).join(', '));
     var vd=decodeVin(car.vin||''); if(vd.complete&&!car.make&&vd.maker&&!/\//.test(vd.maker)){ car.make=vd.maker; car.src.make='vin'; } if(vd.complete&&vd.model&&!car.model){ car.model=vd.model.split(/\s/)[0]; car.src.model='vin'; } if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1){ car.year=vd.years[0]; car.src.year='vin'; }
     /* fill the form so the user can fix it */
-    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin); (function(){ var e=engineOf(car,[f.text,ocrText].join(' ')); if(e&&!car.engineL){ car.engineL=e; car.src.engine='text'; } autoSet('#f-eng',e?e.toFixed(1):''); })();
+    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin); if(!S.manualGear) autoSet('#f-gear',car.gear||''); if(!f.drive) autoSet('#f-drive',car.drive||''); (function(){ var e=engineOf(car,[f.text,ocrText].join(' ')); if(e&&!car.engineL){ car.engineL=e; car.src.engine='text'; } autoSet('#f-eng',e?e.toFixed(1):''); })();
     renderVinLive();
     if(!car.make||!car.model||!car.year){
       $('#manual').open=true;
@@ -2588,7 +2597,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-17.1', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-17.2', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };

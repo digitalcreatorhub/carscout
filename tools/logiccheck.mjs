@@ -121,6 +121,16 @@ for (const sc of SCEN) {
   await ctx.close();
 }
 
+/* computer width: opened "Enter details manually" uses the whole width (it was one narrow column with an empty screen beside it) */
+{
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } }); const pg = await ctx.newPage();
+  await pg.route('**/*', r => { const u = r.request().url(); if (u.startsWith(API)) return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: '{"ok":true}' }); if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort(); return r.continue(); });
+  await pg.goto(SITE + (SITE.startsWith('file:') ? '' : '?r=' + Date.now())); await pg.waitForTimeout(800);
+  const m = await pg.evaluate(() => { document.getElementById('intake').classList.add('open'); document.getElementById('manual').open = true; const f = document.getElementById('intake').getBoundingClientRect(), r = document.getElementById('manual').getBoundingClientRect(); return { share: r.width / f.width, h: Math.round(r.height) }; }).catch(e => ({ err: e.message }));
+  check(m.share > 0.9 && m.h < 420, 'computer width: the opened manual fields span the form width in columns, not one tall narrow column', JSON.stringify(m));
+  await ctx.close();
+}
+
 /* the modes and the pickers */
 {
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }); const pg = await ctx.newPage();
