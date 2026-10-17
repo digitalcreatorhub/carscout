@@ -62,7 +62,8 @@ for (const [make, model, year, fuel] of MODELS) for (const [source, extra] of SR
   const name = `${source}${extra.cy ? ' ' + extra.cy : ''}${extra.cc ? ' ' + extra.cc : ''} ${make} ${model}`;
   const j = await get('/api/comps', Object.assign({ source, make, model, year, fuel }, extra));
   const its = j.items || [];
-  if (j.error === 'blocked' && (source === 'autoplius' || source === 'auto24')) { warns.push(`- ${name}: the site shows a bot check to servers (not a parsing error)`); continue; }
+  /* these sites show a bot check to some Cloudflare data centres (GitHub runs in the USA) but not to the one serving Latvia */
+  if (j.error === 'blocked' && (source === 'autoplius' || source === 'auto24' || source === 'autogidas')) { warns.push(`- ${name}: the site shows a bot check to servers (not a parsing error)`); continue; }
   /* auto24 Latvia has few cars of a given model: fewer than 3 is not an error there */
   if (source === 'auto24' && extra.cc === 'LV' && j.ok === false && j.error === 'parse_failed') { warns.push(`- ${name}: no ads of this model standing in Latvia today`); continue; }
   if (!j.ok || its.length < 3) { bad(`comps ${name}`, (j.error || '') + ' items ' + its.length); continue; }
