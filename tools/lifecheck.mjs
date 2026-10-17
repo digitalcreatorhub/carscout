@@ -307,6 +307,43 @@ check(res.ok && res.market && res.market.sold === ls.events && res.market.days =
   }
 }
 
+/* auto24 (.ee / .lv / .lt): a real ad page (auto24.lv/lietoti/4361580, cut down). The generic reader took the year 2022 from the page
+   instead of 08/2012, missed the 3.0 engine and four-wheel drive, and did not see that the car stands in Estonia, so a normal
+   price looked far below the market. The main table is read by its row classes, the same in every language. */
+{
+  const row = (cls, label, value, extra = '') => `<tr class="field-${cls}"> <td class="label"><span>${label}</span></td> <td class="field"><span class="value">${value}</span>${extra}</td> </tr>`;
+  const page = (L, loc, status) => `<!DOCTYPE html><html><head><title>Audi A6 3.0 180kW - auto24.lv</title>
+<meta property="og:title" content="Audi A6 3.0 180kW"><meta property="og:description" content="2012, dīzelis, 371 898 km, 9300&nbsp;EUR - lietoti transportlīdzekļi, Igaunija">
+<meta property="og:image" content="https://img13.img-bcg.eu/h30/fc2f18/s7/206934985.jpg"></head><body>
+<div class="b-breadcrumbs"><a href="/kasutatud/nimekiri.php?a=101102" class="b-breadcrumbs__item">Passenger_and_suv</a><span>&raquo;</span><a href="/kasutatud/nimekiri.php?a=101102&b=2" class="b-breadcrumbs__item">Audi</a><span>&raquo;</span><a href="/kasutatud/nimekiri.php?a=101102&b=2&bw=89" class="b-breadcrumbs__item">A6</a><span>&raquo;</span><a href="/kasutatud/nimekiri.php?a=101102&b=2&bw=89&f1=2011&f2=2013" class="b-breadcrumbs__item">2011-2013</a></div>
+<p>Jaunākie: Audi Q5 2022, 45 900 EUR</p>
+<h1 class="commonSubtitle">Audi A6 3.0 180kW <div class='bs-modules bookmark'></div></h1>
+<table class="main-data">${row('liik', L[0], L[1])}${row('keretyyp', L[2], L[3])}${row('month_and_year', L[4], '08/2012')}${row('mootorvoimsus', L[5], '3.0 180kW')}${row('kytus', L[6], L[7])}
+${row('labisoit', L[8], '371 898 km', ' <span>&middot;</span> servisa grāmata')}${row('vedavsild', L[9], L[10])}${row('kaigukast_kaikudega', L[11], L[12])}${row('hind', 'Cena', '9300&nbsp;EUR', '<br><span class="vat-value">PVN 0%</span>')}</table>
+<a class="vImages__item -hide" href="https://img13.img-bcg.eu/h30/b81281/s7/206934990.jpg"><img src="x.jpg"></a>
+<h2 class="commonSubtitle">Aprīkojums</h2><div class="section vEquipment -has-more"><ul class="group full"><li class="item">8x gaisa spilveni</li><li class="item">S line sporta pakete</li></ul>
+<table class="group full"><tr class="item"><td class="label">motora apjoms:</td><td class="value">2967 <span class="-unit">cm&sup3;</span></td></tr><tr class="item"><td class="label">vidējais:</td><td class="value">6 <span class="-unit">l/100 km</span></td></tr></table></div>
+<h2 class="commonSubtitle">Cita informācija</h2><div class="section other-info"><div class="-status">${status}</div><div class="-location">${loc}</div><div class="-user_other"><br/>Sõiduk on eksporditud Rootsist 2018 aastal.</div></div></body></html>`;
+  const LV = ['Tips', 'vieglais automobilis', 'Virsbūves tips', 'sedans', 'Pirmā reğ', 'Motors', 'Degviela', 'dīzelis', 'Spidometra rādījums', 'Piedziņa', 'pilnpiedziņa', 'Ātrumkārba', 'automātiskā'];
+  const EE = ['Liik', 'sõiduauto', 'Keretüüp', 'sedaan', 'Esmane reg', 'Mootor', 'Kütus', 'diisel', 'Läbisõidumõõdiku näit', 'Vedav sild', 'nelikvedu', 'Käigukast', 'automaat'];
+  const RU = ['Тип', 'легковой', 'Тип кузова', 'седан', 'Первая рег', 'Двигатель', 'Топливо', 'дизель', 'Показание одометра', 'Ведущий мост', 'полный привод', 'Коробка передач', 'автомат'];
+  ctx.__a24 = [page(LV, 'Transportlīdzekļa atrašanās vieta: Igaunija', 'Reģistrēts Igaunijā'), page(EE, 'Sõiduki asukoht: Eesti', 'Eestis arvel'), page(RU, 'Местонахождение автомобиля: Латвия', 'На учете в Латвии')];
+  const r = JSON.parse(W(`JSON.stringify(__a24.map(function (h) { const x = parseA24Listing(h, 'https://www.auto24.lv/lietoti/4361580'); return { L: x.listing, images: x.images, title: x.title }; }))`));
+  for (const [i, lang] of [[0, 'LV page'], [1, 'EE page'], [2, 'RU page']]) {
+    const L = r[i].L;
+    check(L.make === 'Audi' && L.model === 'A6', `auto24 ${lang}: make and model from the breadcrumbs`, [L.make, L.model]);
+    check(L.year === 2012, `auto24 ${lang}: the year is the first registration 08/2012 (not 2022 from another ad on the page)`, L.year);
+    check(L.engine_l === 3 && L.power_kw === 180, `auto24 ${lang}: engine 3.0 l, 180 kW`, [L.engine_l, L.power_kw]);
+    check(L.fuel === 'diesel' && L.gearbox === 'automatic' && L.drive === 'awd', `auto24 ${lang}: diesel, automatic, four-wheel drive`, [L.fuel, L.gearbox, L.drive]);
+    check(L.mileage_km === 371898 && L.asking_price === 9300, `auto24 ${lang}: mileage and price`, [L.mileage_km, L.asking_price]);
+  }
+  check(r[0].L.country === 'EE' && r[1].L.country === 'EE' && r[2].L.country === 'LV', 'auto24: the country is where the car stands (an auto24.lv ad of a car in Estonia gives EE)', r.map(x => x.L.country));
+  check(/S line/.test(r[0].L.description), 'auto24: the equipment list goes into the description, so the trim can be found', r[0].L.description.slice(0, 120));
+  check(r[0].images.length === 2 && r[0].images.every(u => /img-bcg\.eu/.test(u)) && W(`imgAllowed('https://img13.img-bcg.eu/h30/b81281/s7/206934990.jpg')`), 'auto24: the photos are found and allowed', r[0].images);
+  check(r[0].title === 'Audi A6 3.0 180kW', 'auto24: the title', r[0].title);
+  check(W(`parseA24Listing('<html><body>no table</body></html>', 'https://www.auto24.ee/used/1') === null`), 'auto24: a page without the main table falls back to the generic reader');
+}
+
 console.log(oks.map(x => '✔ ' + x).join('\n'));
 if (fails.length) { console.log('\n' + fails.map(x => '✘ ' + x).join('\n')); process.exit(1); }
 console.log(`\n${oks.length} checks passed`);

@@ -608,6 +608,58 @@ function parseApListing(html, url) {
   const images = (Array.isArray(o.image) ? o.image : []).filter(function (u) { return typeof u === 'string'; }).slice(0, 30);
   return { listing: listing, image: images[0] || null, images: images, title: listing.model_raw || it.name, hints: {} };
 }
+/* auto24 (auto24.ee / .lv / .lt, every language): one database, the same page. The main table rows carry fixed classes
+   (field-month_and_year, field-mootorvoimsus ...), so they are read by class, never by the label text.
+   "-location" says where the car really is: an ad on auto24.lv is often a car standing in Estonia. */
+const A24_COUNTRY = [['EE', /igaunij|eesti|эстони|estonia|estij/i], ['LV', /latvij|läti|латви|latvia/i], ['LT', /lietuv|leedu|литв|lithuania/i],
+  ['FI', /somij|soome|финлянд|finland|suomi|suomij/i], ['SE', /zviedrij|rootsi|швеци|sweden|švedij/i], ['DE', /vācij|saksamaa|германи|germany|vokietij/i],
+  ['PL', /polij|poola|польш|poland|lenkij/i], ['NL', /nīderland|holland|нидерланд|netherlands|nyderland/i], ['BE', /beļģij|belgia|бельги|belgium|belgij/i], ['FR', /francij|prantsus|франци|france|prancūzij/i]];
+function a24Country(s) { s = String(s || ''); for (let i = 0; i < A24_COUNTRY.length; i++) if (A24_COUNTRY[i][1].test(s)) return A24_COUNTRY[i][0]; return null; }
+function a24Fuel(s) { s = String(s || '').toLowerCase(); if (/plug|pistik/.test(s)) return 'hybrid'; if (/hübriid|hibrīd|hibrid|гибрид|hybrid/.test(s)) return 'hybrid'; if (/diisel|d[iī]zel|дизел|diesel/.test(s)) return 'diesel'; if (/elekt|электр/.test(s)) return 'electric'; if (/gaas|gāz|газ|lpg|cng|dujos/.test(s)) return 'lpg'; if (/bensiin|benz|бензин|petrol|gasoline/.test(s)) return 'petrol'; return null; }
+function a24Gear(s) { s = String(s || '').toLowerCase(); if (/autom|автомат|dsg|variator|вариатор|cvt/.test(s)) return 'automatic'; if (/manu|käsi|mehān|механ|ручн|mechanin/.test(s)) return 'manual'; return null; }
+function a24Drive(s) { s = String(s || '').toLowerCase(); if (/neliveo|nelikvedu|pilnpiedz|полн|four|all|4x4|awd|visų/.test(s)) return 'awd'; if (/esivedu|priekš|передн|front|priekin/.test(s)) return 'fwd'; if (/tagavedu|aizmug|задн|rear|galin/.test(s)) return 'rwd'; return null; }
+function parseA24Listing(html, url) {
+  const tbl = (html.match(/<table class="main-data">([\s\S]*?)<\/table>/i) || [])[1];
+  if (!tbl) return null;
+  const F = {}; const re = /<tr class="field-([a-z_0-9]+)">([\s\S]*?)<\/tr>/gi; let m;
+  while ((m = re.exec(tbl))) { const v = m[2].match(/<span class="value">([\s\S]*?)<\/span>/i); F[m[1]] = strip(v ? v[1] : m[2].replace(/<td class="label">[\s\S]*?<\/td>/i, '')); }
+  const yr = (F.month_and_year || '').match(/(19[5-9]\d|20[0-3]\d)/);
+  const eng = F.mootorvoimsus || '';
+  const ccm = (html.match(/(\d{3,4})\s*(?:<span class="-unit">)?\s*cm(?:&sup3;|³|3)/i) || [])[1];
+  const el = (eng.match(/(?:^|\s)(\d{1,2}[.,]\d)(?:\s|$|kw|l)/i) || [])[1];
+  const kw = (eng.match(/(\d{2,4})\s*kW/i) || [])[1];
+  let engine_l = el ? parseFloat(el.replace(',', '.')) : null;
+  if (!engine_l && ccm && +ccm >= 500 && +ccm <= 8000) engine_l = Math.round(+ccm / 100) / 10;
+  const price = toNum((F.hind || '').replace(/eur.*$/i, ''));
+  const fuelRaw = a24Fuel(F.kytus);
+  const loc = strip((html.match(/<div class="-location">([\s\S]*?)<\/div>/i) || [])[1] || '');
+  const status = strip((html.match(/<div class="-status">([\s\S]*?)<\/div>/i) || [])[1] || '');
+  const og = meta(html, 'og:description') || '';
+  const country = a24Country(loc.replace(/^[^:]*:/, '')) || a24Country((og.match(/-\s*[^-]*$/) || [''])[0]);
+  const other = strip((html.match(/<div class="-user_other">([\s\S]*?)<\/div>/i) || [])[1] || '');
+  const equip = []; const eq = (html.match(/class="section vEquipment[\s\S]*?(?=<h2 class="commonSubtitle"|$)/i) || [''])[0]; const ire = /<li class="item[^"]*">([^<]+)/g; let im;
+  while ((im = ire.exec(eq)) && equip.length < 150) equip.push(dec(im[1]).trim());
+  const title = strip((html.match(/<h1 class="commonSubtitle">([\s\S]*?)<div/i) || [])[1] || meta(html, 'og:title') || '');
+  const crumbs = []; const cre = /class="b-breadcrumbs__item">([^<]+)</g; let cm; while ((cm = cre.exec(html))) crumbs.push(dec(cm[1]).trim());
+  let make = crumbs[1] || null, model = crumbs[2] || null;
+  if (!make || !model) { const gm = guessMakeModel(title); make = make || gm.make; model = model || gm.model; }
+  const listing = {
+    make: make, model: model, model_raw: title.replace(/^\s*\S+\s+/, '') || model, year: yr ? parseInt(yr[1], 10) : null,
+    mileage_km: F.labisoit ? parseKm(F.labisoit) : null, asking_price: price >= 100 && price <= 2000000 ? Math.round(price) : null,
+    fuel: fuelRaw === 'lpg' ? 'petrol' : fuelRaw, lpg: fuelRaw === 'lpg' || /bensiin\s*\+\s*gaas|benzīns\s*\+\s*gāze|бензин\s*\+\s*газ/i.test(F.kytus || ''),
+    gearbox: a24Gear(F.kaigukast_kaikudega), engine_l: engine_l > 0.5 && engine_l < 10 ? engine_l : null, power_kw: kw ? parseInt(kw, 10) : null,
+    drive: a24Drive(F.vedavsild), body: F.keretyyp || null, color: F.varvus || null, vin: null,
+    description: [other, equip.length ? equip.join(', ') : ''].filter(Boolean).join('. ').slice(0, 8000),
+    posted: null, updated: null, place: loc.replace(/^[^:]*:\s*/, '') || null, address: null, geo: null,
+    country: country, registered_in: a24Country(status), dealer: false, seller_name: null, accident: null, repaired_damage: false, owners: null, warranty: null
+  };
+  listing.src = { make: 'table', model: 'table', year: listing.year ? 'table' : null, mileage_km: listing.mileage_km != null ? 'table' : null, asking_price: listing.asking_price ? 'table' : null,
+    fuel: listing.fuel ? 'table' : null, gearbox: listing.gearbox ? 'table' : null, vin: null };
+  const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model || listing.model;
+  const images = []; const gre = /class="vImages__item[^"]*" href="(https:\/\/[^"]+\.jpe?g)"/gi; let gm2; while ((gm2 = gre.exec(html)) && images.length < 30) if (images.indexOf(gm2[1]) < 0) images.push(gm2[1]);
+  const ogi = meta(html, 'og:image'); if (ogi && images.indexOf(ogi) < 0) images.unshift(ogi);
+  return { listing: listing, image: images[0] || null, images: images, title: title, hints: {} };
+}
 function parseGenericListing(html, url) {
   const L = { make: null, model: null, year: null, mileage_km: null, asking_price: null, fuel: null, gearbox: null, color: null, body: null, vin: null, description: '' };
   let image = meta(html, 'og:image');
@@ -645,7 +697,7 @@ function parseGenericListing(html, url) {
 const IMG_HOSTS = [
   /(^|\.)copart\.com$/, /(^|\.)iaai\.com$/, /(^|\.)vincheck\.it\.com$/,
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoscout24\.(net|com|de)$/, /(^|\.)autoplius\.lt$/, /(^|\.)dgn\.lt$/, /(^|\.)auto24\.(ee|lv|lt)$/,
-  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/
+  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/, /(^|\.)img-bcg\.eu$/
 ];
 function imgAllowed(u) {
   try { const x = new URL(u); return x.protocol === 'https:' && IMG_HOSTS.some(function (re) { return re.test(x.hostname); }); } catch (e) { return false; }
@@ -699,6 +751,7 @@ async function hListing(env, q, ctx) {
     Object.keys(g.listing).forEach(function (k) { if (k === 'fuel') return; if (res.listing[k] == null || res.listing[k] === '') res.listing[k] = g.listing[k]; });
   } else if (/(^|\.)autoscout24\.[a-z.]+$/.test(host) && (res = parseAs24Listing(p.text, p.url))) { parser = 'as24';
   } else if (/(^|\.)autoportaal\.ee$/.test(host) && (res = parseApListing(p.text, p.url))) { parser = 'autoportaal';
+  } else if (/(^|\.)auto24\.(ee|lv|lt)$/.test(host) && (res = parseA24Listing(p.text, p.url))) { parser = 'auto24';
   } else { res = parseGenericListing(p.text, p.url); parser = 'generic'; res.hints = {}; }
   const L = res.listing;
   if (parser === 'ss' && L.removed) { later(ctx, memGone(env, url)); } 

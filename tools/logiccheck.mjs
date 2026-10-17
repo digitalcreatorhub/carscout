@@ -29,7 +29,13 @@ const SCEN = [
       [v.calc === 'k-lv=15500 k-de=11000' || /k-de=11000/.test(v.calc), 'the calculator puts this car on the import side', v.calc],
       [!/csdd\.lv \(|техосмотров \(csdd/.test(v.checks) && /Teil II/.test(v.checks), 'the checklist fits a German car (no csdd history, both German papers)', v.checks.slice(0, 200)]] },
   { id: 'de-few-german', url: asUrl(98), cc: 'DE', price: 10500, comps: { ss: items(20, 15500, 'ss'), D: items(3, 11400, 'as') },
-    expect: v => [[!/Подозрительно/.test(v.verdict), 'a German car compared with Latvia is never called suspicious', v.verdict], [/похожих там нашлось мало/.test(v.basis), 'the app says why it compares with Latvia', v.basis], [!v.fraud, 'no scam warning', v.fraud]] }
+    expect: v => [[!/Подозрительно/.test(v.verdict), 'a German car compared with Latvia is never called suspicious', v.verdict], [/похожих там нашлось мало/.test(v.basis), 'the app says why it compares with Latvia', v.basis], [!v.fraud, 'no scam warning', v.fraud]] },
+  /* an auto24.lv link of a car standing in Estonia: the worker says country EE, so Estonia is its own market, Latvia next to it */
+  { id: 'a24-lv-link-car-in-ee', url: 'https://www.auto24.lv/lietoti/4361580', price: 11000,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 11000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, country: 'EE', description: 'Audi A6 Avant 2.0 TDI', src: {} },
+    comps: { ss: items(20, 15500, 'ss'), ee: items(20, 11400, 'ss').map((i, k) => ({ ...i, url: 'https://autoportaal.ee/et/kasutatud-autod/' + (900 + k) })) },
+    expect: v => [[v.region === 'Эстония', 'a car standing in Estonia (auto24.lv link) is compared with Estonia', v.region],
+      [!/Подозрительно/.test(v.verdict), 'a normal Estonian price is not called suspicious because Latvia is dearer', v.verdict], [/В Латвии похожие стоят около/.test(v.basis), 'the Latvian price is shown next to it', v.basis]] }
 ];
 
 const b = await chromium.launch(process.env.PW_EXEC ? { executablePath: process.env.PW_EXEC } : {});
@@ -41,8 +47,8 @@ for (const sc of SCEN) {
     const u = r.request().url();
     if (u.startsWith(API)) {
       const x = new URL(u); let body = { ok: true, version: 'test' };
-      if (x.pathname === '/api/listing') body = { ok: true, title: 'Audi A6 Avant', source: sc.cc ? 'autoscout24' : 'ss', listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
-      else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : null; body = its ? { ok: true, items: its } : { ok: false, error: 'blocked' }; }
+      if (x.pathname === '/api/listing') body = { ok: true, title: 'Audi A6 Avant', source: sc.listing ? new URL(sc.url).hostname : sc.cc ? 'autoscout24' : 'ss', parser: sc.listing ? 'auto24' : undefined, listing: sc.listing || { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
+      else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : null; body = its ? { ok: true, items: its } : { ok: false, error: 'blocked' }; }
       else if (x.pathname !== '/') body = { ok: false, error: 'test' };
       return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
     }

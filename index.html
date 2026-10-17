@@ -1585,6 +1585,9 @@ var LV_TERM={good:'Zem tirgus',fair:'Tirgus cena',high:'Virs tirgus',overpriced:
 var VNAME={good:['Ниже рынка','Below market'],fair:['Рыночная цена','Fair price'],high:['Выше рынка','Above market'],overpriced:['Сильно выше рынка','Well above market'],too_cheap:['Подозрительно дёшево','Suspiciously cheap'],unknown:['Нет данных','No data']};
 var REGION_NAME={LV:['Латвия','Latvia'],LT:['Литва','Lithuania'],EE:['Эстония','Estonia'],DE:['Германия','Germany'],BE:['Бельгия','Belgium'],NL:['Нидерланды','Netherlands'],FR:['Франция','France'],PL:['Польша','Poland'],EU:['ЕС','EU']};
 var FAR={DE:1,BE:1,NL:1,FR:1,PL:1,EU:1};
+/* markets a car abroad is compared with first (its own country): the far ones and the Baltic neighbours.
+   FAR alone still decides import costs and the seller message language. */
+var OWN_MKT={DE:1,BE:1,NL:1,FR:1,PL:1,LT:1,EE:1};
 var RLOC={LV:'Латвии',LT:'Литве',EE:'Эстонии',DE:'Германии',BE:'Бельгии',NL:'Нидерландах',FR:'Франции',PL:'Польше'},RGEN={LV:'Латвии',LT:'Литвы',EE:'Эстонии',DE:'Германии',BE:'Бельгии',NL:'Нидерландов',FR:'Франции',PL:'Польши'};
 function rloc(cc){ return S.lang==='ru'&&RLOC[cc]?RLOC[cc]:rname(cc); }
 function rgen(cc){ return S.lang==='ru'&&RGEN[cc]?RGEN[cc]:rname(cc); }
@@ -1968,6 +1971,8 @@ async function run(){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
         var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null; car.place=l.place||null; car.address=l.address||null; car.geo=l.geo||null; car.isDealer=!!l.dealer; car.sellerName=l.seller_name||null; car.accident=l.accident; car.repairedDamage=!!l.repaired_damage; car.owners=l.owners||null; car.reportUrl=l.report_url||null; car.reportName=l.report_name||null; car.powerKw=l.power_kw||null; if(l.drive) car.drive=l.drive; car.warranty=l.warranty||null;
         if(lj.source&&/autoscout24|mobile\.de|kleinanzeigen/.test(lj.source)) car.cc=car.cc||'DE';
+        /* the page says where the car really is (auto24.lv often shows a car standing in Estonia): its own market comes first */
+        if(l.country&&/^(LV|LT|EE|DE|BE|NL|FR|PL)$/.test(l.country)&&l.country!==car.cc){ car.cc=l.country; notes.push((function(){return L('Машина находится: '+REGION_NAME[l.country][0]+' (по данным объявления), поэтому сначала сравниваю с этим рынком.','The car is in '+REGION_NAME[l.country][1]+' (as the listing says), so it is compared with that market first.')})); }
       } else {
         notes.push((function(){return L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.')}));
         linkMsg=L('Сайт '+(hint.host||'')+' не отдаёт страницу серверу (защита от роботов). Откройте объявление в своём браузере, нажмите Ctrl+A, затем Ctrl+C и вставьте скопированное в поле «Текст объявления» ниже (на телефоне: выделить всё, копировать). Либо загрузите скриншот. Затем нажмите «Проверить автомобиль» ещё раз.','The site '+(hint.host||'')+' does not give the page to the server (bot protection). Open the listing in your own browser, press Ctrl+A then Ctrl+C and paste it into the “Listing text” field below (on a phone: select all, copy). Or upload a screenshot. Then press “Check this car” again.');
@@ -2135,7 +2140,7 @@ function compute(car,results,f,notes){
   var want=f.market||'LV';
   var solid=function(r){return r.fair&&r.n>=5};
   /* a car on sale abroad is first compared with that country's market (in Germany cars are usually cheaper than in Latvia) */
-  var ccHome=car.cc&&car.cc!==want&&FAR[car.cc]?regions.filter(function(r){return r.region===car.cc&&solid(r)})[0]:null;
+  var ccHome=car.cc&&car.cc!==want&&OWN_MKT[car.cc]?regions.filter(function(r){return r.region===car.cc&&solid(r)})[0]:null;
   if(ccHome){ var wantR=regions.filter(function(r){return r.region===want&&solid(r)})[0]; if(wantR) car._cross=wantR.region; want=car.cc; }
   var home=regions.filter(function(r){return r.region===want&&solid(r)})[0]||regions.filter(function(r){return r.region==='LV'&&solid(r)})[0]||regions.filter(solid).sort(function(a,b){return b.n-a.n})[0]||regions.filter(function(r){return r.region===want&&r.fair})[0]||regions.filter(function(r){return r.fair}).sort(function(a,b){return b.n-a.n})[0]||null;
   if(home&&home.region!==want){ var wr=regions.filter(function(r){return r.region===want})[0]; notes.push((function(){return L('В '+rloc(want)+' похожих объявлений мало ('+(wr?wr.n:0)+'), поэтому оценка сделана по рынку '+rgen(home.region)+(FAR[home.region]?' (цены без учёта ввоза: доставка и регистрация добавят примерно 800–1500 €)':'')+'.','Too few similar listings in '+rname(want)+' ('+(wr?wr.n:0)+'), so the verdict uses the '+rname(home.region)+' market'+(FAR[home.region]?' (prices before import costs)':'')+'.')})); }
@@ -2166,7 +2171,7 @@ function compute(car,results,f,notes){
   var conf=!home?'low':home.n>=15?'high':home.n>=8?'medium':'low';
   /* "suspiciously cheap" only when there is enough to compare with, and only against the car's own country */
   if(ver.key==='too_cheap'&&home){
-    var fewN=home.n<8, otherC=car.cc&&FAR[car.cc]&&home.region!==car.cc;
+    var fewN=home.n<8, otherC=car.cc&&OWN_MKT[car.cc]&&home.region!==car.cc;
     if(fewN||otherC){ ver={key:'good',delta:ver.delta,capped:fewN?'few':'abroad'}; score=priceScore(Math.max(ver.delta,-12));
       var hn=home.n, hr=home.region, cc0=car.cc;
       notes.push(fewN?function(){ return L('Для вывода «подозрительно дёшево» похожих объявлений мало ('+hn+'), поэтому показано просто «ниже рынка». Сравните сами с машинами в списке ниже.','Too few similar ads ('+hn+') to call it suspiciously cheap, so it is shown as below the market. Compare with the cars in the list below.','Lai teiktu «aizdomīgi lēti», līdzīgu sludinājumu ir par maz ('+hn+'), tāpēc parādīts vienkārši «zem tirgus». Salīdziniet paši ar auto sarakstā zemāk.'); }
