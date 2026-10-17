@@ -64,6 +64,50 @@ for (const sc of SCEN) {
   await ctx.close();
 }
 
+/* the site (auto24.lv) does not give the page to the server: the buyer pastes the listing text. The engine size has to be read from
+   that text, otherwise the car is compared with every engine of the model and a fair price looks far too low. */
+{
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } }); const pg = await ctx.newPage();
+  pg.on('pageerror', e => errs.push('pasted-text: ' + e.message));
+  const mixed = [...Array.from({ length: 12 }, (_, k) => ({ price: 15300 + k * 40, km: 150000 + (k % 5) * 3000 - 6000, year: 2018 + (k % 3) - 1, url: ssUrl(k), title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' })),
+    ...Array.from({ length: 12 }, (_, k) => ({ price: 25800 + k * 40, km: 150000 + (k % 5) * 3000 - 6000, year: 2018 + (k % 3) - 1, url: ssUrl(50 + k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' }))];
+  await pg.route('**/*', async r => {
+    const u = r.request().url();
+    if (u.startsWith(API)) {
+      const x = new URL(u); let body = { ok: true, version: 'test' };
+      if (x.pathname === '/api/listing') body = { ok: false, error: 'blocked', message: 'The site refused the server request (HTTP 403).' };
+      else if (x.pathname === '/api/comps') body = x.searchParams.get('source') === 'ss' ? { ok: true, items: mixed } : { ok: false, error: 'blocked' };
+      else if (x.pathname !== '/') body = { ok: false, error: 'test' };
+      return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort();
+    return r.continue();
+  });
+  await pg.addInitScript(() => { try { localStorage.setItem('carscout_lang', 'ru'); localStorage.setItem('carscout_api', 'https://carscout.pmax70095.workers.dev'); } catch (e) { } });
+  await pg.goto(SITE + (SITE.startsWith('file:') ? '' : '?r=' + Date.now())); await pg.waitForTimeout(800);
+  await pg.fill('#f-url', 'https://www.auto24.lv/lietoti/4361580');
+  await pg.evaluate(() => { document.querySelector('#f-text').value = 'Audi A6 Avant 2018\nCena 15200 €\nNobraukums 150000 km\nMotora tilpums 1968 cm3\nDegviela Dīzelis\nPārnesumkārba Automāts\nPatēriņš 5.4 l/100 km'; });
+  await pg.click('#btn-go');
+  const okP = await pg.waitForSelector('#a-verdict', { timeout: 30000 }).then(() => true, () => false);
+  if (!okP) check(false, 'pasted text: analysis opens', 'no verdict panel');
+  else {
+    await pg.waitForTimeout(800);
+    const eng = await pg.$eval('#f-eng', e => e.value).catch(() => '');
+    const verdict = await pg.$eval('#a-verdict .vk', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
+    check(eng === '2.0', 'pasted text (site blocked): the engine size is read from the text, not left empty', 'f-eng=' + eng);
+    check(/Рыночная цена/.test(verdict), 'pasted text (site blocked): 2.0 is compared with 2.0 ads, so a fair price is called fair (not "below market")', verdict);
+  }
+  /* the same ad without an engine line: fuel consumption (l/100 km) and prices must not be taken for an engine size */
+  await pg.evaluate(() => { document.querySelector('#f-text').value = 'Audi A6 Avant 2018\nCena 15.200 €\nNobraukums 150000 km\nDegviela Dīzelis\nPatēriņš 5.4 l/100 km'; });
+  await pg.waitForFunction(() => !document.querySelector('#btn-go').disabled, null, { timeout: 30000 }).catch(() => { });
+  await pg.click('#btn-go'); await pg.waitForTimeout(500);
+  await pg.waitForFunction(() => !document.querySelector('#btn-go').disabled, null, { timeout: 30000 }).catch(() => { });
+  await pg.waitForTimeout(500);
+  const eng2 = await pg.$eval('#f-eng', e => e.value).catch(() => 'n/a');
+  check(eng2 === '', 'pasted text without an engine line: fuel consumption (5.4 l/100 km) and the price are not taken for an engine size', 'f-eng=' + eng2);
+  await ctx.close();
+}
+
 /* the modes and the pickers */
 {
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }); const pg = await ctx.newPage();

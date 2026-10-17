@@ -2013,7 +2013,7 @@ async function run(){
     autoSet('#f-trim',(car.trims||[]).map(trimDisplay).join(', '));
     var vd=decodeVin(car.vin||''); if(vd.complete&&!car.make&&vd.maker&&!/\//.test(vd.maker)){ car.make=vd.maker; car.src.make='vin'; } if(vd.complete&&vd.model&&!car.model){ car.model=vd.model.split(/\s/)[0]; car.src.model='vin'; } if(vd.complete&&vd.years&&vd.years.length&&!car.year&&vd.years.length===1){ car.year=vd.years[0]; car.src.year='vin'; }
     /* fill the form so the user can fix it */
-    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin); (function(){ var e=engineOf(car); if(e&&!car.engineL){ car.engineL=e; car.src.engine='text'; } autoSet('#f-eng',e?e.toFixed(1):''); })();
+    autoSet('#f-make',car.make); autoSet('#f-model',car.model); autoSet('#f-year',car.year); autoSet('#f-km',car.km); autoSet('#f-price',car.price); autoSet('#f-fuel',car.lpg?'lpg':car.fuel); autoSet('#f-vin',car.vin); (function(){ var e=engineOf(car,[f.text,ocrText].join(' ')); if(e&&!car.engineL){ car.engineL=e; car.src.engine='text'; } autoSet('#f-eng',e?e.toFixed(1):''); })();
     renderVinLive();
     if(!car.make||!car.model||!car.year){
       $('#manual').open=true;
@@ -3457,11 +3457,26 @@ async function salvageCheck(v){
 }
 
 /* ---- engine size: from the listing table, else from the title/text ---- */
-function engineOf(c){
+function engineOf(c,extra){
   if(c.engineL>0.5&&c.engineL<8) return c.engineL;
   var tx=[c.title,c.rawModel,String(c.desc||'').slice(0,400)].join(' ');
   var m=tx.match(/(?:^|[^\d.,])([0-7][.,]\d)\s*(?:l\b|л\b|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|jtd|ecoboost|puretech|thp|vti|tce|gdi|mpi|fsi|dīz|benz|diesel|petrol|бенз|диз|d\b|i\b)/i);
   if(m){ var v=parseFloat(m[1].replace(',','.')); if(v>0.5&&v<8) return v; }
+  /* the link could not be read by the server: the engine size comes from the pasted listing text or a screenshot */
+  return extra?engineFromText(extra):null;
+}
+/* engine size (litres) in a whole pasted page / OCR text: a labelled value first ("Motora tilpums 1995 cm3", "Объём двигателя 2.0"),
+   then a size next to an engine code (2.0 TDI) or "cm3". A bare "6.5 l/100 km" (consumption) is not an engine size. */
+function engineFromText(t){
+  t=String(t||'').slice(0,12000);
+  var fromCc=function(n){ return n>=500&&n<=8000?Math.round(n/100)/10:null; };
+  var m=t.match(/(?:motora\s+tilpums|dzin[ēe]ja\s+tilpums|tilpums|объ[её]м\s+двигателя|рабочий\s+объ[её]м|engine\s+(?:size|capacity|displacement)|displacement|hubraum|mootori\s+maht)[^0-9]{0,15}(\d[.,]\d|\d{3,4})\s*(cm\s?[³3]|см\s?[³3]|ccm|cc\b|l\b|л\b)?/i);
+  if(m){ var raw=m[1], v=/[.,]/.test(raw)?parseFloat(raw.replace(',','.')):fromCc(parseInt(raw,10)); if(v>0.5&&v<8) return Math.round(v*10)/10; }
+  m=t.match(/(?:^|[^\d.,])(\d{3,4})\s*(?:cm\s?[³3]|см\s?[³3]|ccm)(?![a-z0-9])/i);
+  if(m){ var v2=fromCc(parseInt(m[1],10)); if(v2) return v2; }
+  m=t.match(/(?:^|[^\d.,])([0-7][.,]\d)\s*(?:tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|jtd|ecoboost|puretech|thp|vti|tce|gdi|mpi|fsi)/i)
+   ||t.match(/(?:^|[^\d.,])([0-7][.,]\d)\s*(?:l|л)\b(?!\s*\/)/i);
+  if(m){ var v3=parseFloat(m[1].replace(',','.')); if(v3>0.5&&v3<8) return v3; }
   return null;
 }
 
