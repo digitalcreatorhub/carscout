@@ -56,13 +56,15 @@ good(`ss: ${adsChecked} ad pages read (LV/RU/EN)`);
 
 // 3. comparables on every market
 const MODELS = [['Volkswagen', 'Golf', 2018, 'petrol'], ['Toyota', 'RAV4', 2019, ''], ['Volkswagen', 'Arteon', 2020, 'diesel']];
-const SRC = [['ss', {}], ['autoplius', {}], ['autoportaal', {}], ['as24', { cy: 'D' }], ['as24', { cy: 'B' }], ['as24', { cy: 'NL' }], ['as24', { cy: 'F' }]];
+const SRC = [['ss', {}], ['autoplius', {}], ['autogidas', {}], ['autoportaal', {}], ['auto24', { cc: 'EE' }], ['auto24', { cc: 'LV' }], ['as24', { cy: 'D' }], ['as24', { cy: 'B' }], ['as24', { cy: 'NL' }], ['as24', { cy: 'F' }]];
 for (const [make, model, year, fuel] of MODELS) for (const [source, extra] of SRC) {
   if (source === 'autoplius' && model !== 'Golf') continue; // autoplius limits bursts of requests
-  const name = `${source}${extra.cy ? ' ' + extra.cy : ''} ${make} ${model}`;
+  const name = `${source}${extra.cy ? ' ' + extra.cy : ''}${extra.cc ? ' ' + extra.cc : ''} ${make} ${model}`;
   const j = await get('/api/comps', Object.assign({ source, make, model, year, fuel }, extra));
   const its = j.items || [];
-  if (j.error === 'blocked' && source === 'autoplius') { warns.push(`- ${name}: the site shows a bot check to servers (not a parsing error)`); continue; }
+  if (j.error === 'blocked' && (source === 'autoplius' || source === 'auto24')) { warns.push(`- ${name}: the site shows a bot check to servers (not a parsing error)`); continue; }
+  /* auto24 Latvia has few cars of a given model: fewer than 3 is not an error there */
+  if (source === 'auto24' && extra.cc === 'LV' && j.ok === false && j.error === 'parse_failed') { warns.push(`- ${name}: no ads of this model standing in Latvia today`); continue; }
   if (!j.ok || its.length < 3) { bad(`comps ${name}`, (j.error || '') + ' items ' + its.length); continue; }
   const full = its.filter(i => i.price > 0 && i.year && i.url).length / its.length;
   const km = its.filter(i => i.km != null).length / its.length;
@@ -74,12 +76,12 @@ for (const [make, model, year, fuel] of MODELS) for (const [source, extra] of SR
 }
 
 // 4. listing pages of other sites (first comparable of each)
-for (const [source, extra] of [['autoplius', {}], ['autoportaal', {}], ['as24', { cy: 'D' }]]) {
+for (const [source, extra] of [['autoplius', {}], ['autoportaal', {}], ['auto24', { cc: 'EE' }], ['as24', { cy: 'D' }]]) {
   const j = await get('/api/comps', Object.assign({ source, make: 'Volkswagen', model: 'Golf', year: 2018 }, extra));
   const it = (j.items || [])[0]; if (!it) continue;
   const l = await get('/api/listing', { url: it.url });
   const L = l.listing || {};
-  const miss = (source === 'as24' || source === 'autoportaal' ? ['make', 'model', 'year', 'asking_price', 'mileage_km', 'fuel', 'gearbox', 'engine_l'] : ['make', 'year', 'asking_price']).filter(k => L[k] == null);
+  const miss = (source === 'as24' || source === 'autoportaal' || source === 'auto24' ? ['make', 'model', 'year', 'asking_price', 'mileage_km', 'fuel', 'gearbox', 'engine_l'] : ['make', 'year', 'asking_price']).filter(k => L[k] == null);
   if (source === 'as24' && L.model && L.make && L.model === L.make) miss.push('model=make');
   if (miss.length) bad(`listing ${source} ${it.url}`, 'not read: ' + miss.join(', ') + (l.error ? ' (' + l.error + ')' : ''));
   else good(`listing ${source}: ok`);

@@ -30,11 +30,18 @@ const SCEN = [
       [!/csdd\.lv \(|техосмотров \(csdd/.test(v.checks) && /Teil II/.test(v.checks), 'the checklist fits a German car (no csdd history, both German papers)', v.checks.slice(0, 200)]] },
   { id: 'de-few-german', url: asUrl(98), cc: 'DE', price: 10500, comps: { ss: items(20, 15500, 'ss'), D: items(3, 11400, 'as') },
     expect: v => [[!/Подозрительно/.test(v.verdict), 'a German car compared with Latvia is never called suspicious', v.verdict], [/похожих там нашлось мало/.test(v.basis), 'the app says why it compares with Latvia', v.basis], [!v.fraud, 'no scam warning', v.fraud]] },
+  /* ss.lv and auto24 (cars standing in Latvia) are one market: pooled, and a car listed on both sites counts once (12 + 10 - 3 = 19) */
+  { id: 'lv-ss-plus-auto24', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvmix.html', price: 15200,
+    comps: { ss: items(12, 15500, 'ss'), a24lv: [...items(12, 15500, 'ss').slice(0, 3).map((i, k) => ({ ...i, url: 'https://www.auto24.ee/soidukid/' + (5000000 + k) })), ...items(7, 15500, 'ss').map((i, k) => ({ ...i, url: 'https://www.auto24.ee/soidukid/' + (5000100 + k) }))] },
+    expect: v => [[v.region === 'Латвия', 'a Latvian ad is compared with Latvia', v.region], [/19 похожих/.test(v.basis), 'ss.lv + auto24 pooled, the 3 cars on both sites counted once: 19 ads', v.basis]] },
   /* an auto24.lv link of a car standing in Estonia: the worker says country EE, so Estonia is its own market, Latvia next to it */
   { id: 'a24-lv-link-car-in-ee', url: 'https://www.auto24.lv/lietoti/4361580', price: 11000,
     listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 11000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, country: 'EE', description: 'Audi A6 Avant 2.0 TDI', src: {} },
-    comps: { ss: items(20, 15500, 'ss'), ee: items(20, 11400, 'ss').map((i, k) => ({ ...i, url: 'https://autoportaal.ee/et/kasutatud-autod/' + (900 + k) })) },
+    comps: { ss: items(20, 15500, 'ss'), ee: items(20, 11400, 'ss').map((i, k) => ({ ...i, url: 'https://autoportaal.ee/et/kasutatud-autod/' + (900 + k) })),
+      /* auto24 Estonia also finds this very car (same id on auto24.ee): it must not be counted as a similar car */
+      a24ee: [{ price: 11000, km: 150000, year: 2018, url: 'https://www.auto24.ee/soidukid/4361580', title: 'Audi A6 2.0 140kW', fuel: 'diesel', gear: 'automatic', engine_l: 2.0 }] },
     expect: v => [[v.region === 'Эстония', 'a car standing in Estonia (auto24.lv link) is compared with Estonia', v.region],
+      [/20 похожих/.test(v.basis), 'the car itself (found again on auto24.ee) is not counted among similar cars: 20 ads, not 21', v.basis],
       [!/Подозрительно/.test(v.verdict), 'a normal Estonian price is not called suspicious because Latvia is dearer', v.verdict], [/В Латвии похожие стоят около/.test(v.basis), 'the Latvian price is shown next to it', v.basis]] }
 ];
 
@@ -48,7 +55,7 @@ for (const sc of SCEN) {
     if (u.startsWith(API)) {
       const x = new URL(u); let body = { ok: true, version: 'test' };
       if (x.pathname === '/api/listing') body = { ok: true, title: 'Audi A6 Avant', source: sc.listing ? new URL(sc.url).hostname : sc.cc ? 'autoscout24' : 'ss', parser: sc.listing ? 'auto24' : undefined, listing: sc.listing || { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
-      else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : null; body = its ? { ok: true, items: its } : { ok: false, error: 'blocked' }; }
+      else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : s === 'auto24' ? sc.comps['a24' + String(x.searchParams.get('cc')).toLowerCase()] : s === 'autogidas' ? sc.comps.ag : null; body = its ? { ok: true, items: its } : { ok: false, error: 'blocked' }; }
       else if (x.pathname !== '/') body = { ok: false, error: 'test' };
       return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
     }

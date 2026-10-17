@@ -14,7 +14,7 @@
  * Settings (Workers > your worker > Settings > Variables):
  *   ALLOW_ORIGIN  optional, e.g. https://yourname.github.io  (default: any origin)
  */
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
@@ -697,7 +697,7 @@ function parseGenericListing(html, url) {
 const IMG_HOSTS = [
   /(^|\.)copart\.com$/, /(^|\.)iaai\.com$/, /(^|\.)vincheck\.it\.com$/,
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoscout24\.(net|com|de)$/, /(^|\.)autoplius\.lt$/, /(^|\.)dgn\.lt$/, /(^|\.)auto24\.(ee|lv|lt)$/,
-  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/, /(^|\.)img-bcg\.eu$/
+  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/, /(^|\.)img-bcg\.eu$/, /(^|\.)autogidas\.lt$/
 ];
 function imgAllowed(u) {
   try { const x = new URL(u); return x.protocol === 'https:' && IMG_HOSTS.some(function (re) { return re.test(x.hostname); }); } catch (e) { return false; }
@@ -914,7 +914,107 @@ async function hComps(env, q, ctx) {
     later(ctx, memSave(env, memRowsFromItems(items, make, model, 'autoportaal')));
     return json(env, { ok: items.length > 0, source: 'autoportaal', region: 'EE', label: 'autoportaal.ee', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found for this make/model.' });
   }
+  if (source === 'auto24') {
+    /* auto24 search needs its own make and model numbers: read them from its own search form (cached for a day).
+       ab[]= is where the car stands: -1 Estonia, -2 Latvia, -3 Lithuania (the same database is shown on .ee/.lv/.lt). */
+    const LOC = { EE: -1, LV: -2, LT: -3 }, cc = String(q.get('cc') || 'EE').toUpperCase();
+    if (!LOC[cc]) return json(env, { ok: false, error: 'bad_source', message: 'Unknown country.' }, 400);
+    if (!make || !model) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
+    const B = 'https://www.auto24.ee/kasutatud/nimekiri.php?a=101102';
+    const p0 = await getPage(B, 86400).catch(function () { return { status: 0, text: '' }; });
+    const bl0 = blockedBy(p0); if (bl0) return json(env, { ok: false, source: 'auto24' + cc.toLowerCase(), error: 'blocked', message: 'auto24 refused the server request (' + bl0 + ').', searchUrl: B });
+    const mkId = a24Pick(a24Options(p0.text, 'b'), make, true);
+    if (!mkId) return json(env, { ok: false, source: 'auto24' + cc.toLowerCase(), error: 'not_found', message: 'Make not found on auto24.', searchUrl: B });
+    const p1 = await getPage(B + '&b=' + mkId, 86400).catch(function () { return { status: 0, text: '' }; });
+    const mdId = a24Pick(a24Options(p1.text, 'bw[]'), model, false);
+    const mkUrl = function (k) { return B + '&b=' + mkId + (mdId ? '&bw=' + mdId : '&c=' + encodeURIComponent(model)) + (yf ? '&f1=' + yf : '') + (yt ? '&f2=' + yt : '') + '&ab%5B%5D=' + LOC[cc] + (k ? '&ak=' + k : ''); };
+    const pages = await Promise.all([0, 50].map(function (k) { return getPage(mkUrl(k), 1800).catch(function () { return { status: 0, text: '', url: mkUrl(k) }; }); }));
+    const search = mkUrl(0), b = blockedBy(pages[0]), src = 'auto24' + cc.toLowerCase();
+    if (b) return json(env, { ok: false, source: src, error: 'blocked', message: 'auto24 refused the server request (' + b + ').', searchUrl: search });
+    let items = [];
+    pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseA24List(p.text)); });
+    items = dedupe(items);
+    /* with no model number the free-text filter may be loose: keep the rows that name the model */
+    if (!mdId) { const w = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }, mw = w(model).replace(/(series|seeria|class|klass)$/, ''); items = items.filter(function (i) { return mw && w(i.title).indexOf(mw) > -1; }); }
+    later(ctx, memSave(env, memRowsFromItems(items, make, model, 'auto24')));
+    return json(env, { ok: items.length > 0, source: src, region: cc, label: 'auto24 (' + cc + ')', searchUrl: search.replace('www.auto24.ee', cc === 'LV' ? 'www.auto24.lv' : cc === 'LT' ? 'www.auto24.lt' : 'www.auto24.ee'), modelId: mdId || null, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found for this make/model.' });
+  }
+  if (source === 'autogidas') {
+    if (!make || !model) return json(env, { ok: false, error: 'need_model', message: 'Make and model are required.' });
+    const agMk = /^mercedes/i.test(make) ? 'Mercedes-Benz' : /^vw$/i.test(make) ? 'Volkswagen' : make;
+    const mkUrl = function (p) { return 'https://autogidas.lt/skelbimai/automobiliai/?f_1=' + encodeURIComponent(agMk) + '&f_model_14=' + encodeURIComponent(model) + (yf ? '&f_41=' + yf : '') + (yt ? '&f_42=' + yt : '') + (p > 1 ? '&page=' + p : ''); };
+    const pages = await Promise.all([1, 2].map(function (n) { return getPage(mkUrl(n), 1800).catch(function () { return { status: 0, text: '', url: mkUrl(n) }; }); }));
+    const search = mkUrl(1), b = blockedBy(pages[0]);
+    if (b) return json(env, { ok: false, source: 'autogidas', error: 'blocked', message: 'autogidas.lt refused the server request (' + b + ').', searchUrl: search });
+    let items = [];
+    pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseAgList(p.text)); });
+    items = dedupe(items);
+    /* an unknown model name gives the whole make: keep the cards whose title names the model */
+    const w = function (x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ''); }, mw = w(model), mkw = w(agMk);
+    items = items.filter(function (i) { const t = w(i.title).replace(mkw, ''); return !mw || t.indexOf(mw) === 0 || modelFamilyOk(mkw, mw, t); });
+    later(ctx, memSave(env, memRowsFromItems(items, make, model, 'autogidas')));
+    return json(env, { ok: items.length > 0, source: 'autogidas', region: 'LT', label: 'autogidas.lt', searchUrl: search, items: items, error: items.length ? null : 'parse_failed', message: items.length ? null : 'No ads found for this make/model.' });
+  }
   return json(env, { ok: false, error: 'bad_source', message: 'Unknown source.' }, 400);
+}
+/* auto24 search form: the options of one <select name="..."> as [{v, t, group}] ("(kõik)" = the whole model line) */
+function a24Options(html, name) {
+  const i = String(html || '').indexOf('name="' + name + '"'); if (i < 0) return [];
+  const s = html.slice(i, html.indexOf('</select>', i)); const out = []; const re = /<option[^>]*value="(\d+)"[^>]*>([^<]+)<\/option>/g; let m;
+  while ((m = re.exec(s))) { const t = dec(m[2]).trim(); out.push({ v: m[1], t: t.replace(/\s*\((?:kõik|visi|все|all|visi)\)\s*$/i, ''), group: /\((?:kõik|visi|все|all)\)/i.test(t) }); }
+  return out;
+}
+function a24Norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/mercedes-benz/, 'mercedesbenz').replace(/\b(series|seeria|serija|class|klass|klase|klasse)\b/g, '').replace(/[^a-z0-9]+/g, ''); }
+function a24Pick(opts, name, isMake) {
+  let n = a24Norm(name); if (isMake) { if (n === 'mercedes') n = 'mercedesbenz'; if (n === 'vw') n = 'volkswagen'; }
+  if (!n) return null;
+  const hit = opts.filter(function (o) { return a24Norm(o.t) === n; });
+  return hit.length ? (hit.filter(function (o) { return o.group; })[0] || hit[0]).v : null;
+}
+/* auto24 result rows: title (make model engine), year, mileage, fuel, gearbox, drive, price */
+function parseA24List(html) {
+  const out = []; const parts = String(html || '').split('<div class="result-row');
+  for (let k = 1; k < parts.length; k++) {
+    const r = parts[k].slice(0, 6000);
+    const id = (r.match(/href="\/(?:soidukid|lietoti|naudoti|used|vehicles)\/(\d+)/) || [])[1]; if (!id) continue;
+    const title = strip((r.match(/<a href="[^"]+" class="main">([\s\S]*?)<\/a>/) || [])[1] || '');
+    const ex = (r.match(/<div class="extra">([\s\S]*?)<\/div>/) || [])[1] || '';
+    const sp = function (c) { const m = ex.match(new RegExp('<span class="' + c + '[^"]*">([\\s\\S]*?)</span>')); return m ? strip(m[1]) : ''; };
+    const price = toNum(strip((r.match(/<span class="price">([\s\S]*?)<\/span>/) || [])[1] || '').replace(/[€\s]|&euro;/g, ''));
+    const eng = strip((r.match(/<span class="engine">([\s\S]*?)<\/span>/) || [])[1] || '');
+    const el = (eng.match(/(\d{1,2}[.,]\d)/) || [])[1];
+    const yr = parseInt(sp('year'), 10);
+    const fu = a24Fuel(sp('fuel'));
+    if (!(price >= 300 && price <= 500000)) continue;
+    out.push({ price: Math.round(price), km: sp('mileage') ? parseKm(sp('mileage')) : null, year: yr >= 1950 && yr <= 2035 ? yr : null, url: 'https://www.auto24.ee/soidukid/' + id, title: title.slice(0, 160),
+      fuel: fu === 'lpg' ? 'petrol' : fu, gear: a24Gear(sp('transmission')), drive: a24Drive(sp('drive')), engine_l: el ? parseFloat(el.replace(',', '.')) : null,
+      img: (r.match(/<img class="thumb" src="([^"]+)"/) || [])[1] || null });
+  }
+  return out;
+}
+/* autogidas.lt cards: <article class="list-item-new" data-price>, title, parameters (year, fuel, km, gearbox, "2.0 L / 130 kW") */
+function parseAgList(html) {
+  const out = []; const parts = String(html || '').split(/<article\b[^>]*class="list-item-new/);
+  for (let k = 1; k < parts.length; k++) {
+    const r = parts[k].slice(0, 12000);
+    const price = parseFloat((r.match(/data-price="([\d.]+)"/) || [])[1]);
+    const href = (r.match(/href="(\/skelbimas\/[^"]+\.html)"/) || [])[1];
+    if (!href || !(price >= 300 && price <= 500000)) continue;
+    const title = strip((r.match(/<h2 class="item-title">([\s\S]*?)<\/h2>/) || [])[1] || '');
+    const ps = []; const re = /<span class="parameter-value">([\s\S]*?)<\/span>/g; let m; while ((m = re.exec(r))) ps.push(strip(m[1]));
+    let year = null, km = null, fuel = null, gear = null, engine_l = null, power = null;
+    ps.forEach(function (p) {
+      let x;
+      if (!year && (x = p.match(/^(19[5-9]\d|20[0-3]\d)(?:-\d{2})?\s*m\.?$/))) year = parseInt(x[1], 10);
+      else if (km == null && /\bkm\b/i.test(p) && !/km\/h/i.test(p)) km = parseKm(p);
+      else if (!engine_l && (x = p.match(/(\d{1,2}[.,]\d)\s*L/i))) { engine_l = parseFloat(x[1].replace(',', '.')); const kw = p.match(/(\d{2,4})\s*kW/i); if (kw) power = parseInt(kw[1], 10); }
+      else if (!fuel && /dyzel|benzin|elektr|hibrid|dujos/i.test(p)) { fuel = /dyzel/i.test(p) ? 'diesel' : /hibrid/i.test(p) ? 'hybrid' : /elektr/i.test(p) ? 'electric' : 'petrol'; }
+      else if (!gear && /automat|mechanin/i.test(p)) gear = /automat/i.test(p) ? 'automatic' : 'manual';
+    });
+    out.push({ price: Math.round(price), km: km, year: year, url: 'https://autogidas.lt' + href, title: (title + (engine_l ? ' ' + engine_l.toFixed(1) : '')).slice(0, 160), fuel: fuel, gear: gear, engine_l: engine_l, power_kw: power,
+      img: (r.match(/<img[^>]+src="(https:\/\/img\.autogidas\.lt\/[^"]+)"/) || [])[1] || null });
+  }
+  return out;
 }
 
 /* ss.lv seller: number of views and every other ad with the same phone number.

@@ -2046,6 +2046,13 @@ async function run(){
     jobs.push(api('/api/comps',Object.assign({source:'autoplius'},base),55000).then(function(j){return {key:'apl',region:'LT',label:'autoplius.lt',j:j}}));
     setSrc('ape','autoportaal.ee (EE)','run',function(){return L('загружаю…','loading…','ielādēju…')});
     jobs.push(api('/api/comps',Object.assign({source:'autoportaal'},base),55000).then(function(j){return {key:'ape',region:'EE',label:'autoportaal.ee',j:j}}));
+    /* more listings for the same countries: merged with ss.lv / autoplius / autoportaal in compute() (the same car on two sites counts once) */
+    setSrc('agl','autogidas.lt (LT)','run',function(){return L('загружаю…','loading…','ielādēju…')});
+    jobs.push(api('/api/comps',Object.assign({source:'autogidas'},base),55000).then(function(j){return {key:'agl',region:'LT',label:'autogidas.lt',j:j}}));
+    [['EE','a24ee'],['LV','a24lv']].forEach(function(x){
+      setSrc(x[1],'auto24 ('+x[0]+')','run',function(){return L('загружаю…','loading…','ielādēju…')});
+      jobs.push(api('/api/comps',Object.assign({source:'auto24',cc:x[0]},base),55000).then(function(j){return {key:x[1],region:x[0],label:'auto24 '+x[0],j:j}}));
+    });
     [['D','DE'],['B','BE'],['NL','NL'],['F','FR']].forEach(function(cc){
       var key='as24'+cc[1].toLowerCase();
       setSrc(key,'AutoScout24 ('+cc[1]+')','run',function(){return L('загружаю…','loading…')});
@@ -2080,7 +2087,8 @@ async function run(){
 
 /* ---------- analysis ---------- */
 function median(a){var s=a.slice().sort(function(x,y){return x-y}),n=s.length; return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):null}
-function listingId(u){ var m=String(u||'').match(/\/msg\/(?:[a-z]{2}\/)?.*?([a-z0-9]{4,})\.html?(?:$|[?#])/i)||String(u||'').match(/\/offers\/([^/?#]+)/i); return m?m[1].toLowerCase():null; }
+function listingId(u){ var s=String(u||''), a=s.match(/auto24\.(?:ee|lv|lt)\/(?:soidukid|lietoti|naudoti|used|vehicles|kasutatud\/auto\.php\?id=)\/?(\d{5,})/i); if(a) return 'a24-'+a[1];
+  var m=s.match(/\/msg\/(?:[a-z]{2}\/)?.*?([a-z0-9]{4,})\.html?(?:$|[?#])/i)||s.match(/\/offers\/([^/?#]+)/i); return m?m[1].toLowerCase():null; }
 function isOwnListing(i,car){
   var a=listingId(i.url), b=listingId(car.url); if(a&&b&&a===b) return true;
   return !!(car.price>0&&i.price===car.price&&car.year&&i.year===car.year&&(i.km==null||car.km==null||Math.abs(i.km-car.km)<=1500)&&car.url&&i.url&&String(i.url).split('/')[2]===String(car.url).split('/')[2]);
@@ -2115,9 +2123,27 @@ function fairOf(st){
   if(st.n>=3) return {mid:st.median,low:st.min,high:st.max,source:'comps-few'};
   return null;
 }
+/* several sites of one country (ss.lv + auto24 LV, autoplius + autogidas, autoportaal + auto24 EE) become one market:
+   their listings are pooled, each keeps its own site name, and a car listed on two sites (same price and year, mileage
+   within 1000 km) counts once. Sites that failed stay as their own rows so their errors are shown. Extra links (key x*) stay apart. */
+function mergeByRegion(results){
+  var MERGE={ss:1,a24lv:1,apl:1,agl:1,ape:1,a24ee:1}, byR={}, out=[];
+  results.forEach(function(r){ var j=r.j||{}; if(MERGE[r.key]&&j.ok&&(j.items||[]).length){ (byR[r.region]=byR[r.region]||[]).push(r); } else out.push(r); });
+  Object.keys(byR).forEach(function(reg){
+    var g=byR[reg]; if(g.length===1){ out.push(g[0]); return; }
+    var items=[], seen=[];
+    g.forEach(function(r){ (r.j.items||[]).forEach(function(i){
+      var dup=seen.some(function(s){ return s.price===i.price&&s.year===i.year&&(s.km==null||i.km==null||Math.abs(s.km-i.km)<=1000)&&s.src!==r.label; });
+      if(dup) return; var it=Object.assign({},i,{src:r.label}); seen.push(it); items.push(it); }); });
+    out.push({key:g.map(function(r){return r.key}).join('+'),region:reg,label:g.map(function(r){return r.label}).join(' + '),url:g[0].j.searchUrl||null,j:{ok:true,items:items,searchUrl:g[0].j.searchUrl,merged:g.map(function(r){return {label:r.label,n:(r.j.items||[]).length}})}});
+  });
+  var order={ss:0,a24lv:1,apl:2,agl:3,ape:4,a24ee:5,as24de:6,as24be:7,as24nl:8,as24fr:9}, rk=function(r){ return order[String(r.key).split('+')[0]]!=null?order[String(r.key).split('+')[0]]:19; };
+  return out.sort(function(a,b){ return rk(a)-rk(b)||String(a.key).localeCompare(String(b.key)); });
+}
 function compute(car,results,f,notes){
   var regions=[], all=[], totalUsed=0;
-  var order={ss:0,apl:1,ape:2,as24de:3,as24be:4,as24nl:5,as24fr:6}; results.sort(function(a,b){return (order[a.key]!=null?order[a.key]:9)-(order[b.key]!=null?order[b.key]:9)||a.key.localeCompare(b.key)});
+  var order={ss:0,a24lv:1,apl:2,agl:3,ape:4,a24ee:5,as24de:6,as24be:7,as24nl:8,as24fr:9}; results.sort(function(a,b){return (order[a.key]!=null?order[a.key]:19)-(order[b.key]!=null?order[b.key]:19)||a.key.localeCompare(b.key)});
+  results=mergeByRegion(results);
   results.forEach(function(r){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:(function(){return errText(j)}),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
@@ -2562,7 +2588,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-15.12', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-17.1', KEY_FAVS='carscout_favs';
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -5051,6 +5077,8 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   });
 })();
 window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant};
+/* used by the daily logic check (tools/logiccheck.mjs) to test the "Find me a car" filters directly */
+window.fzFilter=fzFilter; window.pickList=pickList; window.varFamily=varFamily; window.varOk=varOk;
 })();
 })();
 </script>

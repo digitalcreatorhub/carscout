@@ -280,7 +280,9 @@ check(res.ok && res.market && res.market.sold === ls.events && res.market.days =
   check(JSON.stringify(vm.runInContext(`cardClamp(['a','b','c','d','e'], 3)`, ru)) === '["a","b","c…"]' && JSON.stringify(vm.runInContext(`cardClamp(['a','b'], 3)`, ru)) === '["a","b"]', 'too many lines are cut with …, short text is left alone');
 
   const now = Date.now(), day = 86400000;
-  const view = (x = {}) => Object.assign({ car: { make: 'Volkswagen', model: 'Golf', year: 2017, km: 148000, fuel: 'diesel', gear: 'manual', price: 9200, posted: '2026-10-05', trims: [], phone: '+371 20000000', sellerName: 'Jānis' },
+  /* the ad was posted on the day CarScout first saw it (both relative to today, so the check does not age) */
+  const posted = new Date(now - 10 * day).toISOString().slice(0, 10);
+  const view = (x = {}) => Object.assign({ car: { make: 'Volkswagen', model: 'Golf', year: 2017, km: 148000, fuel: 'diesel', gear: 'manual', price: 9200, posted, trims: [], phone: '+371 20000000', sellerName: 'Jānis' },
     ver: { key: 'good', delta: -9.1 }, fair: { mid: 10120, low: 9500, high: 10800, source: 'comps-reg' }, home: { n: 23, region: 'LV', tol: 1 },
     drop: { from: 9500, to: 9200, t: now - day, steps: 1 }, mem: { raw: { self: { first: { t: now - 10 * day, p: 9500 } } } }, cross: null }, x);
   const cl = (lang, v) => J(mk(lang), `cardLines(${JSON.stringify(v)})`);
@@ -342,6 +344,41 @@ ${row('labisoit', L[8], '371 898 km', ' <span>&middot;</span> servisa grāmata')
   check(r[0].images.length === 2 && r[0].images.every(u => /img-bcg\.eu/.test(u)) && W(`imgAllowed('https://img13.img-bcg.eu/h30/b81281/s7/206934990.jpg')`), 'auto24: the photos are found and allowed', r[0].images);
   check(r[0].title === 'Audi A6 3.0 180kW', 'auto24: the title', r[0].title);
   check(W(`parseA24Listing('<html><body>no table</body></html>', 'https://www.auto24.ee/used/1') === null`), 'auto24: a page without the main table falls back to the generic reader');
+}
+
+/* auto24 and autogidas.lt as sources of similar cars (markup copied from the live sites, October 2026) */
+{
+  const a24row = (id, eng, yr, km, fuel, gear, drive, price) => `<div class="result-row item-odd v-log " data-hsh="x"> <div class="thumbnail"><a href="/soidukid/${id}" class="small-image" ><img class="thumb" src="https://img13.img-bcg.eu/h32/de2e95/s1/v2/${id}.jpg" loading="lazy"></a></div> <div class="description"> <div class="title"> <a href="/soidukid/${id}" class="main"><span>Audi</span> <span class="model">A6</span> <span class="engine">${eng}</span></a><span class="tbl-columns"><span class="year">${yr}</span><span class="finance"><span class="pv"><span class="price">${price}&nbsp;&euro;</span></span><a href="/soidukid/${id}#loan=72" class="loan-adv small"><span>kuumakse al. <span style="font-weight: bold;">109&nbsp;&euro;</span></span></a></span></span> </div> <div class="extra"> <span class="year">${yr}</span><span class="mileage">${km}&nbsp;km</span><span class="fuel sm-none">${fuel}</span><span class="transmission sm-none">${gear}</span><span class="bodytype">Universaal</span><span class="drive">${drive}</span> </div> </div> <a href="/soidukid/${id}" class="row-link" target="_self"></a> </div>`;
+  const opt = (v, t, lvl) => `<option class="input-option${lvl ? ' level-1' : ''}" value="${v}">${t}</option>`;
+  const form = (makeSel, models) => `<select class="input-select" id="searchParam-cmm-1-make" data-ilabel="Mark" name="b"><option class="input-option" value="">kõik</option>${opt(9, 'Alfa Romeo')}<option class="input-option" value="2"${makeSel ? ' selected="selected"' : ''}>Audi</option>${opt(4, 'BMW')}${opt(12, 'Mercedes-Benz')}${opt(40, 'Skoda')}</select>` +
+    (models ? `<label class="label" for="searchParam-cmm-1-model_id">Mudel</label><div class="field"><select class="input-select" id="searchParam-cmm-1-model_id" multiple="multiple" size="1" data-ilabel="Mudel" name="bw[]"><option class="input-option" value="">kõik</option>${models}</select></div>` : '');
+  const audiModels = opt(85, 'A4 (kõik)') + opt(86, 'A4', 1) + opt(1511, 'A6 (kõik)') + opt(89, 'A6', 1) + opt(90, 'A6 allroad', 1) + opt(812, 'S6');
+  const bmwModels = opt(881, '1 seeria (kõik)') + opt(1181, '116', 1) + opt(883, '5 seeria (kõik)') + opt(1185, '520', 1) + opt(21, 'X5');
+  const mbModels = opt(152, 'E-klass (kõik)') + opt(1265, 'E 220', 1) + opt(1273, 'E 300', 1);
+  const list = a24row(4357217, '2.0 130kW', 2012, '337 000', 'Diisel', 'Automaat', 'Esivedu', 6900) + a24row(4355546, '3.0 180kW', 2012, '290 500', 'Diisel', 'Automaat', 'Nelikvedu', 9800) + a24row(4361580, '3.0 180kW', 2012, '371 898', 'Diisel', 'Automaat', 'Nelikvedu', 9300);
+  ctx.__f = { list, audi: form(true, audiModels), bmw: form(false, bmwModels), mb: form(false, mbModels) };
+  const it = JSON.parse(W(`JSON.stringify(parseA24List(__f.list))`));
+  check(it.length === 3 && it[0].price === 6900 && it[0].year === 2012 && it[0].km === 337000 && it[0].url === 'https://www.auto24.ee/soidukid/4357217', 'auto24 list: price, year, mileage and link of each row', it[0]);
+  check(it[1].engine_l === 3 && it[1].fuel === 'diesel' && it[1].gear === 'automatic' && it[1].drive === 'awd' && it[0].drive === 'fwd', 'auto24 list: engine, fuel, gearbox and drive', it[1]);
+  const pk = JSON.parse(W(`JSON.stringify([a24Pick(a24Options(__f.audi, 'b'), 'Audi', true), a24Pick(a24Options(__f.audi, 'bw[]'), 'A6'), a24Pick(a24Options(__f.audi, 'b'), 'Mercedes', true), a24Pick(a24Options(__f.audi, 'b'), 'Škoda', true),
+    a24Pick(a24Options(__f.bmw, 'bw[]'), '5 Series'), a24Pick(a24Options(__f.bmw, 'bw[]'), 'X5'), a24Pick(a24Options(__f.mb, 'bw[]'), 'E-Class'), a24Pick(a24Options(__f.mb, 'bw[]'), 'E 300'), a24Pick(a24Options(__f.audi, 'bw[]'), 'Q7')])`));
+  check(JSON.stringify(pk) === JSON.stringify(['2', '1511', '12', '40', '883', '21', '152', '1273', null]), 'auto24 make and model numbers: A6 = the whole A6 line, Mercedes = Mercedes-Benz, Škoda = Skoda, 5 Series = "5 seeria", E-Class = "E-klass", unknown model = none', pk);
+  /* the whole search through the worker: make number -> model number -> results of cars standing in Estonia */
+  const B = 'https://www.auto24.ee/kasutatud/nimekiri.php?a=101102';
+  pages[B] = { status: 200, body: ctx.__f.audi.replace(' selected="selected"', '') };
+  pages[B + '&b=2'] = { status: 200, body: ctx.__f.audi };
+  pages[B + '&b=2&bw=1511&f1=2011&f2=2013&ab%5B%5D=-1'] = { status: 200, body: '<div id="usedVehiclesSearchResult-flex">' + list + '</div>' };
+  pages[B + '&b=2&bw=1511&f1=2011&f2=2013&ab%5B%5D=-1&ak=50'] = { status: 200, body: '<div></div>' };
+  const res = JSON.parse(await W(`hComps(env, new URLSearchParams('source=auto24&cc=EE&make=Audi&model=A6&year=2012'), null).then(function (r) { return r.text(); })`));
+  check(res.ok && res.region === 'EE' && res.items.length === 3 && res.modelId === '1511' && /ab%5B%5D=-1/.test(res.searchUrl), 'auto24 source: Audi A6 2011–2013 standing in Estonia, 3 ads, the search link is given', { ok: res.ok, n: (res.items || []).length, err: res.error, url: res.searchUrl });
+  const resLv = JSON.parse(await W(`hComps(env, new URLSearchParams('source=auto24&cc=LV&make=Audi&model=A6&year=2012'), null).then(function (r) { return r.text(); })`));
+  check(/www\.auto24\.lv/.test(resLv.searchUrl || '') && /ab%5B%5D=-2/.test(resLv.searchUrl || ''), 'auto24 source for Latvia asks for cars standing in Latvia and links to auto24.lv', resLv.searchUrl);
+
+  const agCard = (id, price, yr, fuel, km, gear, eng, title = 'Audi A6') => `<article id="cars-container" class="list-item-new is-highlighted" data-price="${price}.00" data-updated="1791451837"> <div class="article-item"> <a class="item-link " role="link" tabindex="0" href="/skelbimas/audi-a6-${yr}-m-universalas-${id}.html" title="${title}"> <div class="right"> <div class="image"> <img width="268" height="200" src="https://img.autogidas.lt/4_16_${id}/image.jpg" class="js-image" alt="${title}" /> </div> </div> <div class="description"> <div class="display-flex space-between card-title-wrapper"> <div class="title-wrapper"> <h2 class="item-title"> ${title} </h2> </div> <div class="item-price-content"> <div class="item-price"> ${price} € </div> </div> </div> <div class="parameters"> <span class="parameter-value"> ${yr} m. </span> <span class="parameter-value"> ${fuel} </span> <span class="parameter-value"> ${km} km </span> <span class="parameter-value"> ${gear} </span> <span class="parameter-value"> ${eng} </span> <span class="parameter-value"> Vilnius </span> </div> </div> </a> </div> </article>`;
+  ctx.__ag = agCard('0140033298', 7900, 2012, 'Dyzelinas', '245 995', 'Automatinė', '2.0 L / 130 kW') + agCard('0140033111', 11000, 2013, 'Benzinas', '180 000', 'Mechaninė', '3.0 L / 220 kW') + agCard('0140033222', 50, 2012, 'Dyzelinas', '1 000', 'Automatinė', '2.0 L / 130 kW');
+  const ag = JSON.parse(W(`JSON.stringify(parseAgList(__ag))`));
+  check(ag.length === 2 && ag[0].price === 7900 && ag[0].year === 2012 && ag[0].km === 245995 && ag[0].url === 'https://autogidas.lt/skelbimai/audi-a6-2012-m-universalas-0140033298.html'.replace('skelbimai', 'skelbimas'), 'autogidas list: price, year, mileage and link (a 50 € card is dropped)', ag[0]);
+  check(ag[0].fuel === 'diesel' && ag[0].gear === 'automatic' && ag[0].engine_l === 2 && ag[0].power_kw === 130 && ag[1].fuel === 'petrol' && ag[1].gear === 'manual' && ag[1].engine_l === 3, 'autogidas list: fuel, gearbox, engine and power', ag);
 }
 
 console.log(oks.map(x => '✔ ' + x).join('\n'));
