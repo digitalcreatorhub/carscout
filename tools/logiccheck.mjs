@@ -163,6 +163,26 @@ for (const sc of SCEN) {
   check(await pg.$eval('#f-url', e => e.offsetParent !== null).catch(() => false), 'a second tap returns to checking a listing');
   await ctx.close();
 }
+/* auto-update: opening the app compares the published version with the running one. A newer one is picked up by itself (one reload,
+   then no loop: the Update button instead); the same version leaves the page alone. Needs http(s), so it is skipped for file:// builds. */
+if (!SITE.startsWith('file:')) {
+  for (const newer of [false, true]) {
+    const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' }); const pg = await ctx.newPage(); const navs = [];
+    pg.on('framenavigated', f => { if (f === pg.mainFrame()) navs.push(f.url()); });
+    await pg.route('**/*', r => {
+      const u = r.request().url();
+      if (u.startsWith(API)) return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: '{"ok":true}' });
+      if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort();
+      if (newer && u.includes('__upd=1')) return r.fulfill({ status: 200, contentType: 'text/html', body: "<script>var APP_VER = '2099-01-01.1';</script>" });
+      return r.continue();
+    });
+    await pg.goto(SITE + '?r=' + Date.now()); await pg.waitForTimeout(3500);
+    const notice = await pg.$('#status [data-act=refresh]');
+    if (!newer) check(navs.length === 1 && !notice, 'auto-update: the same published version leaves the page alone', navs.join(' | '));
+    else check(navs.length === 2 && /[?&]r=\d+/.test(navs[1]) && !!notice, 'auto-update: a newer published version is loaded by itself once, then no reload loop (the Update button instead)', navs.join(' | ') + (notice ? '' : ' (no button)'));
+    await ctx.close();
+  }
+}
 await b.close();
 check(!errs.length, 'no script errors on the page', errs.slice(0, 5).join(' | '));
 

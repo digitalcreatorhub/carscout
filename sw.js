@@ -1,6 +1,6 @@
 /* CarScout service worker: lets the app install and open offline (the shell only; prices always come live)
    and shows phone notifications for "Find me a car". */
-const CACHE = 'carscout-shell-v8';
+const CACHE = 'carscout-shell-v9';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
@@ -11,8 +11,11 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;   // never touch the worker API or fonts
+  if (url.searchParams.has('__upd')) return;   // the page's own "is there a newer version" check goes straight to the network
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(function (r) { const cp = r.clone(); caches.open(CACHE).then(function (c) { c.put('index.html', cp); }); return r; })
+    /* always ask the server whether the page changed (a cheap 304 when it did not), so opening the app never shows a copy
+       that GitHub Pages let the browser keep for up to 10 minutes; the saved copy is only for when there is no network */
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(function (r) { const cp = r.clone(); caches.open(CACHE).then(function (c) { c.put('index.html', cp); }); return r; })
       .catch(function () { return caches.match('index.html'); }));
     return;
   }

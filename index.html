@@ -2597,7 +2597,35 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-17.2', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-18.1', KEY_FAVS='carscout_favs';
+/* Auto-update: on every start and every return to the app the published version is compared with the running one,
+   and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
+   then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
+var UPD={entry:location.href,last:0,busy:false,touch:0,hiddenAt:0};
+['touchstart','mousedown','keydown'].forEach(function(ev){ addEventListener(ev,function(){ UPD.touch=Date.now(); },{capture:true,passive:true}); });
+function updNotice(n){
+  if(S.busy){ if((n||0)<40) setTimeout(function(){ updNotice((n||0)+1); },3000); return; }   /* wait for the running check to end */
+  var el=$('#status'); if(!el) return;
+  el.innerHTML='<div class="st info"><span>'+esc(L('Вышла новая версия приложения.','A new version of the app is out.','Pieejama jauna lietotnes versija.'))+'</span><button class="btn sm" type="button" data-act="refresh">'+esc(L('Обновить','Update','Atjaunināt'))+'</button></div>';
+}
+function autoUpdate(resumed){
+  if(!/^https?:$/.test(location.protocol)||UPD.busy||!window.fetch) return;
+  var t0=Date.now(); if(t0-UPD.last<20000) return; UPD.last=t0; UPD.busy=true;
+  var ac=window.AbortController?new AbortController():null, to=setTimeout(function(){ if(ac) ac.abort(); },8000);
+  fetch(location.pathname+'?__upd=1',{cache:'no-cache',signal:ac?ac.signal:undefined}).then(function(r){ return r.ok?r.text():''; }).then(function(t){
+    var m=/APP_VER = '([^']+)'/.exec(t), live=m&&m[1]; if(!live||live===APP_VER) return;
+    var tried=null; try{ tried=sessionStorage.getItem('carscout_upd'); }catch(e){}
+    /* a start with no tap yet always reloads (a shared link that began a check on its own is started again after the reload);
+       coming back from another app reloads only after a minute away and when no check is running */
+    var calm=UPD.touch<t0&&(!resumed||(!S.busy&&t0-UPD.hiddenAt>=60000));
+    if(!calm||tried===live){ updNotice(); return; }   /* already reloaded once for this version and still old: no loop */
+    try{ sessionStorage.setItem('carscout_upd',live); }catch(e){}
+    var u; try{ var x=new URL(UPD.entry); x.searchParams.set('r',String(Date.now())); u=x.href; }catch(e){ u=location.pathname+'?r='+Date.now(); }
+    location.replace(u);   /* the same address (a shared link or "?find=1" from a notification stays), with a fresh stamp */
+  }).catch(function(){}).then(function(){ clearTimeout(to); UPD.busy=false; });
+}
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') UPD.hiddenAt=Date.now(); else autoUpdate(true); });
+window.addEventListener('pageshow',function(e){ if(e.persisted) autoUpdate(true); });
 function refreshApp(){
   showStatus('busy',function(){return L('Обновляю приложение…','Updating the app…')},false);
   var done=function(){ location.replace(location.pathname+'?r='+Date.now()); };
@@ -5070,6 +5098,7 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   S.connP=(S.api||API_DEFAULT)?connect().then(function(ok){ if(ok){ favAutoCheck(); huntAutoCheck(); } return ok; }):Promise.resolve(false);
   try{ gcBoot(); }catch(e){}
   try{ favBadge(); huntBadge(); bootLink(); }catch(e){}
+  try{ autoUpdate(false); }catch(e){}
   /* ---------- install as an app (PWA) ---------- */
 (function(){
   var deferred=null, btn=$('#btn-install');
@@ -5085,7 +5114,7 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
     else showStatus('info',function(){return L('Откройте меню браузера (три точки) и выберите «Установить приложение» или «Добавить на главный экран».','Open the browser menu (three dots) and choose “Install app” or “Add to Home screen”.')});
   });
 })();
-window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant};
+window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant,UPD:UPD,autoUpdate:autoUpdate};
 /* used by the daily logic check (tools/logiccheck.mjs) to test the "Find me a car" filters directly */
 window.fzFilter=fzFilter; window.pickList=pickList; window.varFamily=varFamily; window.varOk=varOk;
 })();
