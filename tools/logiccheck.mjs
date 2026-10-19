@@ -15,6 +15,8 @@ const asUrl = k => `https://www.autoscout24.de/angebote/audi-a6-avant-1b2c3d4e-1
 const items = (n, mid, kind) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: 2018 + (k % 3) - 1, url: kind === 'ss' ? ssUrl(k) : asUrl(k), title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' }));
 
 const mixItems = (n, mid, title, off, yr = 2018) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: yr + (k % 3) - 1, url: ssUrl(off + k), title, fuel: 'diesel', gear: 'automatic' }));
+const tig = (n, mid, km, title, off) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: km + (k % 5) * 4000, year: 2019 + (k % 3), url: ssUrl(off + k), title, fuel: 'diesel', gear: 'automatic' }));
+const TIGUAN = { make: 'Volkswagen', model: 'Tiguan', year: 2020, mileage_km: 67000, asking_price: 25000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'VW Tiguan R-Line 2.0 TDI DSG', src: {} };
 const PHOTOS = ['https://i.ss.com/gallery/6/1/a1.800.jpg', 'https://i.ss.com/gallery/6/1/a2.800.jpg'];
 const genItems = (n, mid, yr, km, off) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 150), km: km + (k % 4) * 3000, year: yr, url: ssUrl(off + k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' }));
 
@@ -139,6 +141,17 @@ const SCEN = [
     listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
     comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
     expect: v => [[v.photoAsked.length === 0, 'with one photo only nothing is asked (two photos are needed to agree)', v.photoAsked]] },
+  /* the Tiguan the user reported: only 5 ads of the same trim (R-Line) and their mileage is three times this car's, while the other 10 ads of the same engine fit it.
+     The wider group is the better comparison; the trim is named in a note and the verdict is marked approximate (the R-Line premium is not in the figure) */
+  { id: 'trim-wide-when-mileage-off', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig1.html', price: 25000, listing: TIGUAN,
+    comps: { ss: [...tig(5, 21500, 185000, 'Volkswagen Tiguan R-Line 2.0 TDI', 0), ...tig(10, 26000, 55000, 'Volkswagen Tiguan 2.0 TDI', 20)] },
+    expect: v => [[/15 похожих/.test(v.basis), 'the car is compared with all 15 ads, not the 5 R-Line ads with 3 times the mileage', v.basis],
+      [/всеми комплектациями/.test(v.notes) && /R-Line/.test(v.notes), 'a note says it: few R-Line ads with other mileage, so all trims are compared', v.notes],
+      [!/Оценка неточная/.test(v.verdict) && /ориентировочно/i.test(v.verdict) && /комплектация \(R-Line\)/.test(v.basis), 'the verdict is not "inexact", only approximate, and names the trim as a reason', v.verdict + ' | ' + v.basis]] },
+  /* the same trim ads fit the mileage: they are used, and the page now SAYS the comparison is with that trim only */
+  { id: 'trim-same-says-so', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig2.html', price: 25000, listing: TIGUAN,
+    comps: { ss: [...tig(6, 26500, 60000, 'Volkswagen Tiguan R-Line 2.0 TDI', 0), ...tig(10, 24000, 90000, 'Volkswagen Tiguan 2.0 TDI', 20)] },
+    expect: v => [[/6 похожих/.test(v.basis), 'six R-Line ads with fitting mileage are used on their own', v.basis], [/только с той же комплектацией \(R-Line\): 6/.test(v.notes), 'and a note says "only with the same trim (R-Line): 6"', v.notes]] },
   /* any model, known or not: when the compared cars have twice the mileage the verdict says so */
   { id: 'km-mismatch', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a5/zzkm1.html', price: 12000,
     listing: { make: 'Audi', model: 'A5', year: 2018, mileage_km: 90000, asking_price: 12000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A5 2.0 TDI', src: {} },
@@ -173,7 +186,7 @@ for (const sc of SCEN) {
   if (!okV) { check(false, sc.id + ': analysis opens', 'no verdict panel'); await ctx.close(); continue; }
   await pg.waitForTimeout(800);
   const t = async (sel, n = 2000) => pg.$eval(sel, (e, n) => (e.value != null && e.tagName === 'TEXTAREA' ? e.value : e.innerText).replace(/\s+/g, ' ').slice(0, n), n).catch(() => '');
-  const v = { photoAsked, ring: await t('#a-verdict .ring', 40), verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
+  const v = { photoAsked, ring: await t('#a-verdict .ring', 40), verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), notes: await t('#a-car .anotes', 3000), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
     msg: await t('#msg-text', 400), msgLang: await pg.$eval('#msg-lang', e => e.value).catch(() => ''), calc: await pg.$$eval('#k-lv,#k-de', e => e.map(x => x.id + '=' + x.value).join(' ')).catch(() => ''), checks: await pg.$eval('#a-checks', e => e.textContent.replace(/\s+/g, ' ')).catch(() => '') };
   v.region = v.region.split('·')[0].trim();
   for (const [cond, what, detail] of sc.expect(v)) check(cond, sc.id + ': ' + what, detail);
