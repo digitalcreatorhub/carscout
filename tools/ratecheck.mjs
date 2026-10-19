@@ -65,6 +65,13 @@ for (let k = 0; k < 2600; k++) await go('/api/memory', '10.1.' + (k >> 8) + '.' 
 check(W('RL_MEM.size') <= W('RL_MAX_KEYS'), 'the counters are bounded in size', W('RL_MEM.size'));
 check((await go('/api/memory', '10.9.9.9')).status === 200, 'after many addresses a new one is still answered');
 
+/* ---- the neural-network endpoint has its own small budget and does not use up the reading budget ---- */
+check(LIM.ai >= 5 && LIM.ai <= 20, 'a neural-network call has a small budget of its own (one check of a car makes one)', LIM.ai);
+const aiOk = await statuses(LIM.ai, '/api/photogen', '6.6.6.6');
+check(aiOk.every(s => s !== 429), `the first ${LIM.ai} photo-generation calls of an address in a minute are answered (here: 400 for no parameters)`, aiOk);
+check((await go('/api/photogen', '6.6.6.6')).status === 429, 'the next one is refused with 429');
+check((await go('/api/memory', '6.6.6.6')).status === 200, 'while ordinary reads of the same address still work');
+
 /* ---- the optional Cloudflare Rate Limiting binding (RATE) ---- */
 const seen = [];
 const bound = { ALLOW_ORIGIN: ORIGIN, RATE: { limit: async ({ key }) => { seen.push(key); return { success: !key.endsWith('|9.9.9.9') }; } } };

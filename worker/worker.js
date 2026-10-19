@@ -14,7 +14,7 @@
  * Settings (Workers > your worker > Settings > Variables):
  *   ALLOW_ORIGIN  optional, e.g. https://yourname.github.io  (default: any origin)
  */
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
@@ -68,13 +68,14 @@ function blockedBy(p) {
    starts again when an instance restarts, so this stops a runaway page or script, not a determined attacker.
    If a Cloudflare Rate Limiting binding named RATE is added in wrangler.toml, it is used as well (see wrangler.toml). */
 const RL_WINDOW = 60000, RL_MAX_KEYS = 2000;
-const RL_LIMIT = { read: 120, write: 40, tick: 200 };
+const RL_LIMIT = { read: 120, write: 40, tick: 200, ai: 12 };
 const RL_MEM = new Map();
 /* which budget a request uses: null = never limited (status page, the public key), write = POST, tick = the cron helpers */
 function rlKind(method, path) {
   if (path === '/' || path === '' || path === '/api/push/key') return null;
   if (method === 'POST') return 'write';
   if (path === '/api/push/tick' || path === '/api/alive/tick') return 'tick';
+  if (path === '/api/photogen') return 'ai';   // a neural network call: its own small budget, and it is never counted against reads
   return 'read';
 }
 function rlCount(ip, kind, now) {
@@ -778,6 +779,89 @@ async function hImg(env, q) {
   const buf = await r.arrayBuffer();
   if (buf.byteLength > 6000000) return json(env, { ok: false, error: 'too_large' }, 413);
   return new Response(buf, { status: 200, headers: Object.assign({ 'content-type': ct, 'cache-control': 'public, max-age=86400' }, cors(env)) });
+}
+
+/* ---------------- generation of the car from its photos ----------------
+   Asked only by the app, and only when the year of a car is the first year of a new body (a 2018 A6 can be the old C7 or the new C8) and the ad
+   does not say which. Two photos of the ad go to a vision model of Cloudflare Workers AI (free daily allowance; when it is used up or the AI binding is not
+   switched on, the answer is simply ok:false and the app goes on without it). The model chooses between the two neighbouring generations, the second
+   photo with the options in the opposite order (a model likes the first or the last option); an answer counts only when both photos agree. It is a hint,
+   never a fact, and the app says so. The answer is kept in the Cloudflare cache, so the same ad costs nothing the second time. */
+const PG_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
+const PG_MAX_BYTES = 3500000;
+function pgGens(s) {
+  const out = []; String(s || '').split('|').forEach(function (x) {
+    const m = /^([A-Za-z0-9][\w .\-]{0,11})~(\d{4})$/.exec(x.trim());
+    if (m && +m[2] >= 1990 && +m[2] <= 2035 && out.length < 4) out.push({ name: m[1].trim(), year: +m[2] });
+  });
+  return out.length >= 2 ? out : null;
+}
+function pgSniff(b) {   // the type from the first bytes: the site's header is not trusted
+  if (b.length > 12 && b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return 'image/jpeg';
+  if (b.length > 12 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return 'image/png';
+  if (b.length > 12 && b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'image/webp';
+  return null;
+}
+function pgB64(b) { let s = ''; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192)); return btoa(s); }
+async function pgImage(url) {
+  if (!imgAllowed(url)) return null;
+  const r = await fetch(url, { headers: { 'user-agent': UA, 'referer': new URL(url).origin + '/', 'accept': 'image/jpeg,image/png,image/webp,image/*;q=0.8' }, cf: { cacheTtl: 86400, cacheEverything: true } });
+  if (!r.ok) return null;
+  const len = parseInt(r.headers.get('content-length') || '0', 10); if (len > PG_MAX_BYTES) return null;
+  const b = new Uint8Array(await r.arrayBuffer()); if (b.length > PG_MAX_BYTES) return null;
+  const mime = pgSniff(b); return mime ? { mime: mime, bytes: b } : null;
+}
+function pgPrompt(make, model, year, gens, reversed) {
+  const names = gens.map(function (g) { return g.name; }); if (reversed) names.reverse();
+  const list = gens.map(function (g) { return g.name + ' (on sale from ' + g.year + ')'; }).join(', ');
+  return 'This is a photo from a used-car advertisement. The car is a ' + make + ' ' + model + ' first registered in ' + year + '. The model has these generations: ' + list +
+    '. Look at the headlights, grille, bumpers, tail lights and the shape of the body and tell which generation the car in the photo is. ' +
+    'If the photo does not show the outside of the car (interior, engine, documents, a detail) or you cannot tell, answer unknown. Answer with one word only: ' + names.join(', ') + ' or unknown.';
+}
+async function pgAsk(env, img, prompt) {
+  const dataUrl = 'data:' + img.mime + ';base64,' + pgB64(img.bytes);
+  const run = function (input) { return env.AI.run(PG_MODEL, input); };
+  const first = { messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl } }] }], max_tokens: 12 };
+  const second = { prompt: prompt, image: Array.from(img.bytes), max_tokens: 12 };   // the other input form of the same model, tried when the first is refused
+  let agreeTried = false;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let licence = false;
+    for (const input of [first, second]) {
+      try {
+        const r = await run(input); const t = r && (r.response != null ? r.response : r.description != null ? r.description : r.result && r.result.response);
+        if (typeof t === 'string' && t.trim()) return t;
+      } catch (e) {
+        if (!agreeTried && /agree|licen[cs]e|5016/i.test(String(e && e.message || e))) { agreeTried = true; licence = true; try { await run({ prompt: 'agree' }); } catch (x) { } break; }   // the model asks once for its licence: accept it, then ask again
+      }
+    }
+    if (!licence) break;
+  }
+  return null;
+}
+function pgPick(text, gens) {   // exactly one of the offered names in the answer, else nothing
+  const t = String(text || '').toLowerCase(); let hit = null, n = 0;
+  gens.forEach(function (g) { const re = new RegExp('(^|[^a-z0-9])' + g.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z0-9])'); if (re.test(t)) { hit = g.name; n++; } });
+  return n === 1 ? hit : null;
+}
+async function hPhotoGen(env, q, ctx) {
+  const gens = pgGens(q.get('gens')), clean = function (x) { return String(x || '').replace(/[^\w .\-+]/g, '').slice(0, 30); };
+  const make = clean(q.get('make')), model = clean(q.get('model')), year = parseInt(q.get('year'), 10), imgs = [q.get('img'), q.get('img2')];
+  if (!gens || !make || !model || !(year >= 1990 && year <= 2035) || !imgs[0] || !imgs[1] || imgs[0] === imgs[1] || !imgAllowed(imgs[0]) || !imgAllowed(imgs[1])) return json(env, { ok: false, error: 'bad_request' }, 400);
+  if (!env || !env.AI || typeof env.AI.run !== 'function') return json(env, { ok: false, error: 'no_ai' });
+  const key = 'https://carscout-cache.invalid/photogen?' + [make, model, year, gens.map(function (g) { return g.name + g.year; }).join(','), imgs[0], imgs[1]].map(encodeURIComponent).join('&');
+  const store = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  if (store) { try { const hit = await store.match(new Request(key)); if (hit) { const j = await hit.json(); j.cached = true; return json(env, j); } } catch (e) { } }
+  const votes = [], pics = await Promise.all(imgs.map(function (u) { return pgImage(u).catch(function () { return null; }); }));
+  if (!pics[0] || !pics[1]) return json(env, { ok: false, error: 'image_unavailable' });
+  for (let i = 0; i < 2; i++) {
+    const text = await pgAsk(env, pics[i], pgPrompt(make, model, year, gens, i === 1));
+    if (text == null) return json(env, { ok: false, error: 'ai_failed' });   // not cached: the allowance may come back tomorrow
+    votes.push(pgPick(text, gens));
+  }
+  const gen = votes[0] && votes[0] === votes[1] ? votes[0] : null;
+  const out = { ok: true, gen: gen, votes: votes, model: PG_MODEL };
+  if (store) { try { const res = new Response(JSON.stringify(out), { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=' + (gen ? 2592000 : 86400) } }); const p = store.put(new Request(key), res); if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p; } catch (e) { } }
+  return json(env, out);
 }
 
 /* ---------------- handlers ---------------- */
@@ -1703,7 +1787,7 @@ export default {
     if (request.method === 'POST' && u.pathname === '/api/watch') { try { return await hWatchSave(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     try {
-      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, endpoints: ['/api/listing', '/api/seller', '/api/comps', '/api/memory', '/api/search', '/api/img', '/api/debug'] });
+      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, photoAI: !!(env && env.AI && typeof env.AI.run === 'function'), endpoints: ['/api/listing', '/api/seller', '/api/comps', '/api/memory', '/api/search', '/api/img', '/api/photogen', '/api/debug'] });
       if (u.pathname === '/api/listing') return await hListing(env, u.searchParams, ctx);
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams, ctx);
       if (u.pathname === '/api/memory') return await hMemory(env, u.searchParams);
@@ -1721,6 +1805,7 @@ export default {
       if (u.pathname === '/api/vinhist') return await hVinHistory(env, u.searchParams);
       if (u.pathname === '/api/debug') return await hDebug(env, u.searchParams);
       if (u.pathname === '/api/img') return await hImg(env, u.searchParams);
+      if (u.pathname === '/api/photogen') return await hPhotoGen(env, u.searchParams, ctx);
       return json(env, { ok: false, error: 'not_found' }, 404);
     } catch (e) {
       return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500);

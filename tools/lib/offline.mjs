@@ -29,7 +29,7 @@ export function loadWorker(opts = {}) {
   const pages = {}, calls = [];
   const fakeFetch = async (url) => { calls.push(String(url)); const p = pages[url] || { status: 404, body: '' }; return new Response(p.body, { status: p.status }); };
   const src = fs.readFileSync(new URL('../../worker/worker.js', import.meta.url), 'utf8').replace('export default {', 'globalThis.__worker = {');
-  const ctx = vm.createContext({ fetch: fakeFetch, URL, URLSearchParams, Request, Response, Headers, crypto, TextEncoder, TextDecoder, console, Date: FDate, setTimeout, clearTimeout, AbortSignal });
+  const ctx = vm.createContext({ fetch: fakeFetch, URL, URLSearchParams, Request, Response, Headers, crypto, TextEncoder, TextDecoder, btoa, atob, console, Date: FDate, setTimeout, clearTimeout, AbortSignal });
   vm.runInContext(src, ctx, { filename: 'worker.js' });
   const W = (code) => vm.runInContext(code, ctx);
   return { T, pages, calls, ctx, W };

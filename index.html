@@ -1843,20 +1843,99 @@ var GENS={
  'mazda cx-5':[['KE',2012],['KF',2017]],
  'honda cr-v':[['IV',2012],['V',2017]],
  'hyundai tucson':[['TL',2015],['NX4',2020]],
- 'kia sportage':[['QL',2015],['NQ5',2021]]
+ 'kia sportage':[['QL',2015],['NQ5',2021]],
+ /* more models sold in Latvia: first year of each generation on sale in Europe (the year itself counts as unclear) */
+ 'audi a1':[['8X',2010],['GB',2018]],
+ 'audi a5':[['8T',2007,/\b8T\b/i],['F5',2016,/\bF5\b/i]],
+ 'audi q3':[['8U',2011,/\b8U\b/i],['F3',2018,/\bF3\b/i]],
+ 'audi a7':[['4G',2010,/\b4G\b/i],['4K',2018,/\b4K\b/i]],
+ 'audi a8':[['D3',2002],['D4',2010,/\bD4\b/i],['D5',2017,/\bD5\b/i]],
+ 'volkswagen polo':[['6R',2009,/\b6R\b/i],['6C',2014,/\b6C\b/i],['AW',2017]],
+ 'volkswagen touareg':[['7L',2002,/\b7L\b/i],['7P',2010,/\b7P\b/i],['CR',2018]],
+ 'volkswagen caddy':[['2K',2004],['SA',2015],['SB',2020]],
+ 'skoda fabia':[['5J',2007,/\b5J\b/i],['NJ',2014],['PJ',2021]],
+ 'bmw 1':[['E87',2004,/\bE8[1278]\b/i],['F20',2011,/\bF2[01]\b/i],['F40',2019,/\bF40\b/i]],
+ 'bmw 4':[['F32',2013,/\bF3[2368]\b/i],['G22',2020,/\bG2[2-6]\b/i]],
+ 'bmw 7':[['E65',2001,/\bE6[56]\b/i],['F01',2008,/\bF0[1-4]\b/i],['G11',2015,/\bG1[12]\b/i]],
+ 'bmw x1':[['E84',2009,/\bE84\b/i],['F48',2015,/\bF48\b/i],['U11',2022,/\bU11\b/i]],
+ 'bmw x3':[['E83',2003,/\bE83\b/i],['F25',2010,/\bF25\b/i],['G01',2017,/\bG01\b/i]],
+ 'bmw x6':[['E71',2008,/\bE71\b/i],['F16',2014,/\bF16\b/i],['G06',2019,/\bG06\b/i]],
+ 'mb a':[['W169',2004,/\bW169\b/i],['W176',2012,/\bW176\b/i],['W177',2018,/\bW177\b/i]],
+ 'mb b':[['W245',2005,/\bW245\b/i],['W246',2011,/\bW246\b/i],['W247',2018,/\bW247\b/i]],
+ 'mb s':[['W221',2005,/\bW221\b/i],['W222',2013,/\bW222\b/i],['W223',2020,/\bW223\b/i]],
+ 'mb glc':[['X253',2015,/\bX253\b/i],['X254',2022,/\bX254\b/i]],
+ 'mb cla':[['C117',2013,/\bC117\b/i],['C118',2019,/\bC118\b/i]],
+ 'toyota corolla':[['E150',2007],['E160',2013,/\bE16\d\b/i],['E210',2018,/\bE210\b/i]],
+ 'toyota yaris':[['XP90',2005,/\bXP90\b/i],['XP130',2011,/\bXP130\b/i],['XP210',2020,/\bXP210\b/i]],
+ 'toyota auris':[['E150',2007],['E180',2012,/\bE180\b/i]],
+ 'toyota camry':[['XV40',2006,/\bXV40\b/i],['XV50',2011,/\bXV50\b/i],['XV70',2017,/\bXV70\b/i]],
+ 'toyota prius':[['XW20',2003,/\bXW20\b/i],['XW30',2009,/\bXW30\b/i],['XW50',2016,/\bXW50\b/i],['XW60',2023,/\bXW60\b/i]],
+ 'ford fiesta':[['Mk6',2002],['Mk7',2008,/\bmk\s?7\b/i],['Mk8',2017,/\bmk\s?8\b/i]],
+ 'ford mondeo':[['Mk4',2007,/\bmk\s?4\b/i],['Mk5',2014,/\bmk\s?5\b/i]],
+ 'ford kuga':[['Mk1',2008],['Mk2',2012,/\bmk\s?2\b/i],['Mk3',2019,/\bmk\s?3\b/i]],
+ 'opel insignia':[['A',2008],['B',2017]],
+ 'opel corsa':[['D',2006],['E',2014],['F',2019]],
+ 'opel mokka':[['A',2012],['B',2020]],
+ 'renault megane':[['III',2008],['IV',2016]],
+ 'renault clio':[['III',2005],['IV',2012],['V',2019]],
+ 'renault captur':[['I',2013],['II',2019]],
+ 'peugeot 208':[['I',2012],['II',2019]],
+ 'peugeot 308':[['T7',2007],['T9',2013],['P5',2021]],
+ 'peugeot 3008':[['I',2009],['II',2016]],
+ 'peugeot 508':[['I',2010],['II',2018]],
+ 'honda civic':[['IX',2012],['X',2017],['XI',2022]],
+ 'hyundai i30':[['FD',2007],['GD',2012],['PD',2017],['CN7',2020]],
+ 'hyundai kona':[['OS',2017],['SX2',2023]],
+ 'kia ceed':[['ED',2007],['JD',2012],['CD',2018]],
+ 'kia rio':[['UB',2011],['YB',2017]],
+ 'kia sorento':[['XM',2009],['UM',2014],['MQ4',2020]],
+ 'mazda 3':[['BL',2009],['BM',2013],['BP',2019]],
+ 'nissan juke':[['F15',2010],['F16',2019]],
+ 'nissan x-trail':[['T31',2007],['T32',2014],['T33',2022]],
+ 'nissan micra':[['K12',2003],['K13',2010],['K14',2017]],
+ 'volvo s60':[['II',2010],['III',2018]],
+ 'mitsubishi outlander':[['CW',2006],['GF',2012],['GN',2021]],
+ 'subaru forester':[['SH',2008],['SJ',2012],['SK',2018]],
+ 'land rover range rover sport':[['L320',2005],['L494',2013],['L461',2022]],
+ 'land rover evoque':[['L538',2011],['L551',2019]],
+ 'lexus rx':[['AL10',2009],['AL20',2015],['AL30',2022]],
+ 'lexus nx':[['AZ10',2014],['AZ20',2021]],
+ 'porsche cayenne':[['955',2002],['958',2010],['9YA',2018]],
+ 'dacia duster':[['I',2010],['II',2018]],
+ 'dacia sandero':[['I',2008],['II',2012],['III',2020]]
+};
+/* make -> regex whose first group is the model name; the family key is "make model" (BMW and Mercedes are read separately below) */
+var GENFAM={
+ 'audi':/^(a[1345678]|q[2357])/,
+ 'volkswagen':/^(golf|passat|tiguan|touran|polo|touareg|caddy)/,
+ 'skoda':/^(octavia|superb|fabia)/,
+ 'toyota':/^(rav4|corolla|yaris|auris|camry|prius)/,
+ 'ford':/^(focus|fiesta|mondeo|kuga)/,
+ 'opel':/^(astra|insignia|corsa|mokka)/,
+ 'renault':/^(megane|clio|captur)/,
+ 'peugeot':/^(3008|208|308|508)/,
+ 'honda':/^(cr-?v|civic)/,
+ 'hyundai':/^(tucson|i30|kona)/,
+ 'kia':/^(sportage|ceed|rio|sorento)/,
+ 'mazda':/^(cx-?5|3(?!\d))/,
+ 'nissan':/^(qashqai|juke|x-?trail|micra)/,
+ 'volvo':/^(xc60|xc90|v60|s60)/,
+ 'mitsubishi':/^(outlander)/,
+ 'subaru':/^(forester)/,
+ 'land rover':/^(rangeroversport|rangeroverevoque|evoque)/,
+ 'lexus':/^(rx|nx)/,
+ 'porsche':/^(cayenne)/,
+ 'dacia':/^(duster|sandero)/
 };
 function genFamily(make,model){
-  var mk=String(make||'').toLowerCase().replace(/š/g,'s'), md=String(model||'').toLowerCase().replace(/[\s_]+/g,''), m;
+  var mk=String(make||'').toLowerCase().replace(/š/g,'s').replace(/[éè]/g,'e').replace(/^\s+|\s+$/g,''), md=String(model||'').toLowerCase().replace(/[éè]/g,'e').replace(/['’`]/g,'').replace(/[\s_]+/g,''), m;
   if(mk==='vw') mk='volkswagen';
-  if(mk==='audi'&&(m=md.match(/^(a3|a4|a6|q5|q7)/))) return 'audi '+m[1];
-  if(mk==='volkswagen'&&(m=md.match(/^(golf|passat|tiguan|touran)/))) return 'volkswagen '+m[1];
-  if(mk==='skoda'&&(m=md.match(/^(octavia|superb)/))) return 'skoda '+m[1];
-  if(mk==='bmw'){ if(/^x5/.test(md)) return 'bmw x5'; if(m=md.match(/^([35])(?:\d\d|series|serija|серия)/)) return 'bmw '+m[1]; }
-  if(mk.indexOf('mercedes')===0&&(m=md.match(/^(c|e)(?:\d{2,3}|class|-class|klasse)/))) return 'mb '+m[1];
-  var o={'toyota':/^rav4/,'ford':/^focus/,'opel':/^astra/,'nissan':/^qashqai/,'mazda':/^cx-?5/,'honda':/^cr-?v/,'hyundai':/^tucson/,'kia':/^sportage/}[mk];
-  if(o&&o.test(md)) return mk+' '+(mk==='mazda'?'cx-5':mk==='honda'?'cr-v':md.match(o)[0]);
-  if(mk==='volvo'&&(m=md.match(/^(xc60|xc90|v60)/))) return 'volvo '+m[1];
-  return null;
+  if(/^land[\s\-]?rover$/.test(mk)) mk='land rover';
+  if(mk==='bmw'){ if(m=md.match(/^x([1356])/)) return 'bmw x'+m[1]; if(m=md.match(/^([13457])(?:\d\d|series|serija|серия)/)) return 'bmw '+m[1]; return null; }
+  if(mk.indexOf('mercedes')===0){ if(m=md.match(/^(cla|glc)/)) return 'mb '+m[1]; if(m=md.match(/^(a|b|c|e|s)(?:\d{2,3}|class|-class|klasse)/)) return 'mb '+m[1]; return null; }
+  var re=GENFAM[mk]; if(!re||!(m=md.match(re))) return null;
+  var nm=m[1].replace(/^cr-?v$/,'cr-v').replace(/^cx-?5$/,'cx-5').replace(/^x-?trail$/,'x-trail').replace(/^rangeroverevoque$/,'evoque').replace(/^rangeroversport$/,'range rover sport');
+  return mk+' '+nm;
 }
 /* generation of a car of that family and year: {g: name, amb: true when it is the first year of that generation and the ad does not name the code} */
 function genOf(fam,year,text){
@@ -1867,7 +1946,16 @@ function genOf(fam,year,text){
   if(idx<0) return null;
   return {g:L0[idx][0],amb:idx>0&&year===L0[idx][1]};
 }
-try{ window.__carscoutTest={genFamily:genFamily,genOf:genOf}; }catch(e){} /* read by tools/logiccheck.mjs */
+/* only for an unclear year (the first year of a new generation, nothing in the ad names it): the server asks a neural network to look at two photos
+   and choose between the two neighbouring generations. The answer is a hint, used only when both photos agree. */
+function photoGenParams(fam,cg,car){
+  var L0=GENS[fam]; if(!L0||!cg||!cg.amb) return null; var idx=-1, i; for(i=0;i<L0.length;i++) if(L0[i][0]===cg.g) idx=i;
+  if(idx<1) return null;
+  var imgs=(car.images||[]).filter(function(u,k,a){ return typeof u==='string'&&/^https:\/\//.test(u)&&a.indexOf(u)===k; }).slice(0,2); if(imgs.length<2) return null;
+  var a=L0[idx-1], b=L0[idx];
+  return {of:[a[0],b[0]],p:{make:car.make,model:car.model,year:car.year,gens:a[0]+'~'+a[1]+'|'+b[0]+'~'+b[1],img:imgs[0],img2:imgs[1]}};
+}
+try{ window.__carscoutTest={genFamily:genFamily,genOf:genOf,GENS:GENS}; }catch(e){} /* read by tools/logiccheck.mjs */
 /* An engine variant that changes the price a lot at the same size (3.0 TDI against 3.0 BiTDI / Biturbo). It is read only from
    what the seller wrote (title, model line, text): a list of ads gives no power figure, so an ad that does not say it is "not stated". */
 function engineVariantOf(text){
@@ -2108,7 +2196,10 @@ async function run(){
     if(car.trims&&car.trims.length){ car.trims=car.trims.filter(function(t,i,a){ var d=String(trimDisplay(t)).toLowerCase(); return a.findIndex(function(x){ return String(trimDisplay(x)).toLowerCase()===d; })===i; }); }
     /* 6. comparables */
     stage=L('Собираю реальные объявления','Collecting real listings');
-    var jobs=[];
+    var jobs=[], photoJob=null;
+    try{ var gk0=genFamily(car.make,car.model), cg0=gk0&&genOf(gk0,car.year,[car.title,car.rawModel,car.desc].join(' ')), pp=cg0&&photoGenParams(gk0,cg0,car);
+      if(pp) photoJob=api('/api/photogen',pp.p,35000).then(function(j){ if(j&&j.ok&&j.gen&&pp.of.indexOf(j.gen)>-1) car.photoGen={g:j.gen,of:pp.of}; });
+    }catch(e){}
     var base={make:car.make,model:car.model,year:car.year,fuel:car.fuel||''};
     var AS_TRIM={'r-line':'R-Line','amg-line':'AMG Line','m-sport':'M Sport','s-line':'S-Line','st-line':'ST-Line','sportline':'Sportline','fr':'FR','monte carlo':'Monte Carlo','black edition':'Black Edition','avantgarde':'Avantgarde','rs':'RS','executive':'Executive','prestige':'Prestige','luxury':'Luxury','premium':'Premium','se':'SE','special edition':'Special Edition','vorsprung':'Vorsprung','competition':'Competition','r-design':'R-Design','inscription':'Inscription','gr sport':'GR Sport','opc line':'OPC Line','highline':'Highline','comfortline':'Comfortline','trendline':'Trendline','elegance':'Elegance'};
     var asTrim=''; (car.trims||[]).some(function(k){ var v=AS_TRIM[k]||MT_NAME[k]; if(v){asTrim=v; return true} });
@@ -2144,6 +2235,7 @@ async function run(){
       setSrc(r.key,r.label+' ('+r.region+')',j.ok?'ok':'err',function(){ return j.ok?(L('найдено объявлений: ','ads found: ')+n+(j.weak?L(' (грубое чтение)',' (rough reading)'):'')):errText(j); },j.searchUrl||r.url,j.ok?n:null);
     })}));
     S.lastResults=results;
+    if(photoJob) await photoJob;
     S.view=compute(car,results,f,notes); favRefreshFromView(S.view);
     render();
     histAdd(S.view);
@@ -2176,8 +2268,10 @@ function pickRelevant(items,car){
   }
   if(tol>2) tol=2;
   if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===car.fuel}); if(same.length>=5) sel=same; }
-  var genN=null, genFew=null, genAmb=false, genName=null, gk=genFamily(car.make,car.model);
+  var genN=null, genFew=null, genAmb=false, genName=null, genPhoto=false, gk=genFamily(car.make,car.model);
   if(gk){ var cg=genOf(gk,car.year,[car.title,car.rawModel,car.desc].join(' '));
+    /* an unclear year (first year of a new generation) settled by the photo: only a generation that is one of the two neighbours counts */
+    if(cg&&cg.amb&&car.photoGen&&car.photoGen.g&&car.photoGen.of&&car.photoGen.of.indexOf(car.photoGen.g)>-1){ cg={g:car.photoGen.g,amb:false}; genPhoto=true; }
     if(cg){ genName=cg.g;
       if(cg.amb) genAmb=true;
       else { var sgn=sel.filter(function(i){ var x=genOf(gk,i.year,[i.title,i.model_raw].join(' ')); return !x||x.amb||x.g===cg.g; });
@@ -2199,7 +2293,7 @@ function pickRelevant(items,car){
     var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title,car.make))});
     if(plain.length>=6&&plain.length<sel.length){ sel=plain; trimNote={mode:'plain',n:plain.length}; }
   }
-  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote,engN:engN,varN:varN,varFew:varFew,genN:genN,genFew:genFew,genAmb:genAmb,genName:genName,drvN:drvN,drvFew:drvFew};
+  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote,engN:engN,varN:varN,varFew:varFew,genN:genN,genFew:genFew,genAmb:genAmb,genName:genName,genPhoto:genPhoto,drvN:drvN,drvFew:drvFew};
 }
 function fairOf(st){
   if(!st) return null;
@@ -2232,7 +2326,7 @@ function compute(car,results,f,notes){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:(function(){return errText(j)}),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
       var pr=pickRelevant((j.items||[]).map(function(i){return Object.assign({src:r.label,region:r.region},i)}),car);
-      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN; row.genN=pr.genN; row.genFew=pr.genFew; row.genAmb=pr.genAmb; row.genName=pr.genName; row.varN=pr.varN; row.varFew=pr.varFew; row.drvN=pr.drvN; row.drvFew=pr.drvFew;
+      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN; row.genN=pr.genN; row.genFew=pr.genFew; row.genAmb=pr.genAmb; row.genName=pr.genName; row.genPhoto=pr.genPhoto; row.varN=pr.varN; row.varFew=pr.varFew; row.drvN=pr.drvN; row.drvFew=pr.drvFew;
       row.stats=compStats(pr.items.map(function(i){return {price:i.price,km:i.km}}),{km:car.km});
       row.fair=fairOf(row.stats);
       if(row.fair&&row.n>=3&&car.price>0&&(row.fair.mid<car.price*0.45||row.fair.mid>car.price*2.2)){
@@ -2305,6 +2399,7 @@ function compute(car,results,f,notes){
     if(home.fair.mid>0&&(home.fair.high-home.fair.low)>0.5*home.fair.mid) softWhy.push('wide');
     if(car.engineVar&&home.varFew!=null) softWhy.push('variant');
     if(home.genFew!=null||home.genAmb) softWhy.push('gen');
+    if(home.genPhoto) softWhy.push('photo'); /* the generation was guessed from the photos: a hint, so the verdict stays "approximate" */
     /* the compared cars are far older (or newer) than this one by mileage: a sign of a different generation or condition, whatever the reason */
     var kmH=home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km});
     if(car.km>0&&kmH.length>=4){ var mkm=median(kmH), rk=mkm/car.km; if(rk>=1.8||rk<=0.55){ softWhy.push('km'); ver.softKm={their:Math.round(mkm),mine:car.km}; } }
@@ -2705,7 +2800,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-19.4', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-19.5', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -3044,6 +3139,7 @@ function vBasis(v){
   if(v.ver.capped==='abroad'&&v.car.cc) xt=L('Машина продаётся в '+rloc(v.car.cc)+', но похожих там нашлось мало, поэтому сравнение с '+({LV:'Латвией',LT:'Литвой',EE:'Эстонией',DE:'Германией'}[h.region]||rname(h.region))+'. Там такие обычно дороже, так что «ниже рынка» здесь ожидаемо.','The car is on sale in '+rname(v.car.cc)+', but few similar cars were found there, so it is compared with '+rname(h.region)+', where such cars usually cost more.','Auto tiek pārdots '+rloc(v.car.cc)+', bet tur atrasts maz līdzīgu, tāpēc salīdzināts ar '+rname(h.region)+', kur tie parasti ir dārgāki.');
   var sf=''; if(v.ver.soft){ var w=v.ver.soft, pr=[]; if(w.indexOf('few')>-1) pr.push(L('мало похожих объявлений ('+h.n+')','few similar ads ('+h.n+')','maz līdzīgu sludinājumu ('+h.n+')')); if(w.indexOf('wide')>-1) pr.push(L('очень большой разброс цен','a very wide price range','ļoti liela cenu starpība')); if(w.indexOf('variant')>-1) pr.push(L('вариант мотора (BiTDI / Biturbo) сопоставлен не полностью','the engine variant (BiTDI / Biturbo) is not fully matched','motora variants (BiTDI / Biturbo) nav pilnībā sasaistīts'));
     if(w.indexOf('gen')>-1) pr.push(L('поколение (кузов) модели определено не полностью, у нового кузова цена обычно выше','the generation (body) of the model is not fully matched, a newer body usually costs more','modeļa paaudze (virsbūve) nav pilnībā noteikta'));
+    if(w.indexOf('photo')>-1&&h.genName) pr.push(L('поколение ('+h.genName+') определено нейросетью по фото объявления, это подсказка: проверьте по объявлению','the generation ('+h.genName+') was guessed by a neural network from the listing photos, a hint only: check it in the listing','paaudze ('+h.genName+') noteikta pēc foto ar neironu tīklu, tā ir norāde'));
     if(w.indexOf('km')>-1&&v.ver.softKm) pr.push(L('пробег сравниваемых машин (в среднем '+fmt(v.ver.softKm.their)+' км) сильно отличается от вашего ('+fmt(v.ver.softKm.mine)+' км): возможно, это другое поколение или состояние','the mileage of the compared cars (typically '+fmt(v.ver.softKm.their)+' km) is very different from yours ('+fmt(v.ver.softKm.mine)+' km): maybe another generation or condition','salīdzināto auto nobraukums ('+fmt(v.ver.softKm.their)+' km) ļoti atšķiras no jūsējā ('+fmt(v.ver.softKm.mine)+' km)'));
     sf=v.ver.key==='unsure'?L('Почему оценка неточная: '+pr.join(', ')+'.','Why the estimate is inexact: '+pr.join(', ')+'.','Kāpēc vērtējums neprecīzs: '+pr.join(', ')+'.')
       :L('Ориентировочная оценка: '+pr.join(', ')+'. Не считайте её точной.','Approximate estimate: '+pr.join(', ')+'. Do not treat it as exact.','Aptuvens vērtējums: '+pr.join(', ')+'.'); }

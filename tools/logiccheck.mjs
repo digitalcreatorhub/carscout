@@ -15,6 +15,8 @@ const asUrl = k => `https://www.autoscout24.de/angebote/audi-a6-avant-1b2c3d4e-1
 const items = (n, mid, kind) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: 2018 + (k % 3) - 1, url: kind === 'ss' ? ssUrl(k) : asUrl(k), title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' }));
 
 const mixItems = (n, mid, title, off, yr = 2018) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: yr + (k % 3) - 1, url: ssUrl(off + k), title, fuel: 'diesel', gear: 'automatic' }));
+const PHOTOS = ['https://i.ss.com/gallery/6/1/a1.800.jpg', 'https://i.ss.com/gallery/6/1/a2.800.jpg'];
+const genItems = (n, mid, yr, km, off) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 150), km: km + (k % 4) * 3000, year: yr, url: ssUrl(off + k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' }));
 
 /* every scenario: the listing, what each market returns, what the app must conclude */
 const SCEN = [
@@ -104,6 +106,39 @@ const SCEN = [
   /* only the bare "year of a generation change" plus few ads stays an approximate verdict, not an unsure one: nothing shows other cars were compared */
   { id: 'approx-not-unsure', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzapprox.html', price: 21000, comps: { ss: items(6, 15500, 'ss') },
     expect: v => [[/ориентировочно/i.test(v.verdict) && !/Оценка неточная/.test(v.verdict), 'a change year with few ads is "approximate" and keeps its verdict', v.verdict]] },
+  /* the photos: only when the year is unclear (first year of a new body) and the ad does not say which body it is. The answer of the neural network is a hint:
+     it settles the generation, the verdict stays "approximate" and says it was a photo that decided */
+  { id: 'photo-settles-generation', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto1.html', price: 27000, images: PHOTOS, photo: { ok: true, gen: 'C8', votes: ['C8', 'C8'] },
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
+    expect: v => [[v.photoAsked.length === 1 && /gens=C7%7E2011%7CC8%7E2018/.test(v.photoAsked[0]) && /year=2018/.test(v.photoAsked[0]), 'the photos are asked about the two neighbouring generations (C7 / C8) of a 2018 A6', v.photoAsked],
+      [/8 похожих/.test(v.basis), 'with C8 settled by the photos the car is compared with the 8 new-body ads, not all 16', v.basis],
+      [/по фото|нейросет/.test(v.basis) && /ориентировочно/i.test(v.verdict), 'and the verdict is marked approximate, saying a neural network decided from photos', v.verdict + ' | ' + v.basis],
+      [/Рыночная цена/.test(v.verdict), 'at the new-body price the car is a fair price (it was "far above market" against the old body)', v.verdict]] },
+  { id: 'photo-unclear', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto2.html', price: 27000, images: PHOTOS, photo: { ok: true, gen: null, votes: ['C7', 'C8'] },
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
+    expect: v => [[v.photoAsked.length === 1, 'asked once', v.photoAsked], [/16 похожих/.test(v.basis) && /поколение \(кузов\) модели определено не полностью/.test(v.basis) && !/по фото/.test(v.basis), 'the photos disagree: nothing is settled, the comparison is as before and says the generation is unclear', v.basis]] },
+  { id: 'photo-unavailable', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto3.html', price: 27000, images: PHOTOS,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
+    expect: v => [[v.photoAsked.length === 1 && /16 похожих/.test(v.basis) && v.verdict.length > 0, 'the AI is not available (no_ai): the analysis goes on exactly as without it', v.basis]] },
+  { id: 'photo-answer-outside-options', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto4.html', price: 27000, images: PHOTOS, photo: { ok: true, gen: 'C6', votes: ['C6', 'C6'] },
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
+    expect: v => [[/16 похожих/.test(v.basis) && !/по фото/.test(v.basis), 'a generation that was not one of the two offered is ignored', v.basis]] },
+  { id: 'photo-not-asked-when-clear', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto5.html', price: 27000, images: PHOTOS,
+    listing: { make: 'Audi', model: 'A6', year: 2019, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
+    expect: v => [[v.photoAsked.length === 0, 'a 2019 A6 is clearly the new body: the photos are not asked about', v.photoAsked]] },
+  { id: 'photo-not-asked-when-ad-says', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto6.html', price: 27000, images: PHOTOS,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 C8 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
+    expect: v => [[v.photoAsked.length === 0, 'the ad itself names C8: the photos are not asked about', v.photoAsked]] },
+  { id: 'photo-not-asked-without-photos', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto7.html', price: 27000, images: ['https://i.ss.com/gallery/6/1/only1.800.jpg'],
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
+    expect: v => [[v.photoAsked.length === 0, 'with one photo only nothing is asked (two photos are needed to agree)', v.photoAsked]] },
   /* any model, known or not: when the compared cars have twice the mileage the verdict says so */
   { id: 'km-mismatch', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a5/zzkm1.html', price: 12000,
     listing: { make: 'Audi', model: 'A5', year: 2018, mileage_km: 90000, asking_price: 12000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A5 2.0 TDI', src: {} },
@@ -116,11 +151,13 @@ const errs = [];
 for (const sc of SCEN) {
   const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } }); const pg = await ctx.newPage();
   pg.on('pageerror', e => errs.push(sc.id + ': ' + e.message));
+  const photoAsked = [];
   await pg.route('**/*', async r => {
     const u = r.request().url();
     if (u.startsWith(API)) {
       const x = new URL(u); let body = { ok: true, version: 'test' };
-      if (x.pathname === '/api/listing') body = { ok: true, title: 'Audi A6 Avant', source: sc.listing ? new URL(sc.url).hostname : sc.cc ? 'autoscout24' : 'ss', parser: sc.listing ? 'auto24' : undefined, listing: sc.listing || { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
+      if (x.pathname === '/api/listing') body = { ok: true, images: sc.images, title: 'Audi A6 Avant', source: sc.listing ? new URL(sc.url).hostname : sc.cc ? 'autoscout24' : 'ss', parser: sc.listing ? 'auto24' : undefined, listing: sc.listing || { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
+      else if (x.pathname === '/api/photogen') { photoAsked.push(x.searchParams.toString()); body = sc.photo || { ok: false, error: 'no_ai' }; }
       else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : s === 'auto24' ? sc.comps['a24' + String(x.searchParams.get('cc')).toLowerCase()] : s === 'autogidas' ? sc.comps.ag : null; body = its ? { ok: true, items: its } : { ok: false, error: 'blocked' }; }
       else if (x.pathname !== '/') body = { ok: false, error: 'test' };
       return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -136,7 +173,7 @@ for (const sc of SCEN) {
   if (!okV) { check(false, sc.id + ': analysis opens', 'no verdict panel'); await ctx.close(); continue; }
   await pg.waitForTimeout(800);
   const t = async (sel, n = 2000) => pg.$eval(sel, (e, n) => (e.value != null && e.tagName === 'TEXTAREA' ? e.value : e.innerText).replace(/\s+/g, ' ').slice(0, n), n).catch(() => '');
-  const v = { ring: await t('#a-verdict .ring', 40), verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
+  const v = { photoAsked, ring: await t('#a-verdict .ring', 40), verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
     msg: await t('#msg-text', 400), msgLang: await pg.$eval('#msg-lang', e => e.value).catch(() => ''), calc: await pg.$$eval('#k-lv,#k-de', e => e.map(x => x.id + '=' + x.value).join(' ')).catch(() => ''), checks: await pg.$eval('#a-checks', e => e.textContent.replace(/\s+/g, ' ')).catch(() => '') };
   v.region = v.region.split('·')[0].trim();
   for (const [cond, what, detail] of sc.expect(v)) check(cond, sc.id + ': ' + what, detail);
@@ -279,6 +316,16 @@ for (const sc of SCEN) {
   check(JSON.stringify(g.a6) === JSON.stringify([{ g: 'C7', amb: false }, { g: 'C8', amb: true }, { g: 'C8', amb: false }, { g: 'C7', amb: false }, { g: 'C8', amb: false }, null]), 'generations: A6 2017 is C7, 2019 is C8, 2018 is unclear unless the ad names C7 or C8, 2003 is not in the table', JSON.stringify(g.a6));
   check(JSON.stringify(g.oct) === JSON.stringify([{ g: 'III', amb: false }, { g: 'III', amb: false }, { g: 'IV', amb: true }]) , 'generations: a stray "IV" in a 2015 text does not turn an Octavia III into a IV; 2020 is the change year', JSON.stringify(g.oct));
   check(JSON.stringify(g.golf) === JSON.stringify([{ g: 'Golf 7', amb: false }, { g: 'Golf 8', amb: true }, { g: 'Golf 8', amb: false }]), 'generations: Golf 7 until 2019, 2020 unclear, Golf 8 from 2021', JSON.stringify(g.golf));
+  /* the larger table: more families are recognised by make and model text, and the table itself is sane (years rise, no duplicates, every family reachable) */
+  const g2 = await pg.evaluate(() => { const { genFamily, GENS } = window.__carscoutTest; const bad = [];
+    for (const k of Object.keys(GENS)) { const L = GENS[k]; for (let i = 0; i < L.length; i++) { if (!(L[i][1] >= 1995 && L[i][1] <= 2026)) bad.push(k + ': year ' + L[i][1]); if (i && L[i][1] <= L[i - 1][1]) bad.push(k + ': years not rising'); if (L.filter(x => x[0] === L[i][0]).length > 1) bad.push(k + ': duplicate ' + L[i][0]); } if (L.length < 2) bad.push(k + ': one generation only'); }
+    const probes = { 'audi a7': ['Audi', 'A7 Sportback'], 'bmw 1': ['BMW', '118d'], 'bmw 4': ['BMW', '420d'], 'bmw x3': ['BMW', 'X3 xDrive20d'], 'mb a': ['Mercedes-Benz', 'A 180'], 'mb glc': ['Mercedes-Benz', 'GLC 220 d'], 'mb cla': ['Mercedes', 'CLA 200'], 'toyota corolla': ['Toyota', 'Corolla'], 'renault megane': ['Renault', 'Mégane'], 'kia ceed': ['Kia', "Cee'd"], 'honda civic': ['Honda', 'Civic'], 'mazda 3': ['Mazda', '3'], 'nissan x-trail': ['Nissan', 'X-Trail'], 'land rover range rover sport': ['Land Rover', 'Range Rover Sport'], 'land rover evoque': ['Land Rover', 'Range Rover Evoque'], 'peugeot 3008': ['Peugeot', '3008'], 'peugeot 308': ['Peugeot', '308 SW'], 'dacia duster': ['Dacia', 'Duster'], 'lexus rx': ['Lexus', 'RX 450h'], 'volkswagen polo': ['Volkswagen', 'Polo'] };
+    const wrong = []; for (const k of Object.keys(probes)) { const f = genFamily(probes[k][0], probes[k][1]); if (f !== k || !GENS[f]) wrong.push(k + ' -> ' + f); }
+    const none = [genFamily('Mazda', '323'), genFamily('Peugeot', '2008'), genFamily('BMW', 'M3'), genFamily('BMW', 'i3'), genFamily('Mercedes-Benz', 'Vito'), genFamily('Audi', 'TT')].filter(x => x !== null);
+    return { bad, wrong, none, n: Object.keys(GENS).length }; });
+  check(g2.bad.length === 0 && g2.n >= 70, 'generations: the larger table is sane (years rise, no duplicates, 2+ generations each)', JSON.stringify(g2.bad) + ' n=' + g2.n);
+  check(g2.wrong.length === 0, 'generations: new families are recognised from the make and model text (BMW 118d / X3, A 180, GLC, CLA, Mégane, Cee\'d, Range Rover Sport...)', JSON.stringify(g2.wrong));
+  check(g2.none.length === 0, 'generations: look-alike models are not taken for a family (Mazda 323, Peugeot 2008, BMW M3 / i3, Vito, Audi TT)', JSON.stringify(g2.none));
   await ctx.close();
 }
 
