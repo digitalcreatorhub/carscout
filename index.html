@@ -1810,6 +1810,64 @@ function titleHasTrim(title,car){
 function trimPremium(list){ return list.some(function(k){ return MT_FLAG[k]===1||TRIMS.some(function(x){return x[0]===k&&x[2]}); }); }
 var TRIM_PRETTY={'amg-line':'AMG Line','amg':'AMG','r-line':'R-Line','m-sport':'M Sport','s-line':'S line','gti/gtd/gte':'GTI/GTD/GTE','rs':'RS','st-line':'ST-Line','fr':'FR','l&k':'Laurin & Klement','se':'SE','gr sport':'GR Sport','opc line':'OPC Line','r-design':'R-Design'};
 function trimDisplay(k){ if(MT_NAME[k]) return MT_NAME[k]; if(TRIM_PRETTY[k]) return TRIM_PRETTY[k]; return String(k).replace(/(^|[\s\-\/])([a-zа-яё])/g,function(m,p,c){return p+c.toUpperCase()}); }
+
+/* ---------- model generations ----------
+   A new body of the same model costs far more than the old one, and the model year alone does not tell them apart in the year of the change
+   (a 2018 A6 can be the old C7 or the new C8). GENS: family -> [[generation, first year on sale, optional regex of its code in an ad], ...].
+   The first year of a generation (except the first one in the list) is "ambiguous" unless the title or text names the code. Only well-known
+   boundaries are listed; a model that is not here is compared as before. */
+var GENS={
+ 'audi a3':[['8P',2003],['8V',2012,/\b8V\b/i],['8Y',2020,/\b8Y\b/i]],
+ 'audi a4':[['B7',2004],['B8',2008,/\bB8\b/i],['B9',2015,/\bB9\b/i]],
+ 'audi a6':[['C6',2004],['C7',2011,/\bC7\b|\b4G\b/i],['C8',2018,/\bC8\b|\b4K\b/i]],
+ 'audi q5':[['8R',2008,/\b8R\b/i],['FY',2017,/\bFY\b/i]],
+ 'audi q7':[['4L',2005,/\b4L\b/i],['4M',2015,/\b4M\b/i]],
+ 'volkswagen golf':[['Golf 5',2003],['Golf 6',2008,/golf\s?(6|vi)\b|\bmk\s?6\b/i],['Golf 7',2012,/golf\s?(7|vii)\b|\bmk\s?7\b/i],['Golf 8',2020,/golf\s?(8|viii)\b|\bmk\s?8\b/i]],
+ 'volkswagen passat':[['B6',2005],['B7',2010,/\bB7\b/i],['B8',2014,/\bB8\b/i],['B9',2024,/\bB9\b/i]],
+ 'volkswagen tiguan':[['5N',2007,/\b5N\b/i],['AD',2016],['CT',2024]],
+ 'volkswagen touran':[['1T',2003,/\b1T\b/i],['5T',2015,/\b5T\b/i]],
+ 'skoda octavia':[['II',2004,/\b(II|A5)\b/i],['III',2013,/\b(III|A7)\b/i],['IV',2020,/\b(IV|A8)\b/i]],
+ 'skoda superb':[['II',2008,/\bII\b/i],['III',2015,/\bIII\b/i],['IV',2024,/\bIV\b/i]],
+ 'bmw 3':[['E90',2005,/\bE9[0-3]\b/i],['F30',2012,/\bF3[0-4]\b/i],['G20',2019,/\bG2[01]\b/i]],
+ 'bmw 5':[['E60',2003,/\bE6[01]\b/i],['F10',2010,/\bF1[01]\b/i],['G30',2017,/\bG3[01]\b/i],['G60',2023,/\bG6[01]\b/i]],
+ 'bmw x5':[['E70',2007,/\bE70\b/i],['F15',2013,/\bF15\b/i],['G05',2018,/\bG05\b/i]],
+ 'mb c':[['W204',2007,/\bW204\b/i],['W205',2014,/\bW205\b/i],['W206',2021,/\bW206\b/i]],
+ 'mb e':[['W212',2009,/\bW212\b/i],['W213',2016,/\bW213\b/i],['W214',2023,/\bW214\b/i]],
+ 'toyota rav4':[['XA30',2005,/\bXA30\b/i],['XA40',2012,/\bXA40\b/i],['XA50',2019,/\bXA50\b/i]],
+ 'ford focus':[['Mk2',2004],['Mk3',2011,/\bmk\s?3\b/i],['Mk4',2018,/\bmk\s?4\b/i]],
+ 'opel astra':[['J',2009],['K',2015],['L',2021]],
+ 'volvo xc60':[['I',2008],['II',2017]],
+ 'volvo xc90':[['I',2002],['II',2015]],
+ 'volvo v60':[['I',2010],['II',2018]],
+ 'nissan qashqai':[['J10',2007],['J11',2014],['J12',2021]],
+ 'mazda cx-5':[['KE',2012],['KF',2017]],
+ 'honda cr-v':[['IV',2012],['V',2017]],
+ 'hyundai tucson':[['TL',2015],['NX4',2020]],
+ 'kia sportage':[['QL',2015],['NQ5',2021]]
+};
+function genFamily(make,model){
+  var mk=String(make||'').toLowerCase().replace(/š/g,'s'), md=String(model||'').toLowerCase().replace(/[\s_]+/g,''), m;
+  if(mk==='vw') mk='volkswagen';
+  if(mk==='audi'&&(m=md.match(/^(a3|a4|a6|q5|q7)/))) return 'audi '+m[1];
+  if(mk==='volkswagen'&&(m=md.match(/^(golf|passat|tiguan|touran)/))) return 'volkswagen '+m[1];
+  if(mk==='skoda'&&(m=md.match(/^(octavia|superb)/))) return 'skoda '+m[1];
+  if(mk==='bmw'){ if(/^x5/.test(md)) return 'bmw x5'; if(m=md.match(/^([35])(?:\d\d|series|serija|серия)/)) return 'bmw '+m[1]; }
+  if(mk.indexOf('mercedes')===0&&(m=md.match(/^(c|e)(?:\d{2,3}|class|-class|klasse)/))) return 'mb '+m[1];
+  var o={'toyota':/^rav4/,'ford':/^focus/,'opel':/^astra/,'nissan':/^qashqai/,'mazda':/^cx-?5/,'honda':/^cr-?v/,'hyundai':/^tucson/,'kia':/^sportage/}[mk];
+  if(o&&o.test(md)) return mk+' '+(mk==='mazda'?'cx-5':mk==='honda'?'cr-v':md.match(o)[0]);
+  if(mk==='volvo'&&(m=md.match(/^(xc60|xc90|v60)/))) return 'volvo '+m[1];
+  return null;
+}
+/* generation of a car of that family and year: {g: name, amb: true when it is the first year of that generation and the ad does not name the code} */
+function genOf(fam,year,text){
+  var L0=GENS[fam]; if(!L0||!(year>1980)) return null; var t=String(text||''), i, idx=-1;
+  /* a code named in the ad counts only if that generation could exist in that year (a word like "AD" or "IV" elsewhere in a text must not decide) */
+  for(i=0;i<L0.length;i++){ if(L0[i][2]&&L0[i][2].test(t)&&year>=L0[i][1]-1&&year<=(i+1<L0.length?L0[i+1][1]:9999)) return {g:L0[i][0],amb:false}; }
+  for(i=0;i<L0.length;i++) if(L0[i][1]<=year) idx=i;
+  if(idx<0) return null;
+  return {g:L0[idx][0],amb:idx>0&&year===L0[idx][1]};
+}
+try{ window.__carscoutTest={genFamily:genFamily,genOf:genOf}; }catch(e){} /* read by tools/logiccheck.mjs */
 /* An engine variant that changes the price a lot at the same size (3.0 TDI against 3.0 BiTDI / Biturbo). It is read only from
    what the seller wrote (title, model line, text): a list of ads gives no power figure, so an ad that does not say it is "not stated". */
 function engineVariantOf(text){
@@ -2118,6 +2176,12 @@ function pickRelevant(items,car){
   }
   if(tol>2) tol=2;
   if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===car.fuel}); if(same.length>=5) sel=same; }
+  var genN=null, genFew=null, genAmb=false, genName=null, gk=genFamily(car.make,car.model);
+  if(gk){ var cg=genOf(gk,car.year,[car.title,car.rawModel,car.desc].join(' '));
+    if(cg){ genName=cg.g;
+      if(cg.amb) genAmb=true;
+      else { var sgn=sel.filter(function(i){ var x=genOf(gk,i.year,[i.title,i.model_raw].join(' ')); return !x||x.amb||x.g===cg.g; });
+        if(sgn.length>=5){ if(sgn.length<sel.length){ sel=sgn; genN=sgn.length; } } else genFew=sgn.length; } } }
   var engN=null; if(car.engineL&&!isEvCar(car)){ var itemEng=function(i){ if(i.engine_l) return +i.engine_l; var m=String(i.title||'').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m?parseFloat(m[1].replace(',','.')):null; };
     var sameE=sel.filter(function(i){ var e=itemEng(i); return e!=null&&Math.abs(e-car.engineL)<=0.15; }); if(sameE.length>=5){ sel=sameE; engN=sameE.length; } }
   var varN=null, varFew=null, vOf=function(i){ return engineVariantOf([i.title,i.model_raw,i.model].join(' ')); };
@@ -2135,7 +2199,7 @@ function pickRelevant(items,car){
     var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title,car.make))});
     if(plain.length>=6&&plain.length<sel.length){ sel=plain; trimNote={mode:'plain',n:plain.length}; }
   }
-  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote,engN:engN,varN:varN,varFew:varFew,drvN:drvN,drvFew:drvFew};
+  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote,engN:engN,varN:varN,varFew:varFew,genN:genN,genFew:genFew,genAmb:genAmb,genName:genName,drvN:drvN,drvFew:drvFew};
 }
 function fairOf(st){
   if(!st) return null;
@@ -2168,7 +2232,7 @@ function compute(car,results,f,notes){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:(function(){return errText(j)}),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
       var pr=pickRelevant((j.items||[]).map(function(i){return Object.assign({src:r.label,region:r.region},i)}),car);
-      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN; row.varN=pr.varN; row.varFew=pr.varFew; row.drvN=pr.drvN; row.drvFew=pr.drvFew;
+      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN; row.genN=pr.genN; row.genFew=pr.genFew; row.genAmb=pr.genAmb; row.genName=pr.genName; row.varN=pr.varN; row.varFew=pr.varFew; row.drvN=pr.drvN; row.drvFew=pr.drvFew;
       row.stats=compStats(pr.items.map(function(i){return {price:i.price,km:i.km}}),{km:car.km});
       row.fair=fairOf(row.stats);
       if(row.fair&&row.n>=3&&car.price>0&&(row.fair.mid<car.price*0.45||row.fair.mid>car.price*2.2)){
@@ -2198,6 +2262,9 @@ function compute(car,results,f,notes){
   if(home&&home.engN){ var eN=home.engN, eL=car.engineL; notes.push(function(){ return L('Сравнение только с машинами с тем же объёмом двигателя ('+eL.toFixed(1)+' л): '+eN+' объявл.','Compared only with cars with the same engine size ('+eL.toFixed(1)+' l): '+eN+' ads','Salīdzināts tikai ar auto ar tādu pašu motora tilpumu ('+eL.toFixed(1)+' l): '+eN+' sludin.'); }); }
   if(home&&home.varN){ var vN=home.varN, vC=car.engineVar; notes.push(function(){ return vC?L('Сравнение только с машинами с таким же мотором (BiTDI / Biturbo, две турбины): '+vN+' объявл.','Compared only with cars with the same engine (BiTDI / Biturbo, two turbos): '+vN+' ads','Salīdzināts tikai ar auto ar tādu pašu motoru (BiTDI / Biturbo): '+vN+' sludin.'):L('Версии с двумя турбинами (BiTDI / Biturbo) исключены из сравнения: у вашей машины такого мотора не указано. Осталось '+vN+' объявл.','Twin-turbo versions (BiTDI / Biturbo) are left out of the comparison: your car does not state that engine. '+vN+' ads left','Versijas ar divām turbīnām (BiTDI / Biturbo) izslēgtas no salīdzinājuma: '+vN+' sludin.'); }); }
   else if(home&&car.engineVar&&home.varFew!=null){ var vF=home.varFew; notes.push(function(){ return L('Мотор BiTDI / Biturbo (две турбины) указан в заголовках только у '+vF+' объявл., поэтому сравнение идёт со всеми машинами с таким объёмом. Версия с двумя турбинами обычно заметно дороже обычной, так что «выше рынка» может быть завышено: сравните вручную с машинами в списке.','The BiTDI / Biturbo (two turbos) engine is stated in the titles of only '+vF+' ads, so the comparison includes all cars of that engine size. The twin-turbo version usually costs noticeably more than the plain one, so "above market" may be overstated: compare by hand with the cars in the list.','BiTDI / Biturbo motors norādīts tikai '+vF+' sludinājumu virsrakstos, tāpēc salīdzinājumā ir visi šī tilpuma auto. Versija ar divām turbīnām parasti ir ievērojami dārgāka, tāpēc «virs tirgus» var būt pārspīlēts.'); }); }
+  if(home&&home.genN){ var gN=home.genN, gNm=home.genName; notes.push(function(){ return L('Сравнение только с машинами того же поколения ('+gNm+'): '+gN+' объявл. (объявления без указания поколения в год смены тоже учтены).','Compared only with cars of the same generation ('+gNm+'): '+gN+' ads (ads that do not name the generation in the year of the change are included).','Salīdzināts tikai ar tās pašas paaudzes auto ('+gNm+'): '+gN+' sludin.'); }); }
+  else if(home&&home.genFew!=null){ var gF=home.genFew, gFm=home.genName; notes.push(function(){ return L('Машин того же поколения ('+gFm+') нашлось мало ('+gF+'), поэтому сравнение идёт с машинами всех поколений этой модели. Новое поколение обычно заметно дороже старого, оценка может быть неточной.','Few cars of the same generation ('+gFm+') were found ('+gF+'), so the comparison includes every generation of this model. A new generation usually costs noticeably more than the old one, so the estimate may be off.','Tās pašas paaudzes ('+gFm+') auto atrasts maz ('+gF+'), tāpēc salīdzinājumā ir visas modeļa paaudzes.'); }); }
+  else if(home&&home.genAmb){ var gAy=car.year; notes.push(function(){ return L(gAy+' год — год смены поколения этой модели, а в объявлении нет кода поколения, поэтому в сравнение попали машины обоих кузовов. Новый кузов обычно заметно дороже старого.',gAy+' is the year the generation of this model changed and the ad does not name the generation, so cars of both bodies are in the comparison. The new body usually costs noticeably more than the old one.',gAy+'. gads ir modeļa paaudzes maiņas gads, un sludinājumā paaudze nav norādīta, tāpēc salīdzinājumā ir abu virsbūvju auto.'); }); }
   var fair=home?home.fair:null, ver=verdictOf(car.price,fair?fair.mid:null), score=ver.delta!=null?priceScore(ver.delta):null;
   if(home&&home.fair&&!(home.stats&&home.stats.reg)&&car.km!=null){
     var hk=median(home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km}));
@@ -2237,6 +2304,10 @@ function compute(car,results,f,notes){
     if(home.n<8) softWhy.push('few');
     if(home.fair.mid>0&&(home.fair.high-home.fair.low)>0.5*home.fair.mid) softWhy.push('wide');
     if(car.engineVar&&home.varFew!=null) softWhy.push('variant');
+    if(home.genFew!=null||home.genAmb) softWhy.push('gen');
+    /* the compared cars are far older (or newer) than this one by mileage: a sign of a different generation or condition, whatever the reason */
+    var kmH=home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km});
+    if(car.km>0&&kmH.length>=4){ var mkm=median(kmH), rk=mkm/car.km; if(rk>=1.8||rk<=0.55){ softWhy.push('km'); ver.softKm={their:Math.round(mkm),mine:car.km}; } }
     if(softWhy.length) ver.soft=softWhy;
   }
   var cross=null;
@@ -2624,7 +2695,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-19.2', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-19.3', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -2955,6 +3026,8 @@ function vBasis(v){
     :L('В '+rloc(x.region)+' похожие стоят около '+eur(x.mid)+' ('+x.n+' объявл.) — не дороже, чем эта машина.','In '+rname(x.region)+' similar cars cost about '+eur(x.mid)+' ('+x.n+' ads) — not more than this one.','Līdzīgi auto '+rloc(x.region)+' maksā ap '+eur(x.mid)+' ('+x.n+' sludin.) — ne dārgāk par šo.');
   if(v.ver.capped==='abroad'&&v.car.cc) xt=L('Машина продаётся в '+rloc(v.car.cc)+', но похожих там нашлось мало, поэтому сравнение с '+({LV:'Латвией',LT:'Литвой',EE:'Эстонией',DE:'Германией'}[h.region]||rname(h.region))+'. Там такие обычно дороже, так что «ниже рынка» здесь ожидаемо.','The car is on sale in '+rname(v.car.cc)+', but few similar cars were found there, so it is compared with '+rname(h.region)+', where such cars usually cost more.','Auto tiek pārdots '+rloc(v.car.cc)+', bet tur atrasts maz līdzīgu, tāpēc salīdzināts ar '+rname(h.region)+', kur tie parasti ir dārgāki.');
   var sf=''; if(v.ver.soft){ var w=v.ver.soft, pr=[]; if(w.indexOf('few')>-1) pr.push(L('мало похожих объявлений ('+h.n+')','few similar ads ('+h.n+')','maz līdzīgu sludinājumu ('+h.n+')')); if(w.indexOf('wide')>-1) pr.push(L('очень большой разброс цен','a very wide price range','ļoti liela cenu starpība')); if(w.indexOf('variant')>-1) pr.push(L('вариант мотора (BiTDI / Biturbo) сопоставлен не полностью','the engine variant (BiTDI / Biturbo) is not fully matched','motora variants (BiTDI / Biturbo) nav pilnībā sasaistīts'));
+    if(w.indexOf('gen')>-1) pr.push(L('поколение (кузов) модели определено не полностью, у нового кузова цена обычно выше','the generation (body) of the model is not fully matched, a newer body usually costs more','modeļa paaudze (virsbūve) nav pilnībā noteikta'));
+    if(w.indexOf('km')>-1&&v.ver.softKm) pr.push(L('пробег сравниваемых машин (в среднем '+fmt(v.ver.softKm.their)+' км) сильно отличается от вашего ('+fmt(v.ver.softKm.mine)+' км): возможно, это другое поколение или состояние','the mileage of the compared cars (typically '+fmt(v.ver.softKm.their)+' km) is very different from yours ('+fmt(v.ver.softKm.mine)+' km): maybe another generation or condition','salīdzināto auto nobraukums ('+fmt(v.ver.softKm.their)+' km) ļoti atšķiras no jūsējā ('+fmt(v.ver.softKm.mine)+' km)'));
     sf=L('Ориентировочная оценка: '+pr.join(', ')+'. Не считайте её точной.','Approximate estimate: '+pr.join(', ')+'. Do not treat it as exact.','Aptuvens vērtējums: '+pr.join(', ')+'.'); }
   return '<div class="vbase"><span>'+esc(t)+'</span>'+(sf?'<span><b>'+esc(sf)+'</b></span>':'')+(xt?'<span>'+esc(xt)+'</span>':'')+'<button type="button" class="lnk" data-act="go-comps">'+esc(L('Показать эти машины','Show these cars','Rādīt šos auto'))+' →</button></div>';
 }

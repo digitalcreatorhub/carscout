@@ -14,7 +14,7 @@ const ssUrl = k => `https://www.ss.com/msg/ru/transport/cars/audi/a6/t${k}abcde.
 const asUrl = k => `https://www.autoscout24.de/angebote/audi-a6-avant-1b2c3d4e-1111-2222-3333-4444555566${String(k).padStart(2, '0')}`;
 const items = (n, mid, kind) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: 2018 + (k % 3) - 1, url: kind === 'ss' ? ssUrl(k) : asUrl(k), title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' }));
 
-const mixItems = (n, mid, title, off) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: 2018 + (k % 3) - 1, url: ssUrl(off + k), title, fuel: 'diesel', gear: 'automatic' }));
+const mixItems = (n, mid, title, off, yr = 2018) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: yr + (k % 3) - 1, url: ssUrl(off + k), title, fuel: 'diesel', gear: 'automatic' }));
 
 /* every scenario: the listing, what each market returns, what the app must conclude */
 const SCEN = [
@@ -48,8 +48,8 @@ const SCEN = [
   /* Audi A6 3.0 BiTDI (two turbos) costs far more than a plain 3.0 TDI. The engine size is the same, so the match has to read the
      variant from the title / text: a BiTDI is compared with BiTDI ads, a plain car with plain ads. */
   { id: 'biturbo-matched', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzbitdi.html', price: 27000,
-    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 BiTDI quattro 313 ZS, S line', src: {} },
-    comps: { ss: [...mixItems(8, 21000, 'Audi A6 Avant 3.0 TDI quattro', 0), ...mixItems(8, 27000, 'Audi A6 Avant 3.0 BiTDI quattro', 20)] },
+    listing: { make: 'Audi', model: 'A6', year: 2016, mileage_km: 150000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 BiTDI quattro 313 ZS, S line', src: {} },
+    comps: { ss: [...mixItems(8, 21000, 'Audi A6 Avant 3.0 TDI quattro', 0, 2016), ...mixItems(8, 27000, 'Audi A6 Avant 3.0 BiTDI quattro', 20, 2016)] },
     expect: v => [[/8 похожих/.test(v.basis), 'a BiTDI is compared only with the 8 BiTDI ads, not with the plain 3.0 TDI', v.basis], [/Рыночная цена/.test(v.verdict), 'a BiTDI at the BiTDI price is a fair price (not "above market" against plain 3.0 TDI)', v.verdict],
       [!/ориентировочно/i.test(v.verdict + v.basis), 'with 8 matched ads the verdict is not marked approximate', v.verdict]] },
   { id: 'plain-excludes-biturbo', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzplain3.html', price: 21000,
@@ -63,6 +63,7 @@ const SCEN = [
   { id: 'few-ads-approximate', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzfewap.html', price: 21000, comps: { ss: items(6, 15500, 'ss') },
     expect: v => [[/ориентировочно/i.test(v.verdict), 'with only 6 similar ads the verdict is marked approximate', v.verdict], [/мало похожих объявлений \(6\)/.test(v.basis), 'and says why: few ads (6)', v.basis]] },
   { id: 'twenty-ads-firm', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zztwenty.html', price: 15200, comps: { ss: items(20, 15500, 'ss') },
+    listing: { make: 'Audi', model: 'A5', year: 2018, mileage_km: 150000, asking_price: 15200, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A5 2.0 TDI', src: {} },
     expect: v => [[!/ориентировочно/i.test(v.verdict + v.basis), 'with 20 similar ads in a narrow range the verdict is not marked approximate', v.verdict]] },
   /* the closest real listings follow the comparison: the same engine variant, and the car's own market first (Latvian ads before German ones) */
   { id: 'near-biturbo-only', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zznear1.html', price: 27000,
@@ -81,6 +82,22 @@ const SCEN = [
   { id: 'sold-ads-excluded', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzsold.html', price: 15500,
     comps: { ss: [...mixItems(8, 15500, 'Audi A6 Avant 2.0 TDI', 0), ...mixItems(6, 9000, 'Audi A6 Avant 2.0 TDI | VERKOCHT', 20)] },
     expect: v => [[/8 похожих/.test(v.basis), 'six ads marked "VERKOCHT" (sold) are not counted: 8 similar cars, not 14', v.basis], [/Рыночная цена/.test(v.verdict), 'and they do not pull the fair price down', v.verdict]] },
+  /* the year of a change of generation: a 2018 A6 can be the old C7 or the new C8. Nothing in the ad says which, so the comparison mixes both bodies
+     and the verdict must say so (not a firm "far above market"); 140 000 km against 280 000 km is a second warning */
+  { id: 'gen-change-year', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzgen1.html', price: 22200,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 140000, asking_price: 22200, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro Premium', src: {} },
+    comps: { ss: [...Array.from({ length: 6 }, (_, k) => ({ price: 15000 + k * 100, km: 270000 + k * 4000, year: 2017, url: ssUrl(k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' })), ...Array.from({ length: 6 }, (_, k) => ({ price: 21000 + k * 100, km: 60000 + k * 4000, year: 2019, url: ssUrl(20 + k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' }))] },
+    expect: v => [[/ориентировочно/i.test(v.verdict), 'the year of the generation change: the verdict is marked approximate', v.verdict], [/поколение/.test(v.basis), 'and the basis says the generation (body) is not fully matched', v.basis]] },
+  /* a car of a definite new generation is compared with that generation only: ads that name the old code are left out */
+  { id: 'gen-definite', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzgen2.html', price: 27000,
+    listing: { make: 'Audi', model: 'A6', year: 2019, mileage_km: 90000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} },
+    comps: { ss: [...Array.from({ length: 6 }, (_, k) => ({ price: 15000 + k * 100, km: 250000 + k * 3000, year: 2018, url: ssUrl(k), title: 'Audi A6 C7 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' })), ...Array.from({ length: 6 }, (_, k) => ({ price: 26800 + k * 100, km: 80000 + k * 4000, year: 2019, url: ssUrl(20 + k), title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' }))] },
+    expect: v => [[/6 похожих/.test(v.basis), 'a 2019 A6 (new body) is compared with the 6 new-body ads, the 6 that name the old C7 are left out', v.basis], [/Рыночная цена/.test(v.verdict), 'and at the new-body price it is a fair price', v.verdict]] },
+  /* any model, known or not: when the compared cars have twice the mileage the verdict says so */
+  { id: 'km-mismatch', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a5/zzkm1.html', price: 12000,
+    listing: { make: 'Audi', model: 'A5', year: 2018, mileage_km: 90000, asking_price: 12000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A5 2.0 TDI', src: {} },
+    comps: { ss: Array.from({ length: 12 }, (_, k) => ({ price: 11800 + k * 40, km: 250000 + k * 2000, year: 2018, url: ssUrl(k), title: 'Audi A5 2.0 TDI', fuel: 'diesel', gear: 'automatic' })) },
+    expect: v => [[/ориентировочно/i.test(v.verdict) && /пробег сравниваемых машин/.test(v.basis), 'compared cars with 2.8 times the mileage: the verdict is marked approximate and says why', v.verdict + ' | ' + v.basis]] },
 ];
 
 const b = await chromium.launch(process.env.PW_EXEC ? { executablePath: process.env.PW_EXEC } : {});
@@ -199,6 +216,25 @@ for (const sc of SCEN) {
     const row = await pg.$eval('#favs', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
     check(/20 аналог/.test(row) && /на \d\d\.\d\d\)/.test(row), 'favourites: the row shows how many cars it was compared with and the date', row.slice(0, 300));
   }
+  await ctx.close();
+}
+
+/* model generations: the table and the reading of a generation from the year and the text */
+{
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } }); const pg = await ctx.newPage();
+  pg.on('pageerror', e => errs.push('generations: ' + e.message));
+  await pg.route('**/*', r => { const u = r.request().url(); if (u.startsWith(API)) return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: '{"ok":true}' }); if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort(); return r.continue(); });
+  await pg.goto(SITE + (SITE.startsWith('file:') ? '' : '?r=' + Date.now())); await pg.waitForTimeout(800);
+  const g = await pg.evaluate(() => { const { genFamily, genOf } = window.__carscoutTest; return {
+    fam: [genFamily('Škoda', 'Octavia'), genFamily('BMW', '520d'), genFamily('Mercedes-Benz', 'E 220'), genFamily('Audi', 'A6 allroad'), genFamily('Toyota', 'RAV4'), genFamily('Mazda', 'CX-5'), genFamily('VW', 'Golf 7'), genFamily('Lada', 'Niva')],
+    a6: [genOf('audi a6', 2017, ''), genOf('audi a6', 2018, ''), genOf('audi a6', 2019, ''), genOf('audi a6', 2018, 'Audi A6 C7 3.0 TDI'), genOf('audi a6', 2018, 'Audi A6 C8 3.0 TDI'), genOf('audi a6', 2003, '')],
+    oct: [genOf('skoda octavia', 2015, 'owner IV in the papers'), genOf('skoda octavia', 2015, 'Octavia III Combi'), genOf('skoda octavia', 2020, '')],
+    golf: [genOf('volkswagen golf', 2019, ''), genOf('volkswagen golf', 2020, ''), genOf('volkswagen golf', 2021, '')]
+  }; });
+  check(JSON.stringify(g.fam) === JSON.stringify(['skoda octavia', 'bmw 5', 'mb e', 'audi a6', 'toyota rav4', 'mazda cx-5', 'volkswagen golf', null]), 'generations: the model families are recognised (Octavia, 520d, E 220, A6 allroad, RAV4, CX-5, VW Golf) and an unknown model has none', JSON.stringify(g.fam));
+  check(JSON.stringify(g.a6) === JSON.stringify([{ g: 'C7', amb: false }, { g: 'C8', amb: true }, { g: 'C8', amb: false }, { g: 'C7', amb: false }, { g: 'C8', amb: false }, null]), 'generations: A6 2017 is C7, 2019 is C8, 2018 is unclear unless the ad names C7 or C8, 2003 is not in the table', JSON.stringify(g.a6));
+  check(JSON.stringify(g.oct) === JSON.stringify([{ g: 'III', amb: false }, { g: 'III', amb: false }, { g: 'IV', amb: true }]) , 'generations: a stray "IV" in a 2015 text does not turn an Octavia III into a IV; 2020 is the change year', JSON.stringify(g.oct));
+  check(JSON.stringify(g.golf) === JSON.stringify([{ g: 'Golf 7', amb: false }, { g: 'Golf 8', amb: true }, { g: 'Golf 8', amb: false }]), 'generations: Golf 7 until 2019, 2020 unclear, Golf 8 from 2021', JSON.stringify(g.golf));
   await ctx.close();
 }
 
