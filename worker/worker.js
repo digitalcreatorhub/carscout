@@ -14,7 +14,7 @@
  * Settings (Workers > your worker > Settings > Variables):
  *   ALLOW_ORIGIN  optional, e.g. https://yourname.github.io  (default: any origin)
  */
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
@@ -57,6 +57,52 @@ function blockedBy(p) {
   const head = p.text.slice(0, 6000);
   if (p.text.length < 80000 && /captcha|cf-chl|just a moment|access denied|pardon our interruption|are you a human|bot detection/i.test(head)) return 'anti-bot page';
   return null;
+}
+
+/* ---------------- request limits (best effort) ----------------
+   Why: the Cloudflare free plan stops everything after 100 000 requests a day, D1 after 5 million rows read, and the car
+   sites ban an address that asks too often. ALLOW_ORIGIN only stops other web pages from READING answers; the work is still
+   done. So one address may make a limited number of requests a minute. One check of a car in the app is about 15–20 requests.
+   How: a counter per address and kind in the memory of the worker instance (nothing is written anywhere, so it costs no
+   database writes). It is approximate on purpose: Cloudflare runs several instances, each counts separately, and a counter
+   starts again when an instance restarts, so this stops a runaway page or script, not a determined attacker.
+   If a Cloudflare Rate Limiting binding named RATE is added in wrangler.toml, it is used as well (see wrangler.toml). */
+const RL_WINDOW = 60000, RL_MAX_KEYS = 2000;
+const RL_LIMIT = { read: 120, write: 40, tick: 200 };
+const RL_MEM = new Map();
+/* which budget a request uses: null = never limited (status page, the public key), write = POST, tick = the cron helpers */
+function rlKind(method, path) {
+  if (path === '/' || path === '' || path === '/api/push/key') return null;
+  if (method === 'POST') return 'write';
+  if (path === '/api/push/tick' || path === '/api/alive/tick') return 'tick';
+  return 'read';
+}
+function rlCount(ip, kind, now) {
+  const k = kind + '|' + ip, w = Math.floor(now / RL_WINDOW);
+  let e = RL_MEM.get(k);
+  if (!e || e.w !== w) {
+    if (!e && RL_MEM.size >= RL_MAX_KEYS) {
+      RL_MEM.forEach(function (v, key) { if (v.w !== w) RL_MEM.delete(key); });
+      if (RL_MEM.size >= RL_MAX_KEYS) RL_MEM.clear();   // many addresses at once: forget everything rather than grow
+    }
+    e = { w: w, n: 0 }; RL_MEM.set(k, e);
+  }
+  e.n++;
+  return e.n <= RL_LIMIT[kind];
+}
+async function rlAllow(env, request, kind) {
+  const ip = request.headers.get('cf-connecting-ip');
+  if (!ip) return true;   // not through the Cloudflare network (a local test): nothing to count
+  if (env && env.RATE && typeof env.RATE.limit === 'function') {
+    try { const r = await env.RATE.limit({ key: kind + '|' + ip }); if (r && r.success === false) return false; } catch (e) { }   // a broken limiter never blocks people
+  }
+  return rlCount(ip, kind, Date.now());
+}
+function tooMany(env) {
+  const secs = 60 - Math.floor((Date.now() % RL_WINDOW) / 1000);
+  const r = json(env, { ok: false, error: 'rate_limited', retryAfter: secs, message: 'Слишком много запросов подряд, подождите ' + secs + ' с и повторите. / Too many requests in a row, wait ' + secs + ' s and try again.' }, 429);
+  r.headers.set('retry-after', String(secs));
+  return r;
 }
 
 /* ---------------- text helpers ---------------- */
@@ -445,7 +491,7 @@ function parseAutopliusList(html, base) {
   while ((m = re.exec(html))) starts.push({ i: m.index, url: m[1] });
   starts.forEach(function (s, k) {
     const block = html.slice(s.i, k + 1 < starts.length ? starts[k + 1].i : s.i + 9000);
-    const pm = block.match(/announcement-pricing-info[\s\S]*?<strong[^>]*>\s*([\d\s.,]+)\s*(?:&euro;|€)/i);
+    const pm = block.match(/announcement-pricing-info[\s\S]*?<strong[^>]*>\s*((?:[\d\s.,]|&nbsp;|&#160;)+)\s*(?:&euro;|€)/i);
     const price = pm ? toNum(pm[1]) : null;
     if (!(price >= 300 && price <= 500000)) return;
     const t = block.match(/class="announcement-title"[^>]*>([\s\S]*?)<\/div>/i);
@@ -602,7 +648,7 @@ function parseApListing(html, url) {
   const listing = { make: it.make, model: it.model, model_raw: (String(o.description || '').match(/auto\s+(.+?),\s*\d{4},/i) || [])[1] || it.name, year: it.year, mileage_km: it.km, asking_price: it.price,
     fuel: it.fuel === 'lpg' ? 'petrol' : it.fuel, lpg: it.fuel === 'lpg', gearbox: it.gear, engine_l: it.engine_l, power_kw: it.power_kw, drive: it.drive, body: o.bodyType || null, color: o.color || null,
     vin: it.vin && /^[A-HJ-NPR-Z0-9]{17}$/.test(it.vin) ? it.vin : null, description: (String(o.description || '') + '. ' + extra).slice(0, 8000), posted: null, updated: null,
-    place: loc ? strip(loc) : null, address: null, geo: null, dealer: /\b(OÜ|AS|SIA|UAB)\b/.test(sel || ''), seller_name: sel || null, accident: null, repaired_damage: false, owners: null, warranty: null };
+    place: loc ? strip(loc) : null, address: null, geo: null, dealer: /(?:^|[\s,(])(?:OÜ|AS|SIA|UAB)(?=$|[\s,.)])/.test(sel || ''), seller_name: sel || null, accident: null, repaired_damage: false, owners: null, warranty: null };
   listing.src = { make: 'table', model: 'table', year: listing.year ? 'table' : null, mileage_km: listing.mileage_km != null ? 'table' : null, asking_price: listing.asking_price ? 'table' : null, fuel: listing.fuel ? 'table' : null, gearbox: listing.gearbox ? 'table' : null, vin: listing.vin ? 'table' : null };
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model || listing.model;
   const images = (Array.isArray(o.image) ? o.image : []).filter(function (u) { return typeof u === 'string'; }).slice(0, 30);
@@ -1233,6 +1279,42 @@ async function aliveTick(env, force) {
   return out;
 }
 
+/* ---------------- housekeeping: forget what is no longer useful ----------------
+   Once a day (the cron checks, a stored time keeps it to one run) the worker removes old rows, so the database and the
+   price history queries do not grow for ever. What is kept, and why:
+   - ads of ss.com, and any ad with a VIN: 365 days after they were last seen or went off sale (the time-on-sale figures and
+     the "this VIN was seen before" check need months of history);
+   - ads of other sites (only used for price trends): 120 days;
+   - the price history rows of a removed ad go with it (never rows of an ad that stays);
+   - phone messages nobody collected: 14 days.
+   Searches and subscriptions are not touched. Every run is capped (a free D1 database allows 100 000 rows written a day,
+   a deleted row and each of its index entries count), so an old backlog is cleared over several days, not at once.
+   The ad rows are picked through the ads_alive index (gone, lt), so the run does not read the whole table. */
+const GC_EVERY = 23 * 3600000, GC_LONG = 365 * 86400000, GC_SHORT = 120 * 86400000, GC_INBOX = 14 * 86400000, GC_BATCH = 3000;
+async function dbCleanup(env, force) {
+  if (!(await memInit(env))) return { ok: false, error: 'no_db' };
+  const now = Date.now();
+  if (!force) { const last = +(await kvGet(env, 'gc_at') || 0); if (now - last < GC_EVERY) return { ok: true, skipped: true }; }
+  await kvSet(env, 'gc_at', now);
+  const out = { ok: true, ads: 0, hist: 0, inbox: 0 };
+  /* a: ads that went off sale (index range on gone); b: ads never marked gone but not seen for a long time (gone IS NULL, range on lt).
+     "keep long" ads (ss.com or with a VIN) need the older cut-off, the others the shorter one. */
+  const pickGone = "SELECT id FROM ads WHERE gone IS NOT NULL AND gone < ?1 AND (gone < ?2 OR (COALESCE(src, '') <> 'ss' AND vin IS NULL)) LIMIT ?3";
+  const pickLost = "SELECT id FROM ads WHERE gone IS NULL AND lt < ?1 AND (lt < ?2 OR (COALESCE(src, '') <> 'ss' AND vin IS NULL)) LIMIT ?3";
+  for (const sql of [pickGone, pickLost]) {
+    const rows = ((await env.DB.prepare(sql).bind(now - GC_SHORT, now - GC_LONG, GC_BATCH).all()).results || []).map(function (r) { return r.id; });
+    if (!rows.length) continue;
+    const js = JSON.stringify(rows);
+    const res = await env.DB.batch([
+      env.DB.prepare('DELETE FROM hist WHERE id IN (SELECT value FROM json_each(?1))').bind(js),
+      env.DB.prepare('DELETE FROM ads WHERE id IN (SELECT value FROM json_each(?1))').bind(js)
+    ]);
+    out.hist += (res[0] && res[0].meta && res[0].meta.changes) || 0; out.ads += (res[1] && res[1].meta && res[1].meta.changes) || 0;
+  }
+  try { const r = await env.DB.prepare('DELETE FROM pinbox WHERE t < ?1').bind(now - GC_INBOX).run(); out.inbox = (r && r.meta && r.meta.changes) || 0; } catch (e) { }   // the table exists only after the first phone subscription
+  return out;
+}
+
 /* ---------------- how long cars stay on sale: measured, with the cars still on sale counted correctly ---------------- */
 function medOf(a) { if (!a.length) return null; const b = a.slice().sort(function (x, y) { return x - y; }), k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; }
 /* Kaplan-Meier: obs = [{t: days on sale, ev: true when the ad left the site, false when it was still there when last seen}].
@@ -1614,6 +1696,8 @@ export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
     const u = new URL(request.url);
+    const rk = rlKind(request.method, u.pathname);
+    if (rk && !(await rlAllow(env, request, rk))) return tooMany(env);
     if (request.method === 'POST' && u.pathname === '/api/push/sub') { try { return await hPushSub(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method === 'POST' && u.pathname === '/api/push/inbox') { try { return await hPushInbox(env, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method === 'POST' && u.pathname === '/api/watch') { try { return await hWatchSave(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
@@ -1642,5 +1726,5 @@ export default {
       return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500);
     }
   },
-  async scheduled(event, env, ctx) { ctx.waitUntil(tgPoll(env, true).catch(function () { })); ctx.waitUntil(pushTick(env, ctx).catch(function () { })); ctx.waitUntil(aliveTick(env, false).catch(function () { })); }
+  async scheduled(event, env, ctx) { ctx.waitUntil(tgPoll(env, true).catch(function () { })); ctx.waitUntil(pushTick(env, ctx).catch(function () { })); ctx.waitUntil(aliveTick(env, false).catch(function () { })); ctx.waitUntil(dbCleanup(env, false).catch(function () { })); }
 };

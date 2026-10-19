@@ -16,3 +16,14 @@ database_id = "74f04bac-7736-4dcc-8e9f-32bb22123206"
 # Every 5 minutes: answer new /start and /stop messages of the Telegram bot.
 [triggers]
 crons = ["*/5 * * * *"]
+
+# OPTIONAL, off by default: Cloudflare's own request limiter (exact across the world, unlike the built-in counter in the
+# worker, which is per server instance). Whether it is available on the free plan was not confirmed when this was written,
+# so it is not switched on. To try it, remove the "#" signs and deploy; if the deploy is refused, put them back. The worker
+# uses the binding named RATE when it exists and works the same without it.
+# [[ratelimits]]
+# name = "RATE"
+# namespace_id = "1001"
+# [ratelimits.simple]
+# limit = 120
+# period = 60
