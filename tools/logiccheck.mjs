@@ -93,6 +93,17 @@ const SCEN = [
     listing: { make: 'Audi', model: 'A6', year: 2019, mileage_km: 90000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} },
     comps: { ss: [...Array.from({ length: 6 }, (_, k) => ({ price: 15000 + k * 100, km: 250000 + k * 3000, year: 2018, url: ssUrl(k), title: 'Audi A6 C7 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' })), ...Array.from({ length: 6 }, (_, k) => ({ price: 26800 + k * 100, km: 80000 + k * 4000, year: 2019, url: ssUrl(20 + k), title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' }))] },
     expect: v => [[/6 похожих/.test(v.basis), 'a 2019 A6 (new body) is compared with the 6 new-body ads, the 6 that name the old C7 are left out', v.basis], [/Рыночная цена/.test(v.verdict), 'and at the new-body price it is a fair price', v.verdict]] },
+  /* the car the user reported: a 2018 A6 of the NEW body (C8, 140 000 km) found only one ad of its own generation, the rest are old-body cars with twice the
+     mileage. Three doubts at once: no verdict, no score and no percentage */
+  { id: 'unsure-wrong-generation', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzunsure.html', price: 22200,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 140000, asking_price: 22200, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 C8 Avant 50 TDI quattro Premium', src: {} },
+    comps: { ss: [...Array.from({ length: 6 }, (_, k) => ({ price: 16300 + k * 400, km: 270000 + k * 4000, year: 2017, url: ssUrl(k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' })), { price: 24000, km: 60000, year: 2019, url: ssUrl(20), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' }] },
+    expect: v => [[/Оценка неточная/.test(v.verdict) && !/Сильно выше рынка|Выше рынка|Ниже рынка|Рыночная цена/.test(v.verdict), 'with the wrong generation, other mileage and few ads there is no verdict, only "inexact estimate"', v.verdict],
+      [v.ring === '–' || /^–/.test(v.ring), 'and no score is shown', v.ring],
+      [/Почему оценка неточная/.test(v.basis) && /поколение/.test(v.basis) && /пробег сравниваемых машин/.test(v.basis), 'and the basis lists the reasons (generation, mileage)', v.basis]] },
+  /* only the bare "year of a generation change" plus few ads stays an approximate verdict, not an unsure one: nothing shows other cars were compared */
+  { id: 'approx-not-unsure', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzapprox.html', price: 21000, comps: { ss: items(6, 15500, 'ss') },
+    expect: v => [[/ориентировочно/i.test(v.verdict) && !/Оценка неточная/.test(v.verdict), 'a change year with few ads is "approximate" and keeps its verdict', v.verdict]] },
   /* any model, known or not: when the compared cars have twice the mileage the verdict says so */
   { id: 'km-mismatch', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a5/zzkm1.html', price: 12000,
     listing: { make: 'Audi', model: 'A5', year: 2018, mileage_km: 90000, asking_price: 12000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A5 2.0 TDI', src: {} },
@@ -125,7 +136,7 @@ for (const sc of SCEN) {
   if (!okV) { check(false, sc.id + ': analysis opens', 'no verdict panel'); await ctx.close(); continue; }
   await pg.waitForTimeout(800);
   const t = async (sel, n = 2000) => pg.$eval(sel, (e, n) => (e.value != null && e.tagName === 'TEXTAREA' ? e.value : e.innerText).replace(/\s+/g, ' ').slice(0, n), n).catch(() => '');
-  const v = { verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
+  const v = { ring: await t('#a-verdict .ring', 40), verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
     msg: await t('#msg-text', 400), msgLang: await pg.$eval('#msg-lang', e => e.value).catch(() => ''), calc: await pg.$$eval('#k-lv,#k-de', e => e.map(x => x.id + '=' + x.value).join(' ')).catch(() => ''), checks: await pg.$eval('#a-checks', e => e.textContent.replace(/\s+/g, ' ')).catch(() => '') };
   v.region = v.region.split('·')[0].trim();
   for (const [cond, what, detail] of sc.expect(v)) check(cond, sc.id + ': ' + what, detail);
@@ -215,6 +226,39 @@ for (const sc of SCEN) {
     check(f0.verdict && f0.verdict !== 'good' && f0.vAt > 1 && f0.vN === 20, 'favourites: a favourite analysed again gets the fresh verdict (not the old "below market") with its date and the number of comparables', JSON.stringify({ v: f0.verdict, vAt: f0.vAt, vN: f0.vN }));
     const row = await pg.$eval('#favs', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
     check(/20 аналог/.test(row) && /на \d\d\.\d\d\)/.test(row), 'favourites: the row shows how many cars it was compared with and the date', row.slice(0, 300));
+  }
+  await ctx.close();
+}
+
+/* a favourite saved as "below market" that is analysed again and now gets "inexact estimate": the stale verdict must be replaced, with no percentage */
+{
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } }); const pg = await ctx.newPage();
+  pg.on('pageerror', e => errs.push('favourites-unsure: ' + e.message));
+  const url = 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzfavun.html';
+  const favs = [{ id: url, url, make: 'Audi', model: 'A6', year: 2018, km: 140000, price: 22200, fuel: 'diesel', fair: 24000, delta: -7.5, verdict: 'good', savedAt: 1, checkedAt: 1, hist: [{ t: 1, p: 22200 }], sel: false }];
+  await pg.route('**/*', async r => {
+    const u = r.request().url();
+    if (u.startsWith(API)) {
+      const x = new URL(u); let body = { ok: true, version: 'test' };
+      if (x.pathname === '/api/listing') body = { ok: true, title: 'Audi A6 Avant', source: 'ss', listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 140000, asking_price: 22200, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 C8 Avant 50 TDI quattro', src: {} } };
+      else if (x.pathname === '/api/comps') body = x.searchParams.get('source') === 'ss' ? { ok: true, items: [...Array.from({ length: 6 }, (_, k) => ({ price: 16300 + k * 400, km: 270000 + k * 4000, year: 2017, url: ssUrl(k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' })), { price: 24000, km: 60000, year: 2019, url: ssUrl(20), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' }] } : { ok: false, error: 'blocked' };
+      else if (x.pathname !== '/') body = { ok: false, error: 'test' };
+      return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort();
+    return r.continue();
+  });
+  await pg.addInitScript(f => { try { localStorage.setItem('carscout_lang', 'ru'); localStorage.setItem('carscout_api', 'https://carscout.pmax70095.workers.dev'); localStorage.setItem('carscout_favs', JSON.stringify(f)); localStorage.setItem('carscout_favs_at', String(Date.now())); } catch (e) { } }, favs);
+  await pg.goto(SITE + (SITE.startsWith('file:') ? '' : '?r=' + Date.now())); await pg.waitForTimeout(1200);
+  await pg.fill('#f-url', url); await pg.click('#btn-go');
+  const okU = await pg.waitForSelector('#a-verdict', { timeout: 30000 }).then(() => true, () => false);
+  if (!okU) check(false, 'favourites-unsure: analysis opens', 'no verdict panel');
+  else {
+    await pg.waitForTimeout(800);
+    const f0 = (await pg.evaluate(() => JSON.parse(localStorage.getItem('carscout_favs') || '[]')))[0] || {};
+    check(f0.verdict === 'unsure' && f0.delta == null, 'favourites-unsure: the saved "below market" is replaced by "inexact estimate" without a percentage', JSON.stringify({ v: f0.verdict, d: f0.delta }));
+    const row = await pg.$eval('#favs', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
+    check(/Оценка неточная/.test(row) && !/Ниже рынка/.test(row), 'favourites-unsure: the favourite row says "inexact estimate", not "below market"', row.slice(0, 300));
   }
   await ctx.close();
 }

@@ -1590,8 +1590,8 @@ function pct(d){return d==null||!isFinite(d)?'–':(d>0?'+':d<0?'−':'')+Math.a
 function safeUrl(u){try{var x=new URL(u);return /^https?:$/.test(x.protocol)?x.href:null}catch(e){return null}}
 var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
-var LV_TERM={good:'Zem tirgus',fair:'Tirgus cena',high:'Virs tirgus',overpriced:'Ievērojami virs tirgus',too_cheap:'Aizdomīgi lēti',unknown:'Nav datu'};
-var VNAME={good:['Ниже рынка','Below market'],fair:['Рыночная цена','Fair price'],high:['Выше рынка','Above market'],overpriced:['Сильно выше рынка','Well above market'],too_cheap:['Подозрительно дёшево','Suspiciously cheap'],unknown:['Нет данных','No data']};
+var LV_TERM={good:'Zem tirgus',fair:'Tirgus cena',high:'Virs tirgus',overpriced:'Ievērojami virs tirgus',too_cheap:'Aizdomīgi lēti',unsure:'Neprecīzs vērtējums',unknown:'Nav datu'};
+var VNAME={good:['Ниже рынка','Below market'],fair:['Рыночная цена','Fair price'],high:['Выше рынка','Above market'],overpriced:['Сильно выше рынка','Well above market'],too_cheap:['Подозрительно дёшево','Suspiciously cheap'],unsure:['Оценка неточная','Inexact estimate'],unknown:['Нет данных','No data']};
 var REGION_NAME={LV:['Латвия','Latvia'],LT:['Литва','Lithuania'],EE:['Эстония','Estonia'],DE:['Германия','Germany'],BE:['Бельгия','Belgium'],NL:['Нидерланды','Netherlands'],FR:['Франция','France'],PL:['Польша','Poland'],EU:['ЕС','EU']};
 var FAR={DE:1,BE:1,NL:1,FR:1,PL:1,EU:1};
 /* markets a car abroad is compared with first (its own country): the far ones and the Baltic neighbours.
@@ -2309,6 +2309,14 @@ function compute(car,results,f,notes){
     var kmH=home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km});
     if(car.km>0&&kmH.length>=4){ var mkm=median(kmH), rk=mkm/car.km; if(rk>=1.8||rk<=0.55){ softWhy.push('km'); ver.softKm={their:Math.round(mkm),mine:car.km}; } }
     if(softWhy.length) ver.soft=softWhy;
+    /* two or more doubts, at least one of them about WHICH cars were compared (generation, mileage, engine): a loud verdict would
+       be a guess, so no verdict and no score are given; the gap to the compared ads is kept as a plain fact */
+    var mism=softWhy.filter(function(w){return (w==='gen'&&home.genFew!=null)||w==='km'||w==='variant'}), stat=softWhy.indexOf('few')>-1||softWhy.indexOf('wide')>-1;
+    /* "mism" = evidence that other cars were compared (a known generation with few ads of it, other mileage, other engine).
+       A bare "the year is a change year" is not evidence by itself, so it only makes the verdict approximate */
+    if(mism.length>=2||(mism.length>=1&&stat)){
+      ver={key:'unsure',delta:null,rawDelta:ver.delta,was:ver.key,soft:softWhy,softKm:ver.softKm}; score=null;
+    }
   }
   var cross=null;
   if(car._cross&&home&&home.region!==car._cross){ var cr=regions.filter(function(r){return r.region===car._cross&&r.fair})[0]; if(cr&&car.price>0) cross={region:cr.region,mid:cr.fair.mid,n:cr.n,diff:cr.fair.mid-car.price}; }
@@ -2326,6 +2334,7 @@ function summaryText(v){
     high:[L('Цена примерно на '+dd+' выше рынка.'+base+' Торгуйтесь.','The price is about '+dd+' above the market.'+base+' Negotiate.'),'Cena ir nedaudz virs tirgus.'],
     overpriced:[L('Цена примерно на '+dd+' выше рынка.'+base+' Без веской причины переплата.','The price is about '+dd+' above the market.'+base+' An overpayment unless there is a good reason.'),'Cena ir ievērojami virs tirgus.'],
     too_cheap:[L('Цена примерно на '+dd+' ниже рынка. Это тревожный признак: проверьте VIN, историю, пробег и документы.','The price is about '+dd+' below the market. A warning sign: check the VIN, history, mileage and papers.'),'Cena ir aizdomīgi zema: pārbaudiet auto vēsturi.'],
+    unsure:[L('Надёжно оценить цену не получилось: найденные объявления слишком отличаются от этой машины (поколение, пробег или мотор). Вердикт не выдаётся.','The price could not be judged reliably: the ads found differ too much from this car (generation, mileage or engine). No verdict.'),'Cenu droši novērtēt neizdevās.'],
     unknown:[L('Реальных объявлений для сравнения мало или цена не указана. Вердикт не выдаётся.','Too few real listings to compare, or no price given. No verdict.'),'Nepietiek datu.']
   };
   return T[k]||T.unknown;
@@ -2509,6 +2518,7 @@ function secNoApi(){
 function r100(n){ return Math.round(n/100)*100; }
 function planOf(v){
   var P=v.car.price, F=v.fair; if(!(P>0)||!F) return null;
+  if(v.ver&&v.ver.key==='unsure') return null; /* an offer built on the wrong cars would mislead */
   var offer, max=Math.min(P,r100(F.mid*1.03)), below=P<F.low;
   if(below){ offer=r100(P*0.97); max=P; }
   else if(P>F.mid) offer=Math.max(Math.ceil(F.low/100)*100,r100(F.mid*0.96));
@@ -2695,7 +2705,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-19.3', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-19.4', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -2765,9 +2775,9 @@ function favFromView(v){
 /* the same car analysed again: the saved verdict is replaced by the fresh one (it was a snapshot of the market of that day) */
 function favRefreshFromView(v){
   try{
-    if(!v||!v.car||!v.ver||v.ver.delta==null) return;
+    if(!v||!v.car||!v.ver||(v.ver.delta==null&&v.ver.key!=='unsure')) return;
     var a=favLoad(), id=favId(v.car), f=a.filter(function(x){return x.id===id})[0]; if(!f) return;
-    f.fair=v.fair?Math.round(v.fair.mid):null; f.delta=Math.round(v.ver.delta*10)/10; f.verdict=v.ver.key; f.vAt=Date.now(); f.vN=v.home?v.home.n:null; f.vSoft=!!v.ver.soft;
+    f.fair=v.fair?Math.round(v.fair.mid):null; f.delta=v.ver.delta==null?null:Math.round(v.ver.delta*10)/10; f.verdict=v.ver.key; f.vAt=Date.now(); f.vN=v.home?v.home.n:null; f.vSoft=!!v.ver.soft;
     if(v.car.price>0&&v.car.price!==f.price){ f.hist=(f.hist||[]).concat([{t:Date.now(),p:v.car.price}]).slice(-30); f.price=v.car.price; }
     favSave(a);
   }catch(e){}
@@ -2784,7 +2794,7 @@ function favRow(f,i){
   var badge=drop?'<span class="rn" style="color:var(--'+(drop<0?'good':'bad')+')"> '+(drop<0?'▼ ':'▲ ')+esc(eur(Math.abs(drop)))+'</span>':'';
   var meta=[f.km!=null?fmt(f.km)+' km':null,f.fuel?fuelLabel({fuel:f.fuel,lpg:f.lpg}):null,f.trim||null].filter(Boolean).join(' · ');
   var vd=f.verdict&&VNAME[f.verdict]?LP(VNAME[f.verdict]):'';
-  if(vd&&f.vAt){ var vdt=new Date(f.vAt); vd+=' ('+(f.vSoft?L('ориентировочно, ','approximate, ','aptuveni, '):'')+(f.vN!=null?f.vN+L(' аналогов, ',' comparables, ',' analogi, '):'')+L('на ','as of ','uz ')+('0'+vdt.getDate()).slice(-2)+'.'+('0'+(vdt.getMonth()+1)).slice(-2)+')'; }
+  if(vd&&f.vAt){ var vdt=new Date(f.vAt); vd+=' ('+(f.vSoft&&f.verdict!=='unsure'?L('ориентировочно, ','approximate, ','aptuveni, '):'')+(f.vN!=null?f.vN+L(' аналогов, ',' comparables, ',' analogi, '):'')+L('на ','as of ','uz ')+('0'+vdt.getDate()).slice(-2)+'.'+('0'+(vdt.getMonth()+1)).slice(-2)+')'; }
   var link=f.url&&safeUrl(f.url)?'<a href="'+esc(safeUrl(f.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть','Open'))+'</a>':'';
   var rd=recentDrop(f.hist,Date.now()); if(rd) badge=dropBadge(rd);
   if(f.gone) badge+='<span class="badge-gone">'+esc(L('снято с продажи','no longer listed','noņemts no pārdošanas'))+'</span>';
@@ -2835,7 +2845,7 @@ async function favRecheck(silent){
       var f=all[order[q]]; n++; if(!silent) favNote(L('Проверяю '+n+' из '+total+'…','Checking '+n+' of '+total+'…'));
       var j=await api('/api/listing',{url:f.url},25000), now=Date.now(); f.checkedAt=now;
       var jl=j&&j.listing, np=jl&&jl.asking_price, chg=null;
-      if(np>0&&np!==f.price){ chg={f:favTitle(f),from:f.price,to:np}; f.hist=(f.hist||[]).concat([{t:now,p:np}]).slice(-30); f.price=np; if(f.fair) f.delta=Math.round((np-f.fair)/f.fair*1000)/10; }
+      if(np>0&&np!==f.price){ chg={f:favTitle(f),from:f.price,to:np}; f.hist=(f.hist||[]).concat([{t:now,p:np}]).slice(-30); f.price=np; if(f.fair&&f.verdict!=='unsure') f.delta=Math.round((np-f.fair)/f.fair*1000)/10; }
       else if(j&&j.ok===false&&(j.error==='not_found'||j.status===404)){ if(!f.gone) chg={f:favTitle(f),gone:true}; f.gone=true; }
       if(jl&&jl.posted&&!f.posted) f.posted=jl.posted;
       if(jl&&jl.updated){ if(f.updated&&jl.updated!==f.updated){ f.raises=(f.raises||0)+1; if(!chg) chg={f:favTitle(f),raised:true}; } f.updated=jl.updated; }
@@ -2920,7 +2930,7 @@ function secReport(v){
   if(dl.vat) tags.push('<span class="tg w">'+esc(L('Цена с НДС','Price incl. VAT'))+'</span>');
   if(dl.warranty) tags.push('<span class="tg g">'+esc(L('Гарантия','Warranty'))+'</span>');
   if(c.lpg) tags.push('<span class="tg w">'+esc(L('ГБО','LPG'))+'</span>');
-  var vcls={good:'g',fair:'',high:'w',overpriced:'b',too_cheap:'s',unknown:''}[k]||'';
+  var vcls={good:'g',fair:'',high:'w',overpriced:'b',too_cheap:'s',unsure:'',unknown:''}[k]||'';
   var conf={high:L('высокая достоверность','high confidence'),medium:L('средняя достоверность','medium confidence'),low:L('низкая достоверность','low confidence')}[v.conf]||'';
   var card='<div class="gcard"><div class="gtop"><div><div class="gnum">'+(v.score!=null?esc(v.score.toFixed(1).replace('.',',')):'–')+'<small> /10</small></div><div class="glab">'+esc(L('Оценка цены','Price score')+(conf?' · '+conf:''))+'</div></div><span class="tg '+vcls+'">'+esc(vn)+'</span></div>'+
     gaugeSvg(d)+(d!=null&&v.fair?'<p class="gdl">'+esc(pct(d)+L(' к рынку · ',' vs market · ')+eur(c.price)+L(' против ',' vs ')+eur(v.fair.mid))+'</p>':'')+'<div class="glg">'+[[L('дёшево','cheap'),'var(--gz1)'],[L('ниже','below'),'var(--gz2)'],[L('в рынке','fair'),'var(--gz3)'],[L('выше','above'),'var(--gz4)'],[L('сильно выше','far above'),'var(--gz5)']].map(function(g){return '<span><i style="background:'+g[1]+'"></i>'+esc(g[0])+'</span>'}).join('')+'</div></div>';
@@ -2998,6 +3008,13 @@ function aVerdictText(v){
   else if(k==='high') t=L('Цена выше рынка: есть запас для торга.','The price is above the market: there is room to negotiate.');
   else if(k==='overpriced') t=L('Цена сильно выше рынка. Торгуйтесь или ищите другие варианты.','The price is far above the market.');
   else if(k==='too_cheap') t=L('Подозрительно дёшево. Тщательно проверьте документы, пробег и историю.','Suspiciously cheap. Check the papers, mileage and history carefully.');
+  else if(k==='unsure'){
+    var rd=v.ver.rawDelta, rs=rd!=null?Math.abs(rd).toFixed(1).replace('.',',')+'%':'';
+    t=L('Надёжно оценить цену не получилось: найденные объявления слишком отличаются от этой машины. ','The price could not be judged reliably: the ads found differ too much from this car. ')
+      +(rd!=null&&Math.abs(rd)>=1?L('Цена в объявлении на '+rs+(rd>0?' выше':' ниже')+' этих объявлений, но это не вывод о рынке. ','The asking price is '+rs+(rd>0?' above':' below')+' those ads, which is not a conclusion about the market. '):'')
+      +L('Сравните сами с машинами в списке ниже.','Compare it yourself with the cars in the list below.');
+    return pre+t;
+  }
   else t=L('Недостаточно данных для оценки.','Not enough data for a verdict.');
   t=pre+t;
   if(v.medKm!=null&&c.km!=null){ var dk=(c.km-v.medKm)/Math.max(1,v.medKm)*100; if(Math.abs(dk)>=8) t+=' '+L('Пробег на '+Math.round(Math.abs(dk))+'% '+(dk<0?'ниже':'выше')+' типичного','Mileage is '+Math.round(Math.abs(dk))+'% '+(dk<0?'below':'above')+' typical')+(dk<0&&d>0?L(': это частично оправдывает надбавку.',': this partly explains the premium.'):'.'); }
@@ -3028,7 +3045,8 @@ function vBasis(v){
   var sf=''; if(v.ver.soft){ var w=v.ver.soft, pr=[]; if(w.indexOf('few')>-1) pr.push(L('мало похожих объявлений ('+h.n+')','few similar ads ('+h.n+')','maz līdzīgu sludinājumu ('+h.n+')')); if(w.indexOf('wide')>-1) pr.push(L('очень большой разброс цен','a very wide price range','ļoti liela cenu starpība')); if(w.indexOf('variant')>-1) pr.push(L('вариант мотора (BiTDI / Biturbo) сопоставлен не полностью','the engine variant (BiTDI / Biturbo) is not fully matched','motora variants (BiTDI / Biturbo) nav pilnībā sasaistīts'));
     if(w.indexOf('gen')>-1) pr.push(L('поколение (кузов) модели определено не полностью, у нового кузова цена обычно выше','the generation (body) of the model is not fully matched, a newer body usually costs more','modeļa paaudze (virsbūve) nav pilnībā noteikta'));
     if(w.indexOf('km')>-1&&v.ver.softKm) pr.push(L('пробег сравниваемых машин (в среднем '+fmt(v.ver.softKm.their)+' км) сильно отличается от вашего ('+fmt(v.ver.softKm.mine)+' км): возможно, это другое поколение или состояние','the mileage of the compared cars (typically '+fmt(v.ver.softKm.their)+' km) is very different from yours ('+fmt(v.ver.softKm.mine)+' km): maybe another generation or condition','salīdzināto auto nobraukums ('+fmt(v.ver.softKm.their)+' km) ļoti atšķiras no jūsējā ('+fmt(v.ver.softKm.mine)+' km)'));
-    sf=L('Ориентировочная оценка: '+pr.join(', ')+'. Не считайте её точной.','Approximate estimate: '+pr.join(', ')+'. Do not treat it as exact.','Aptuvens vērtējums: '+pr.join(', ')+'.'); }
+    sf=v.ver.key==='unsure'?L('Почему оценка неточная: '+pr.join(', ')+'.','Why the estimate is inexact: '+pr.join(', ')+'.','Kāpēc vērtējums neprecīzs: '+pr.join(', ')+'.')
+      :L('Ориентировочная оценка: '+pr.join(', ')+'. Не считайте её точной.','Approximate estimate: '+pr.join(', ')+'. Do not treat it as exact.','Aptuvens vērtējums: '+pr.join(', ')+'.'); }
   return '<div class="vbase"><span>'+esc(t)+'</span>'+(sf?'<span><b>'+esc(sf)+'</b></span>':'')+(xt?'<span>'+esc(xt)+'</span>':'')+'<button type="button" class="lnk" data-act="go-comps">'+esc(L('Показать эти машины','Show these cars','Rādīt šos auto'))+' →</button></div>';
 }
 function pVerdict(v){
@@ -3036,7 +3054,7 @@ function pVerdict(v){
   var meta=h?rname(h.region)+(h.tol?L(' · аналоги ±',' · comparables ±')+h.tol+L(' г.',' y.'):''):'';
   var conf='<div class="conf">'+esc(L('Достоверность','Confidence'))+' '+[1,2,3,4].map(function(i){return '<i'+(i<=bars?'':' class="o"')+'></i>'}).join('')+' '+esc({high:L('высокая','high'),medium:L('средняя','medium'),low:L('низкая','low')}[v.conf]||'')+(h?' · '+h.n+L(' аналогов',' comparables'):'')+'</div>';
   return aPanel('a-verdict','c5',aHead(L('Вердикт','Verdict'),aMeta(meta)),
-    '<div class="verd">'+aRing(v.score)+'<div><div class="vk">'+esc(vn)+(v.ver.delta!=null?' · <em class="'+(v.ver.delta>0?'up':'dn')+'">'+esc(pct(v.ver.delta))+'</em>':'')+(v.ver.soft?' <small>('+esc(L('ориентировочно','approximate','aptuveni'))+')</small>':'')+'</div><div class="vd">'+esc(aVerdictText(v))+'</div>'+vBasis(v)+conf+'</div></div>'+
+    '<div class="verd">'+aRing(v.score)+'<div><div class="vk">'+esc(vn)+(v.ver.delta!=null?' · <em class="'+(v.ver.delta>0?'up':'dn')+'">'+esc(pct(v.ver.delta))+'</em>':'')+(v.ver.soft&&v.ver.key!=='unsure'?' <small>('+esc(L('ориентировочно','approximate','aptuveni'))+')</small>':'')+'</div><div class="vd">'+esc(aVerdictText(v))+'</div>'+vBasis(v)+conf+'</div></div>'+
     '<div class="apos">'+aPos(v,aMob()?330:520)+'</div>');
 }
 /* ---- KPI strip ---- */
@@ -4618,7 +4636,7 @@ function cardLines(v){
 }
 /*CARD-PURE-END*/
 var CARD_FONT='Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
-var CARD_COL={good:['#DDF1E4','#17603A'],fair:['#E7EAF0','#33425B'],high:['#FBEBCB','#7A4B06'],overpriced:['#F8D9D5','#8E2A1F'],too_cheap:['#F8D9D5','#8E2A1F'],unknown:['#E7EAF0','#33425B']};
+var CARD_COL={good:['#DDF1E4','#17603A'],fair:['#E7EAF0','#33425B'],high:['#FBEBCB','#7A4B06'],overpriced:['#F8D9D5','#8E2A1F'],too_cheap:['#F8D9D5','#8E2A1F'],unsure:['#E7EAF0','#33425B'],unknown:['#E7EAF0','#33425B']};
 /* draw=false only measures. Returns the height the picture needs. */
 function cardPaint(ctx,d,W,H,draw){
   var P=64, mw=W-2*P, y=P, ink='#1B1F27', mut='#6B7280', line='#DAD6CC';
