@@ -14,6 +14,8 @@ const ssUrl = k => `https://www.ss.com/msg/ru/transport/cars/audi/a6/t${k}abcde.
 const asUrl = k => `https://www.autoscout24.de/angebote/audi-a6-avant-1b2c3d4e-1111-2222-3333-4444555566${String(k).padStart(2, '0')}`;
 const items = (n, mid, kind) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: 2018 + (k % 3) - 1, url: kind === 'ss' ? ssUrl(k) : asUrl(k), title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' }));
 
+const mixItems = (n, mid, title, off) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: 150000 + (k % 5) * 4000 - 8000, year: 2018 + (k % 3) - 1, url: ssUrl(off + k), title, fuel: 'diesel', gear: 'automatic' }));
+
 /* every scenario: the listing, what each market returns, what the app must conclude */
 const SCEN = [
   { id: 'lv-fair', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvfair.html', price: 15200, comps: { ss: items(20, 15500, 'ss'), D: items(20, 12000, 'as') },
@@ -42,7 +44,26 @@ const SCEN = [
       a24ee: [{ price: 11000, km: 150000, year: 2018, url: 'https://www.auto24.ee/soidukid/4361580', title: 'Audi A6 2.0 140kW', fuel: 'diesel', gear: 'automatic', engine_l: 2.0 }] },
     expect: v => [[v.region === 'Эстония', 'a car standing in Estonia (auto24.lv link) is compared with Estonia', v.region],
       [/20 похожих/.test(v.basis), 'the car itself (found again on auto24.ee) is not counted among similar cars: 20 ads, not 21', v.basis],
-      [!/Подозрительно/.test(v.verdict), 'a normal Estonian price is not called suspicious because Latvia is dearer', v.verdict], [/В Латвии похожие стоят около/.test(v.basis), 'the Latvian price is shown next to it', v.basis]] }
+      [!/Подозрительно/.test(v.verdict), 'a normal Estonian price is not called suspicious because Latvia is dearer', v.verdict], [/В Латвии похожие стоят около/.test(v.basis), 'the Latvian price is shown next to it', v.basis]] },
+  /* Audi A6 3.0 BiTDI (two turbos) costs far more than a plain 3.0 TDI. The engine size is the same, so the match has to read the
+     variant from the title / text: a BiTDI is compared with BiTDI ads, a plain car with plain ads. */
+  { id: 'biturbo-matched', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzbitdi.html', price: 27000,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 BiTDI quattro 313 ZS, S line', src: {} },
+    comps: { ss: [...mixItems(8, 21000, 'Audi A6 Avant 3.0 TDI quattro', 0), ...mixItems(8, 27000, 'Audi A6 Avant 3.0 BiTDI quattro', 20)] },
+    expect: v => [[/8 похожих/.test(v.basis), 'a BiTDI is compared only with the 8 BiTDI ads, not with the plain 3.0 TDI', v.basis], [/Рыночная цена/.test(v.verdict), 'a BiTDI at the BiTDI price is a fair price (not "above market" against plain 3.0 TDI)', v.verdict],
+      [!/ориентировочно/i.test(v.verdict + v.basis), 'with 8 matched ads the verdict is not marked approximate', v.verdict]] },
+  { id: 'plain-excludes-biturbo', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzplain3.html', price: 21000,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 21000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...mixItems(8, 21000, 'Audi A6 Avant 3.0 TDI quattro', 0), ...mixItems(8, 27000, 'Audi A6 Avant 3.0 BiTDI quattro', 20)] },
+    expect: v => [[/8 похожих/.test(v.basis), 'a plain 3.0 TDI is compared with the 8 plain ads, the BiTDI ads are left out', v.basis], [/Рыночная цена/.test(v.verdict), 'a plain 3.0 TDI at the plain price is a fair price', v.verdict]] },
+  { id: 'biturbo-few-matching', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzbitdi2.html', price: 27000,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 Biturbo quattro', src: {} },
+    comps: { ss: [...mixItems(14, 21000, 'Audi A6 Avant 3.0 TDI quattro', 0), ...mixItems(3, 27000, 'Audi A6 Avant 3.0 BiTDI quattro', 20)] },
+    expect: v => [[/ориентировочно/i.test(v.verdict), 'only 3 BiTDI ads: the verdict is marked approximate, not shown as a firm "above market"', v.verdict], [/Ориентировочная оценка/.test(v.basis) && /BiTDI/.test(v.basis), 'the basis says the engine variant is not fully matched', v.basis]] },
+  { id: 'few-ads-approximate', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzfewap.html', price: 21000, comps: { ss: items(6, 15500, 'ss') },
+    expect: v => [[/ориентировочно/i.test(v.verdict), 'with only 6 similar ads the verdict is marked approximate', v.verdict], [/мало похожих объявлений \(6\)/.test(v.basis), 'and says why: few ads (6)', v.basis]] },
+  { id: 'twenty-ads-firm', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zztwenty.html', price: 15200, comps: { ss: items(20, 15500, 'ss') },
+    expect: v => [[!/ориентировочно/i.test(v.verdict + v.basis), 'with 20 similar ads in a narrow range the verdict is not marked approximate', v.verdict]] },
 ];
 
 const b = await chromium.launch(process.env.PW_EXEC ? { executablePath: process.env.PW_EXEC } : {});
@@ -118,6 +139,49 @@ for (const sc of SCEN) {
   await pg.waitForTimeout(500);
   const eng2 = await pg.$eval('#f-eng', e => e.value).catch(() => 'n/a');
   check(eng2 === '', 'pasted text without an engine line: fuel consumption (5.4 l/100 km) and the price are not taken for an engine size', 'f-eng=' + eng2);
+  await ctx.close();
+}
+
+/* favourites: "Check prices now" has to answer inside the favourites box (the page status line is at the top, out of sight), and a favourite
+   that is analysed again gets its verdict refreshed with a date (it was a snapshot of the market of the day it was saved) */
+{
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } }); const pg = await ctx.newPage();
+  pg.on('pageerror', e => errs.push('favourites: ' + e.message));
+  const favs = [0, 1, 2].map(k => ({ id: ssUrl(70 + k), url: ssUrl(70 + k), make: 'Audi', model: 'A6', year: 2018, km: 150000, price: 20000, fuel: 'diesel', fair: 22000, delta: -9.1, verdict: 'good', savedAt: 1, checkedAt: 1, hist: [{ t: 1, p: 20000 }], sel: true }));
+  await pg.route('**/*', async r => {
+    const u = r.request().url();
+    if (u.startsWith(API)) {
+      const x = new URL(u); let body = { ok: true, version: 'test' };
+      if (x.pathname === '/api/listing') body = { ok: true, title: 'Audi A6 Avant', source: 'ss', listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 19000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
+      else if (x.pathname === '/api/comps') body = x.searchParams.get('source') === 'ss' ? { ok: true, items: items(20, 15500, 'ss') } : { ok: false, error: 'blocked' };
+      else if (x.pathname !== '/') body = { ok: false, error: 'test' };
+      return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort();
+    return r.continue();
+  });
+  await pg.addInitScript(f => { try { localStorage.setItem('carscout_lang', 'ru'); localStorage.setItem('carscout_api', 'https://carscout.pmax70095.workers.dev'); localStorage.setItem('carscout_favs', JSON.stringify(f)); localStorage.setItem('carscout_favs_at', String(Date.now())); } catch (e) { } }, favs);
+  await pg.goto(SITE + (SITE.startsWith('file:') ? '' : '?r=' + Date.now())); await pg.waitForTimeout(1200);
+  const hasBtn = await pg.waitForSelector('[data-act=fav-recheck]', { timeout: 10000 }).then(() => true, () => false);
+  check(hasBtn, 'favourites: the list with the "Check prices now" button is shown', 'no button');
+  if (hasBtn) {
+    await pg.click('[data-act=fav-recheck]');
+    const done = await pg.waitForFunction(() => /Изменения|Проверено/.test((document.getElementById('favstat') || {}).textContent || ''), null, { timeout: 30000 }).then(() => true, () => false);
+    const note = await pg.$eval('#favstat', e => e.textContent.replace(/\s+/g, ' ')).catch(() => '');
+    check(done && /Изменения: .*Audi A6/.test(note), 'favourites: "Check prices now" answers inside the favourites box (3 cars checked, the price change is named)', note);
+    const saved = await pg.evaluate(() => JSON.parse(localStorage.getItem('carscout_favs') || '[]'));
+    check(saved.length === 3 && saved.every(f => f.price === 19000), 'favourites: the new price is saved for all 3 cars', JSON.stringify(saved.map(f => f.price)));
+  }
+  await pg.fill('#f-url', favs[0].url); await pg.click('#btn-go');
+  const okF = await pg.waitForSelector('#a-verdict', { timeout: 30000 }).then(() => true, () => false);
+  if (!okF) check(false, 'favourites: analysis opens', 'no verdict panel');
+  else {
+    await pg.waitForTimeout(800);
+    const f0 = (await pg.evaluate(() => JSON.parse(localStorage.getItem('carscout_favs') || '[]')))[0] || {};
+    check(f0.verdict && f0.verdict !== 'good' && f0.vAt > 1 && f0.vN === 20, 'favourites: a favourite analysed again gets the fresh verdict (not the old "below market") with its date and the number of comparables', JSON.stringify({ v: f0.verdict, vAt: f0.vAt, vN: f0.vN }));
+    const row = await pg.$eval('#favs', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
+    check(/20 аналог/.test(row) && /на \d\d\.\d\d\)/.test(row), 'favourites: the row shows how many cars it was compared with and the date', row.slice(0, 300));
+  }
   await ctx.close();
 }
 
