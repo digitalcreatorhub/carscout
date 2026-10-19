@@ -13,8 +13,9 @@
   tools/lifecheck.mjs (Node 22, offline, runs on every push) tests it on a real SQLite database. Show a figure only
   when there are enough ads that left (8+, 6+ per price group); "left" means gone from the site, not necessarily sold.
 - Offline checks (.github/workflows/lifecheck.yml, Node 22, no network, on every push and pull request): lifecheck
-  (time on sale), ratecheck (request limits of the worker), dbcheck (daily database clean-up), parsercheck (readers of
-  ss.com, AutoScout24, autoplius, autoportaal, the generic reader, and the small helper functions). Run all four
+  (time on sale), ratecheck (request limits of the worker), dbcheck (daily database clean-up), photocheck (the
+  /api/photogen endpoint: a vision model picks the generation from two photos, with a fake AI), parsercheck (readers of
+  ss.com, AutoScout24, autoplius, autoportaal, the generic reader, and the small helper functions). Run all five
   before changing worker/worker.js. The pages in parsercheck are built from what each reader looks for, not saved
   copies of live pages: when a site changes its markup and the daily selfcheck reports a reader failing, put the
   smallest piece of the failing page into a builder in tools/parsercheck.mjs and add the expected values.
