@@ -1946,14 +1946,15 @@ function genOf(fam,year,text){
   if(idx<0) return null;
   return {g:L0[idx][0],amb:idx>0&&year===L0[idx][1]};
 }
-/* only for an unclear year (the first year of a new generation, nothing in the ad names it): the server asks a neural network to look at two photos
-   and choose between the two neighbouring generations. The answer is a hint, used only when both photos agree. */
+/* only for an unclear year (the first year of a new generation, nothing in the ad names it): the server asks a neural network to look at up to four photos
+   and choose between the two neighbouring generations. The answer is a hint: photos that cannot tell (interior, a detail) say nothing, and a generation
+   is accepted only when at least two photos name it and the other generation has at least two votes fewer. */
 function photoGenParams(fam,cg,car){
   var L0=GENS[fam]; if(!L0||!cg||!cg.amb) return null; var idx=-1, i; for(i=0;i<L0.length;i++) if(L0[i][0]===cg.g) idx=i;
   if(idx<1) return null;
-  var imgs=(car.images||[]).filter(function(u,k,a){ return typeof u==='string'&&/^https:\/\//.test(u)&&a.indexOf(u)===k; }).slice(0,2); if(imgs.length<2) return null;
+  var imgs=(car.images||[]).filter(function(u,k,a){ return typeof u==='string'&&/^https:\/\//.test(u)&&a.indexOf(u)===k; }).slice(0,4); if(imgs.length<2) return null;
   var a=L0[idx-1], b=L0[idx];
-  return {of:[a[0],b[0]],p:{make:car.make,model:car.model,year:car.year,gens:a[0]+'~'+a[1]+'|'+b[0]+'~'+b[1],img:imgs[0],img2:imgs[1]}};
+  return {of:[a[0],b[0]],p:{make:car.make,model:car.model,year:car.year,gens:a[0]+'~'+a[1]+'|'+b[0]+'~'+b[1],img:imgs[0],img2:imgs[1],img3:imgs[2],img4:imgs[3]}};
 }
 try{ window.__carscoutTest={genFamily:genFamily,genOf:genOf,GENS:GENS}; }catch(e){} /* read by tools/logiccheck.mjs */
 /* An engine variant that changes the price a lot at the same size (3.0 TDI against 3.0 BiTDI / Biturbo). It is read only from
@@ -2825,7 +2826,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-19.8', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-19.9', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */

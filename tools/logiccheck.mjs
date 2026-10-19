@@ -18,6 +18,7 @@ const mixItems = (n, mid, title, off, yr = 2018) => Array.from({ length: n }, (_
 const tig = (n, mid, km, title, off) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 200), km: km + (k % 5) * 4000, year: 2019 + (k % 3), url: ssUrl(off + k), title, fuel: 'diesel', gear: 'automatic' }));
 const TIGUAN = { make: 'Volkswagen', model: 'Tiguan', year: 2020, mileage_km: 67000, asking_price: 25000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'VW Tiguan R-Line 2.0 TDI DSG', src: {} };
 const PHOTOS = ['https://i.ss.com/gallery/6/1/a1.800.jpg', 'https://i.ss.com/gallery/6/1/a2.800.jpg'];
+const PHOTOS5 = [...PHOTOS, 'https://i.ss.com/gallery/6/1/a3.800.jpg', 'https://i.ss.com/gallery/6/1/a4.800.jpg', 'https://i.ss.com/gallery/6/1/a5.800.jpg'];
 const genItems = (n, mid, yr, km, off) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 150), km: km + (k % 4) * 3000, year: yr, url: ssUrl(off + k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' }));
 
 /* every scenario: the listing, what each market returns, what the app must conclude */
@@ -130,6 +131,10 @@ const SCEN = [
       [/8 похожих/.test(v.basis), 'with C8 settled by the photos the car is compared with the 8 new-body ads, not all 16', v.basis],
       [/по фото|нейросет/.test(v.basis) && /ориентировочно/i.test(v.verdict), 'and the verdict is marked approximate, saying a neural network decided from photos', v.verdict + ' | ' + v.basis],
       [/Рыночная цена/.test(v.verdict), 'at the new-body price the car is a fair price (it was "far above market" against the old body)', v.verdict]] },
+  { id: 'photo-up-to-four', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto4.html', price: 27000, images: PHOTOS5, photo: { ok: true, gen: 'C8', votes: ['C8', 'unknown', 'C8', 'C8'] },
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
+    expect: v => [[v.photoAsked.length === 1 && /img=/.test(v.photoAsked[0]) && /img2=/.test(v.photoAsked[0]) && /img3=/.test(v.photoAsked[0]) && /img4=/.test(v.photoAsked[0]) && !/img5=/.test(v.photoAsked[0]), 'with five photos in the ad the first four are sent (more votes, a surer answer), not five', v.photoAsked]] },
   { id: 'photo-unclear', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzphoto2.html', price: 27000, images: PHOTOS, photo: { ok: true, gen: null, votes: ['C7', 'C8'] },
     listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 70000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
     comps: { ss: [...genItems(8, 16000, 2017, 250000, 0), ...genItems(8, 27000, 2019, 60000, 20)] },
