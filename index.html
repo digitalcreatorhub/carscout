@@ -2108,8 +2108,10 @@ function isOwnListing(i,car){
   var a=listingId(i.url), b=listingId(car.url); if(a&&b&&a===b) return true;
   return !!(car.price>0&&i.price===car.price&&car.year&&i.year===car.year&&(i.km==null||car.km==null||Math.abs(i.km-car.km)<=1500)&&car.url&&i.url&&String(i.url).split('/')[2]===String(car.url).split('/')[2]);
 }
+/* an ad whose title says it is already sold ("VERKOCHT", "SOLD", "verkauft", "продано") is not for sale: it must not count as a comparable */
+function soldTitle(t){ return /(^|[^a-zà-ž])(verkocht|verkauft|sold|p[āa]rdots|m[üu]üdud)($|[^a-zà-ž])|(^|[^а-яё])продан(о|а|ный|ная)?($|[^а-яё])/i.test(String(t||'')); }
 function pickRelevant(items,car){
-  var seenId={}; var rows=(items||[]).filter(function(i){ if(!(i&&i.price>=300&&i.price<=500000&&!isOwnListing(i,car))) return false; var id=listingId(i.url)||(i.url+'|'+i.price+'|'+i.km); if(seenId[id]) return false; seenId[id]=1; return true; }), tol, sel=rows;
+  var seenId={}; var rows=(items||[]).filter(function(i){ if(!(i&&i.price>=300&&i.price<=500000&&!isOwnListing(i,car)&&!soldTitle(i.title))) return false; var id=listingId(i.url)||(i.url+'|'+i.price+'|'+i.km); if(seenId[id]) return false; seenId[id]=1; return true; }), tol, sel=rows;
   for(tol=1;tol<=2;tol++){
     sel=rows.filter(function(i){return !car.year||i.year==null||Math.abs(i.year-car.year)<=tol});
     if(sel.length>=5) break;
@@ -2210,10 +2212,16 @@ function compute(car,results,f,notes){
   }
   var medKm=home&&home.items.length?median(home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km})):null;
   /* nearest real listings */
-  var near=all.filter(function(i){return safeUrl(i.url)}).map(function(i){
+  /* the closest real listings follow the same rules as the comparison: the same engine variant (a BiTDI is shown with BiTDI ads, a plain car without them) and the market the
+     car is compared with first; other countries only fill the list when that market has fewer than 4 */
+  var vNear=function(i){ return engineVariantOf([i.title,i.model_raw,i.model].join(' ')); };
+  var candN=all.filter(function(i){return safeUrl(i.url)&&(car.engineVar?vNear(i)===car.engineVar:!vNear(i))});
+  var homeN=home?candN.filter(function(i){return i.region===home.region}):candN;
+  var near=(homeN.length>=4?homeN:candN).map(function(i){
     var d=(car.year&&i.year!=null?Math.abs(i.year-car.year)*2:1)+(car.km!=null&&i.km!=null?Math.abs(i.km-car.km)/25000:1);
     return {i:i,d:d};
   }).sort(function(a,b){return a.d-b.d||a.i.price-b.i.price}).slice(0,8).map(function(x){return x.i});
+  if(car.engineVar&&!near.length&&all.length) notes.push(function(){ return L('Среди найденных объявлений нет ни одного с таким же мотором (BiTDI / Biturbo), поэтому список ближайших аналогов пуст: обычные 3.0 TDI стоят заметно дешевле и вводили бы в заблуждение.','None of the ads found states the same engine (BiTDI / Biturbo), so the list of closest listings is empty: plain 3.0 TDI cars cost noticeably less and would be misleading.','Starp atrastajiem sludinājumiem nav neviena ar tādu pašu motoru (BiTDI / Biturbo), tāpēc tuvāko analogu saraksts ir tukšs.'); });
   var conf=!home?'low':home.n>=15?'high':home.n>=8?'medium':'low';
   /* "suspiciously cheap" only when there is enough to compare with, and only against the car's own country */
   if(ver.key==='too_cheap'&&home){
@@ -2616,7 +2624,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-19.1', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-19.2', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
