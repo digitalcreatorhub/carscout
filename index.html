@@ -2414,13 +2414,14 @@ function compute(car,results,f,notes){
     if(home.genPhoto) softWhy.push('photo'); /* the generation was guessed from the photos: a hint, so the verdict stays "approximate" */
     /* the compared cars are far older (or newer) than this one by mileage: a sign of a different generation or condition, whatever the reason */
     var kmH=home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km});
-    if(car.km>0&&kmH.length>=4){ var mkm=median(kmH), rk=mkm/car.km; if(rk>=1.8||rk<=0.55){ softWhy.push('km'); ver.softKm={their:Math.round(mkm),mine:car.km}; } }
+    if(car.km>0&&kmH.length>=4){ var mkm=median(kmH), rk=mkm/car.km; if(rk>=1.8||rk<=0.55){ softWhy.push('km'); ver.softKm={their:Math.round(mkm),mine:car.km,gen:!!(home.genFew!=null||home.genAmb)}; } }
     if(softWhy.length) ver.soft=softWhy;
-    /* two or more doubts, at least one of them about WHICH cars were compared (generation, mileage, engine): a loud verdict would
-       be a guess, so no verdict and no score are given; the gap to the compared ads is kept as a plain fact */
-    var mism=softWhy.filter(function(w){return (w==='gen'&&home.genFew!=null)||w==='km'||w==='variant'}), stat=softWhy.indexOf('few')>-1||softWhy.indexOf('wide')>-1;
-    /* "mism" = evidence that other cars were compared (a known generation with few ads of it, other mileage, other engine).
-       A bare "the year is a change year" is not evidence by itself, so it only makes the verdict approximate */
+    /* a doubt about WHICH cars were compared (a known generation with few ads of it, another engine variant) together with any second doubt
+       (few ads, a wide range, a mileage far from this car's), or two such doubts: a loud verdict would be a guess, so no verdict and no score
+       are given; the gap to the compared ads is kept as a plain fact. A bare "the year is a change year" is not evidence by itself, and a mileage
+       far from the car's alone is not either: the price is corrected for mileage, so that only makes the verdict approximate (a low-mileage car
+       is simply rare among the ads) */
+    var mism=softWhy.filter(function(w){return (w==='gen'&&home.genFew!=null)||w==='variant'}), stat=softWhy.indexOf('few')>-1||softWhy.indexOf('wide')>-1||softWhy.indexOf('km')>-1;
     if(mism.length>=2||(mism.length>=1&&stat)){
       ver={key:'unsure',delta:null,rawDelta:ver.delta,was:ver.key,soft:softWhy,softKm:ver.softKm}; score=null;
     }
@@ -2812,7 +2813,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-19.6', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-19.7', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -3153,7 +3154,8 @@ function vBasis(v){
     if(w.indexOf('gen')>-1) pr.push(L('поколение (кузов) модели определено не полностью, у нового кузова цена обычно выше','the generation (body) of the model is not fully matched, a newer body usually costs more','modeļa paaudze (virsbūve) nav pilnībā noteikta'));
     if(w.indexOf('trim')>-1) pr.push(L('комплектация ('+((v.car.trims||[]).map(trimDisplay).join(', '))+') сопоставлена не точно, такие версии обычно дороже','the trim ('+((v.car.trims||[]).map(trimDisplay).join(', '))+') is not matched exactly, such versions usually cost more','komplektācija nav precīzi sasaistīta'));
     if(w.indexOf('photo')>-1&&h.genName) pr.push(L('поколение ('+h.genName+') определено нейросетью по фото объявления, это подсказка: проверьте по объявлению','the generation ('+h.genName+') was guessed by a neural network from the listing photos, a hint only: check it in the listing','paaudze ('+h.genName+') noteikta pēc foto ar neironu tīklu, tā ir norāde'));
-    if(w.indexOf('km')>-1&&v.ver.softKm) pr.push(L('пробег сравниваемых машин (в среднем '+fmt(v.ver.softKm.their)+' км) сильно отличается от вашего ('+fmt(v.ver.softKm.mine)+' км): возможно, это другое поколение или состояние','the mileage of the compared cars (typically '+fmt(v.ver.softKm.their)+' km) is very different from yours ('+fmt(v.ver.softKm.mine)+' km): maybe another generation or condition','salīdzināto auto nobraukums ('+fmt(v.ver.softKm.their)+' km) ļoti atšķiras no jūsējā ('+fmt(v.ver.softKm.mine)+' km)'));
+    if(w.indexOf('km')>-1&&v.ver.softKm&&!v.ver.softKm.gen) pr.push(L('пробег найденных машин в среднем '+fmt(v.ver.softKm.their)+' км, у вашей '+fmt(v.ver.softKm.mine)+' км: цена поправлена на пробег, но близких по пробегу машин мало, поэтому оценка грубая','the compared cars have '+fmt(v.ver.softKm.their)+' km on average, yours '+fmt(v.ver.softKm.mine)+' km: the price is corrected for mileage, but few cars with a similar mileage exist, so the estimate is rough','atrasto auto nobraukums vidēji '+fmt(v.ver.softKm.their)+' km, jūsējam '+fmt(v.ver.softKm.mine)+' km: cena koriģēta pēc nobraukuma, bet līdzīga nobraukuma auto ir maz, tāpēc vērtējums ir aptuvens'));
+    else if(w.indexOf('km')>-1&&v.ver.softKm) pr.push(L('пробег сравниваемых машин (в среднем '+fmt(v.ver.softKm.their)+' км) сильно отличается от вашего ('+fmt(v.ver.softKm.mine)+' км): возможно, это другое поколение или состояние','the mileage of the compared cars (typically '+fmt(v.ver.softKm.their)+' km) is very different from yours ('+fmt(v.ver.softKm.mine)+' km): maybe another generation or condition','salīdzināto auto nobraukums ('+fmt(v.ver.softKm.their)+' km) ļoti atšķiras no jūsējā ('+fmt(v.ver.softKm.mine)+' km)'));
     sf=v.ver.key==='unsure'?L('Почему оценка неточная: '+pr.join(', ')+'.','Why the estimate is inexact: '+pr.join(', ')+'.','Kāpēc vērtējums neprecīzs: '+pr.join(', ')+'.')
       :L('Ориентировочная оценка: '+pr.join(', ')+'. Не считайте её точной.','Approximate estimate: '+pr.join(', ')+'. Do not treat it as exact.','Aptuvens vērtējums: '+pr.join(', ')+'.'); }
   return '<div class="vbase"><span>'+esc(t)+'</span>'+(sf?'<span><b>'+esc(sf)+'</b></span>':'')+(xt?'<span>'+esc(xt)+'</span>':'')+'<button type="button" class="lnk" data-act="go-comps">'+esc(L('Показать эти машины','Show these cars','Rādīt šos auto'))+' →</button></div>';
