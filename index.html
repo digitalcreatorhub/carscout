@@ -2268,14 +2268,24 @@ function pickRelevant(items,car){
   }
   if(tol>2) tol=2;
   if(car.fuel){ var same=sel.filter(function(i){return !i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===car.fuel}); if(same.length>=5) sel=same; }
-  var genN=null, genFew=null, genAmb=false, genName=null, genPhoto=false, gk=genFamily(car.make,car.model);
+  var genN=null, genFew=null, genAmb=false, genName=null, genPhoto=false, genWide=0, gk=genFamily(car.make,car.model);
   if(gk){ var cg=genOf(gk,car.year,[car.title,car.rawModel,car.desc].join(' '));
     /* an unclear year (first year of a new generation) settled by the photo: only a generation that is one of the two neighbours counts */
     if(cg&&cg.amb&&car.photoGen&&car.photoGen.g&&car.photoGen.of&&car.photoGen.of.indexOf(car.photoGen.g)>-1){ cg={g:car.photoGen.g,amb:false}; genPhoto=true; }
     if(cg){ genName=cg.g;
       if(cg.amb) genAmb=true;
       else { var sgn=sel.filter(function(i){ var x=genOf(gk,i.year,[i.title,i.model_raw].join(' ')); return !x||x.amb||x.g===cg.g; });
-        if(sgn.length>=5){ if(sgn.length<sel.length){ sel=sgn; genN=sgn.length; } } else genFew=sgn.length; } } }
+        /* few cars of this body in the car's own years: take the SAME body of nearby years (the nearest first) rather than another body.
+           Mileage is corrected in the price model; a newer car costs more, which the verdict says. */
+        if(sgn.length<8){
+          var fuelOk=function(i){ return !car.fuel||!i.fuel||(i.fuel==='lpg'?'petrol':i.fuel)===car.fuel; };
+          var sameGen=function(i){ var x=genOf(gk,i.year,[i.title,i.model_raw].join(' ')); return !!x&&!x.amb&&x.g===cg.g; };
+          for(var wt=2;wt<=4;wt++){
+            var wd=rows.filter(function(i){ return i.year!=null&&car.year&&Math.abs(i.year-car.year)<=wt&&fuelOk(i)&&sameGen(i); });
+            if(wd.length>=8||(wt===4&&wd.length>=6)){ if(wd.length>sgn.length){ sgn=wd; genWide=wt; } break; }
+          }
+        }
+        if(sgn.length>=5){ if(sgn.length<sel.length||genWide){ sel=sgn; genN=sgn.length; } } else genFew=sgn.length; } } }
   var engN=null; if(car.engineL&&!isEvCar(car)){ var itemEng=function(i){ if(i.engine_l) return +i.engine_l; var m=String(i.title||'').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m?parseFloat(m[1].replace(',','.')):null; };
     var sameE=sel.filter(function(i){ var e=itemEng(i); return e!=null&&Math.abs(e-car.engineL)<=0.15; }); if(sameE.length>=5){ sel=sameE; engN=sameE.length; } }
   var varN=null, varFew=null, vOf=function(i){ return engineVariantOf([i.title,i.model_raw,i.model].join(' ')); };
@@ -2299,7 +2309,7 @@ function pickRelevant(items,car){
     var plain=sel.filter(function(i){return !trimPremium(detectTrim(i.title,car.make))});
     if(plain.length>=6&&plain.length<sel.length){ sel=plain; trimNote={mode:'plain',n:plain.length}; }
   }
-  return {items:sel,pre:pre,total:rows.length,tol:tol>3?3:tol,trimNote:trimNote,engN:engN,varN:varN,varFew:varFew,genN:genN,genFew:genFew,genAmb:genAmb,genName:genName,genPhoto:genPhoto,drvN:drvN,drvFew:drvFew};
+  return {items:sel,pre:pre,total:rows.length,tol:genWide||(tol>3?3:tol),genWide:genWide,trimNote:trimNote,engN:engN,varN:varN,varFew:varFew,genN:genN,genFew:genFew,genAmb:genAmb,genName:genName,genPhoto:genPhoto,drvN:drvN,drvFew:drvFew};
 }
 function fairOf(st){
   if(!st) return null;
@@ -2332,7 +2342,7 @@ function compute(car,results,f,notes){
     var j=r.j||{}, row={key:r.key,region:r.region,label:r.label,ok:!!j.ok,err:j.ok?null:(function(){return errText(j)}),url:j.searchUrl||r.url||null,n:0,total:0,items:[],stats:null,fair:null};
     if(j.ok){
       var pr=pickRelevant((j.items||[]).map(function(i){return Object.assign({src:r.label,region:r.region},i)}),car);
-      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN; row.genN=pr.genN; row.genFew=pr.genFew; row.genAmb=pr.genAmb; row.genName=pr.genName; row.genPhoto=pr.genPhoto; row.varN=pr.varN; row.varFew=pr.varFew; row.drvN=pr.drvN; row.drvFew=pr.drvFew;
+      row.pre=pr.pre; row.items=pr.items; row.total=pr.total; row.n=pr.items.length; row.tol=pr.tol; row.trimNote=pr.trimNote; row.engN=pr.engN; row.genN=pr.genN; row.genFew=pr.genFew; row.genAmb=pr.genAmb; row.genName=pr.genName; row.genPhoto=pr.genPhoto; row.genWide=pr.genWide; row.varN=pr.varN; row.varFew=pr.varFew; row.drvN=pr.drvN; row.drvFew=pr.drvFew;
       row.stats=compStats(pr.items.map(function(i){return {price:i.price,km:i.km}}),{km:car.km});
       row.fair=fairOf(row.stats);
       if(row.fair&&row.n>=3&&car.price>0&&(row.fair.mid<car.price*0.45||row.fair.mid>car.price*2.2)){
@@ -2367,7 +2377,8 @@ function compute(car,results,f,notes){
   if(home&&home.engN){ var eN=home.engN, eL=car.engineL; notes.push(function(){ return L('Сравнение только с машинами с тем же объёмом двигателя ('+eL.toFixed(1)+' л): '+eN+' объявл.','Compared only with cars with the same engine size ('+eL.toFixed(1)+' l): '+eN+' ads','Salīdzināts tikai ar auto ar tādu pašu motora tilpumu ('+eL.toFixed(1)+' l): '+eN+' sludin.'); }); }
   if(home&&home.varN){ var vN=home.varN, vC=car.engineVar; notes.push(function(){ return vC?L('Сравнение только с машинами с таким же мотором (BiTDI / Biturbo, две турбины): '+vN+' объявл.','Compared only with cars with the same engine (BiTDI / Biturbo, two turbos): '+vN+' ads','Salīdzināts tikai ar auto ar tādu pašu motoru (BiTDI / Biturbo): '+vN+' sludin.'):L('Версии с двумя турбинами (BiTDI / Biturbo) исключены из сравнения: у вашей машины такого мотора не указано. Осталось '+vN+' объявл.','Twin-turbo versions (BiTDI / Biturbo) are left out of the comparison: your car does not state that engine. '+vN+' ads left','Versijas ar divām turbīnām (BiTDI / Biturbo) izslēgtas no salīdzinājuma: '+vN+' sludin.'); }); }
   else if(home&&car.engineVar&&home.varFew!=null){ var vF=home.varFew; notes.push(function(){ return L('Мотор BiTDI / Biturbo (две турбины) указан в заголовках только у '+vF+' объявл., поэтому сравнение идёт со всеми машинами с таким объёмом. Версия с двумя турбинами обычно заметно дороже обычной, так что «выше рынка» может быть завышено: сравните вручную с машинами в списке.','The BiTDI / Biturbo (two turbos) engine is stated in the titles of only '+vF+' ads, so the comparison includes all cars of that engine size. The twin-turbo version usually costs noticeably more than the plain one, so "above market" may be overstated: compare by hand with the cars in the list.','BiTDI / Biturbo motors norādīts tikai '+vF+' sludinājumu virsrakstos, tāpēc salīdzinājumā ir visi šī tilpuma auto. Versija ar divām turbīnām parasti ir ievērojami dārgāka, tāpēc «virs tirgus» var būt pārspīlēts.'); }); }
-  if(home&&home.genN){ var gN=home.genN, gNm=home.genName; notes.push(function(){ return L('Сравнение только с машинами того же поколения ('+gNm+'): '+gN+' объявл. (объявления без указания поколения в год смены тоже учтены).','Compared only with cars of the same generation ('+gNm+'): '+gN+' ads (ads that do not name the generation in the year of the change are included).','Salīdzināts tikai ar tās pašas paaudzes auto ('+gNm+'): '+gN+' sludin.'); }); }
+  if(home&&home.genN&&home.genWide){ var gW=home.genWide, gWn=home.genN, gWm=home.genName; notes.push(function(){ return L('Машин вашего поколения ('+gWm+') в ваши годы мало, поэтому взяты машины этого же поколения других лет (до ±'+gW+' л.): '+gWn+' объявл. Новее обычно дороже, старше дешевле: цена поправлена только на пробег, оценка грубая.','Cars of your generation ('+gWm+') are few in your years, so cars of the same generation of other years (up to ±'+gW+' years) are used: '+gWn+' ads. Newer usually costs more, older less: only the mileage is corrected, so the estimate is rough.','Jūsu paaudzes ('+gWm+') auto jūsu gados ir maz, tāpēc ņemti tās pašas paaudzes auto citos gados (līdz ±'+gW+'): '+gWn+' sludin.'); }); }
+  else if(home&&home.genN){ var gN=home.genN, gNm=home.genName; notes.push(function(){ return L('Сравнение только с машинами того же поколения ('+gNm+'): '+gN+' объявл. (объявления без указания поколения в год смены тоже учтены).','Compared only with cars of the same generation ('+gNm+'): '+gN+' ads (ads that do not name the generation in the year of the change are included).','Salīdzināts tikai ar tās pašas paaudzes auto ('+gNm+'): '+gN+' sludin.'); }); }
   else if(home&&home.genFew!=null){ var gF=home.genFew, gFm=home.genName; notes.push(function(){ return L('Машин того же поколения ('+gFm+') нашлось мало ('+gF+'), поэтому сравнение идёт с машинами всех поколений этой модели. Новое поколение обычно заметно дороже старого, оценка может быть неточной.','Few cars of the same generation ('+gFm+') were found ('+gF+'), so the comparison includes every generation of this model. A new generation usually costs noticeably more than the old one, so the estimate may be off.','Tās pašas paaudzes ('+gFm+') auto atrasts maz ('+gF+'), tāpēc salīdzinājumā ir visas modeļa paaudzes.'); }); }
   else if(home&&home.genAmb){ var gAy=car.year; notes.push(function(){ return L(gAy+' год — год смены поколения этой модели, а в объявлении нет кода поколения, поэтому в сравнение попали машины обоих кузовов. Новый кузов обычно заметно дороже старого.',gAy+' is the year the generation of this model changed and the ad does not name the generation, so cars of both bodies are in the comparison. The new body usually costs noticeably more than the old one.',gAy+'. gads ir modeļa paaudzes maiņas gads, un sludinājumā paaudze nav norādīta, tāpēc salīdzinājumā ir abu virsbūvju auto.'); }); }
   var fair=home?home.fair:null, ver=verdictOf(car.price,fair?fair.mid:null), score=ver.delta!=null?priceScore(ver.delta):null;
@@ -2411,6 +2422,7 @@ function compute(car,results,f,notes){
     if(car.engineVar&&home.varFew!=null) softWhy.push('variant');
     if(home.genFew!=null||home.genAmb) softWhy.push('gen');
     if(home.trimNote&&home.trimNote.mode==='wide') softWhy.push('trim'); /* compared with all trims: the trim premium is not in the figure */
+    if(home.genWide) softWhy.push('years'); /* same body, other years: newer cars cost more */
     if(home.genPhoto) softWhy.push('photo'); /* the generation was guessed from the photos: a hint, so the verdict stays "approximate" */
     /* the compared cars are far older (or newer) than this one by mileage: a sign of a different generation or condition, whatever the reason */
     var kmH=home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km});
@@ -2813,7 +2825,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-19.7', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-19.8', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -3153,6 +3165,7 @@ function vBasis(v){
   var sf=''; if(v.ver.soft){ var w=v.ver.soft, pr=[]; if(w.indexOf('few')>-1) pr.push(L('мало похожих объявлений ('+h.n+')','few similar ads ('+h.n+')','maz līdzīgu sludinājumu ('+h.n+')')); if(w.indexOf('wide')>-1) pr.push(L('очень большой разброс цен','a very wide price range','ļoti liela cenu starpība')); if(w.indexOf('variant')>-1) pr.push(L('вариант мотора (BiTDI / Biturbo) сопоставлен не полностью','the engine variant (BiTDI / Biturbo) is not fully matched','motora variants (BiTDI / Biturbo) nav pilnībā sasaistīts'));
     if(w.indexOf('gen')>-1) pr.push(L('поколение (кузов) модели определено не полностью, у нового кузова цена обычно выше','the generation (body) of the model is not fully matched, a newer body usually costs more','modeļa paaudze (virsbūve) nav pilnībā noteikta'));
     if(w.indexOf('trim')>-1) pr.push(L('комплектация ('+((v.car.trims||[]).map(trimDisplay).join(', '))+') сопоставлена не точно, такие версии обычно дороже','the trim ('+((v.car.trims||[]).map(trimDisplay).join(', '))+') is not matched exactly, such versions usually cost more','komplektācija nav precīzi sasaistīta'));
+    if(w.indexOf('years')>-1&&h.genName) pr.push(L('машин вашего поколения ('+h.genName+') в ваши годы мало, поэтому взяты машины этого же поколения с разницей до ±'+h.genWide+' л.: новее обычно дороже, поэтому оценка грубая','cars of your generation ('+h.genName+') are few in your years, so cars of the same generation up to ±'+h.genWide+' years apart are used: newer usually costs more, so the estimate is rough','jūsu paaudzes ('+h.genName+') auto jūsu gados ir maz, tāpēc ņemti tās pašas paaudzes auto līdz ±'+h.genWide+' gadiem: jaunāki parasti dārgāki'));
     if(w.indexOf('photo')>-1&&h.genName) pr.push(L('поколение ('+h.genName+') определено нейросетью по фото объявления, это подсказка: проверьте по объявлению','the generation ('+h.genName+') was guessed by a neural network from the listing photos, a hint only: check it in the listing','paaudze ('+h.genName+') noteikta pēc foto ar neironu tīklu, tā ir norāde'));
     if(w.indexOf('km')>-1&&v.ver.softKm&&!v.ver.softKm.gen) pr.push(L('пробег найденных машин в среднем '+fmt(v.ver.softKm.their)+' км, у вашей '+fmt(v.ver.softKm.mine)+' км: цена поправлена на пробег, но близких по пробегу машин мало, поэтому оценка грубая','the compared cars have '+fmt(v.ver.softKm.their)+' km on average, yours '+fmt(v.ver.softKm.mine)+' km: the price is corrected for mileage, but few cars with a similar mileage exist, so the estimate is rough','atrasto auto nobraukums vidēji '+fmt(v.ver.softKm.their)+' km, jūsējam '+fmt(v.ver.softKm.mine)+' km: cena koriģēta pēc nobraukuma, bet līdzīga nobraukuma auto ir maz, tāpēc vērtējums ir aptuvens'));
     else if(w.indexOf('km')>-1&&v.ver.softKm) pr.push(L('пробег сравниваемых машин (в среднем '+fmt(v.ver.softKm.their)+' км) сильно отличается от вашего ('+fmt(v.ver.softKm.mine)+' км): возможно, это другое поколение или состояние','the mileage of the compared cars (typically '+fmt(v.ver.softKm.their)+' km) is very different from yours ('+fmt(v.ver.softKm.mine)+' km): maybe another generation or condition','salīdzināto auto nobraukums ('+fmt(v.ver.softKm.their)+' km) ļoti atšķiras no jūsējā ('+fmt(v.ver.softKm.mine)+' km)'));

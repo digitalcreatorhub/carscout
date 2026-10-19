@@ -92,6 +92,19 @@ const SCEN = [
     listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 140000, asking_price: 22200, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro Premium', src: {} },
     comps: { ss: [...Array.from({ length: 6 }, (_, k) => ({ price: 15000 + k * 100, km: 270000 + k * 4000, year: 2017, url: ssUrl(k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' })), ...Array.from({ length: 6 }, (_, k) => ({ price: 21000 + k * 100, km: 60000 + k * 4000, year: 2019, url: ssUrl(20 + k), title: 'Audi A6 Avant 3.0 TDI quattro', fuel: 'diesel', gear: 'automatic' }))] },
     expect: v => [[/ориентировочно/i.test(v.verdict), 'the year of the generation change: the verdict is marked approximate', v.verdict], [/поколение/.test(v.basis), 'and the basis says the generation (body) is not fully matched', v.basis]] },
+  /* the A6 the user keeps sending: the ad names C8 (2018, 140 000 km). In 2017-2019 there is one C8 ad, but C8 of 2020-2022 exist. The way out is the SAME body of
+     other years (nearest first), not the old body: the verdict stays, marked approximate, and says the years were widened */
+  { id: 'same-body-other-years', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzwide1.html', price: 22200,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 140000, asking_price: 22200, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 C8 Avant 3.0 TDI quattro Premium', src: {} },
+    comps: { ss: [...genItems(6, 16300, 2017, 270000, 0), ...genItems(1, 24000, 2019, 120000, 20), ...genItems(4, 27000, 2020, 100000, 30), ...genItems(4, 30000, 2021, 70000, 40), ...genItems(3, 33000, 2022, 40000, 50)] },
+    expect: v => [[/9 похожих/.test(v.basis) && /год ±3/.test(v.basis), 'the car is compared with the 9 C8 ads of 2019-2021 (nearest years first, widened only as far as needed), not with the 6 old-body ads', v.basis],
+      [!/Оценка неточная/.test(v.verdict) && /ориентировочно/i.test(v.verdict), 'and the verdict stays (approximate), it is not "inexact estimate"', v.verdict],
+      [/этого же поколения с разницей до ±3/.test(v.basis) && /поколения/.test(v.notes), 'the reasons and a note say the years were widened within the same generation', v.notes.slice(0, 400) + ' | ' + v.basis]] },
+  /* with too few cars of the same body even in nearby years nothing is widened: it stays "inexact estimate" (the old-body ads are not a substitute) */
+  { id: 'same-body-too-few-stays-unsure', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzwide2.html', price: 22200,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 140000, asking_price: 22200, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 C8 Avant 3.0 TDI quattro Premium', src: {} },
+    comps: { ss: [...genItems(6, 16300, 2017, 270000, 0), ...genItems(1, 24000, 2019, 120000, 20), ...genItems(3, 28000, 2020, 100000, 30)] },
+    expect: v => [[/Оценка неточная/.test(v.verdict), 'only 4 C8 ads in all nearby years: not widened, still "inexact estimate"', v.verdict]] },
   /* a car of a definite new generation is compared with that generation only: ads that name the old code are left out */
   { id: 'gen-definite', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzgen2.html', price: 27000,
     listing: { make: 'Audi', model: 'A6', year: 2019, mileage_km: 90000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} },
