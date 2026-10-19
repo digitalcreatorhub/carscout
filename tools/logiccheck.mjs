@@ -64,6 +64,23 @@ const SCEN = [
     expect: v => [[/ориентировочно/i.test(v.verdict), 'with only 6 similar ads the verdict is marked approximate', v.verdict], [/мало похожих объявлений \(6\)/.test(v.basis), 'and says why: few ads (6)', v.basis]] },
   { id: 'twenty-ads-firm', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zztwenty.html', price: 15200, comps: { ss: items(20, 15500, 'ss') },
     expect: v => [[!/ориентировочно/i.test(v.verdict + v.basis), 'with 20 similar ads in a narrow range the verdict is not marked approximate', v.verdict]] },
+  /* the closest real listings follow the comparison: the same engine variant, and the car's own market first (Latvian ads before German ones) */
+  { id: 'near-biturbo-only', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zznear1.html', price: 27000,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 BiTDI quattro 313 ZS', src: {} },
+    comps: { ss: [...mixItems(8, 21000, 'Audi A6 Avant 3.0 TDI quattro', 0), ...mixItems(8, 27000, 'Audi A6 Avant 3.0 BiTDI quattro', 20)], D: Array.from({ length: 12 }, (_, k) => ({ price: 17500 + k * 100, km: 150000, year: 2018, url: asUrl(10 + k), title: 'Audi A6 Avant 3.0 TDI S Line Quattro', fuel: 'diesel', gear: 'automatic' })) },
+    expect: v => [[/BiTDI/.test(v.near), 'the closest listings of a BiTDI are BiTDI ads', v.near.slice(0, 300)], [!/3\.0 TDI quattro|3\.0 TDI S Line/.test(v.near), 'no plain 3.0 TDI among the closest listings of a BiTDI', v.near.slice(0, 300)], [!/Германия/.test(v.near), 'no German ads when the Latvian market has enough matching ones', v.near.slice(0, 300)]] },
+  { id: 'near-plain-without-biturbo', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zznear2.html', price: 21000,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 21000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro', src: {} },
+    comps: { ss: [...mixItems(8, 21000, 'Audi A6 Avant 3.0 TDI quattro', 0), ...mixItems(8, 27000, 'Audi A6 Avant 3.0 BiTDI quattro', 20)] },
+    expect: v => [[v.near.length > 0 && !/BiTDI/.test(v.near), 'the closest listings of a plain 3.0 TDI do not include BiTDI ads', v.near.slice(0, 300)]] },
+  { id: 'near-no-same-engine', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zznear3.html', price: 27000,
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 27000, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 BiTDI quattro', src: {} },
+    comps: { ss: mixItems(12, 21000, 'Audi A6 Avant 3.0 TDI quattro', 0) },
+    expect: v => [[v.near === '', 'a BiTDI with no BiTDI ad among the found ones gets no list of "closest" plain cars', v.near.slice(0, 200)]] },
+  /* an ad that says it is already sold is not for sale: it must not count among the similar cars */
+  { id: 'sold-ads-excluded', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzsold.html', price: 15500,
+    comps: { ss: [...mixItems(8, 15500, 'Audi A6 Avant 2.0 TDI', 0), ...mixItems(6, 9000, 'Audi A6 Avant 2.0 TDI | VERKOCHT', 20)] },
+    expect: v => [[/8 похожих/.test(v.basis), 'six ads marked "VERKOCHT" (sold) are not counted: 8 similar cars, not 14', v.basis], [/Рыночная цена/.test(v.verdict), 'and they do not pull the fair price down', v.verdict]] },
 ];
 
 const b = await chromium.launch(process.env.PW_EXEC ? { executablePath: process.env.PW_EXEC } : {});
@@ -91,7 +108,7 @@ for (const sc of SCEN) {
   if (!okV) { check(false, sc.id + ': analysis opens', 'no verdict panel'); await ctx.close(); continue; }
   await pg.waitForTimeout(800);
   const t = async (sel, n = 2000) => pg.$eval(sel, (e, n) => (e.value != null && e.tagName === 'TEXTAREA' ? e.value : e.innerText).replace(/\s+/g, ' ').slice(0, n), n).catch(() => '');
-  const v = { verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), fraud: await t('#a-fraud', 200),
+  const v = { verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
     msg: await t('#msg-text', 400), msgLang: await pg.$eval('#msg-lang', e => e.value).catch(() => ''), calc: await pg.$$eval('#k-lv,#k-de', e => e.map(x => x.id + '=' + x.value).join(' ')).catch(() => ''), checks: await pg.$eval('#a-checks', e => e.textContent.replace(/\s+/g, ' ')).catch(() => '') };
   v.region = v.region.split('·')[0].trim();
   for (const [cond, what, detail] of sc.expect(v)) check(cond, sc.id + ': ' + what, detail);
