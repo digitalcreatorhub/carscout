@@ -787,7 +787,7 @@ async function hImg(env, q) {
    switched on, the answer is simply ok:false and the app goes on without it). The model chooses between the two neighbouring generations, the second
    photo with the options in the opposite order (a model likes the first or the last option); an answer counts only when both photos agree. It is a hint,
    never a fact, and the app says so. The answer is kept in the Cloudflare cache, so the same ad costs nothing the second time. */
-const PG_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
+const PG_MODELS = ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.2-11b-vision-instruct'];   // the stronger one first, the other when it is refused or gone
 const PG_MAX_BYTES = 3500000;
 function pgGens(s) {
   const out = []; String(s || '').split('|').forEach(function (x) {
@@ -820,21 +820,22 @@ function pgPrompt(make, model, year, gens, reversed) {
 }
 async function pgAsk(env, img, prompt) {
   const dataUrl = 'data:' + img.mime + ';base64,' + pgB64(img.bytes);
-  const run = function (input) { return env.AI.run(PG_MODEL, input); };
   const first = { messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl } }] }], max_tokens: 12 };
-  const second = { prompt: prompt, image: Array.from(img.bytes), max_tokens: 12 };   // the other input form of the same model, tried when the first is refused
-  let agreeTried = false;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let licence = false;
-    for (const input of [first, second]) {
-      try {
-        const r = await run(input); const t = r && (r.response != null ? r.response : r.description != null ? r.description : r.result && r.result.response);
-        if (typeof t === 'string' && t.trim()) return t;
-      } catch (e) {
-        if (!agreeTried && /agree|licen[cs]e|5016/i.test(String(e && e.message || e))) { agreeTried = true; licence = true; try { await run({ prompt: 'agree' }); } catch (x) { } break; }   // the model asks once for its licence: accept it, then ask again
+  const second = { prompt: prompt, image: Array.from(img.bytes), max_tokens: 12 };   // the other input form, tried when the first is refused
+  for (const model of PG_MODELS) {
+    let agreeTried = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let licence = false;
+      for (const input of [first, second]) {
+        try {
+          const r = await env.AI.run(model, input); const t = r && (r.response != null ? r.response : r.description != null ? r.description : r.result && r.result.response);
+          if (typeof t === 'string' && t.trim()) return { text: t, model: model };
+        } catch (e) {
+          if (!agreeTried && /agree|licen[cs]e|5016/i.test(String(e && e.message || e))) { agreeTried = true; licence = true; try { await env.AI.run(model, { prompt: 'agree' }); } catch (x) { } break; }   // a model asks once for its licence: accept it, then ask again
+        }
       }
+      if (!licence) break;
     }
-    if (!licence) break;
   }
   return null;
 }
@@ -843,23 +844,36 @@ function pgPick(text, gens) {   // exactly one of the offered names in the answe
   gens.forEach(function (g) { const re = new RegExp('(^|[^a-z0-9])' + g.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z0-9])'); if (re.test(t)) { hit = g.name; n++; } });
   return n === 1 ? hit : null;
 }
+/* the votes of the photos -> one generation or none: photos that cannot tell (interior, a detail) say nothing; the rest must agree, and a generation wins
+   only with at least 2 votes and a lead of 2 (2-0, 3-1, 4-1; not 1-0, not 2-1) */
+function pgDecide(votes) {
+  const n = {}; votes.forEach(function (v) { if (v) n[v] = (n[v] || 0) + 1; });
+  const names = Object.keys(n).sort(function (a, b) { return n[b] - n[a]; });
+  if (!names.length) return null;
+  const top = n[names[0]], second = names.length > 1 ? n[names[1]] : 0;
+  return top >= 2 && top - second >= 2 ? names[0] : null;
+}
 async function hPhotoGen(env, q, ctx) {
   const gens = pgGens(q.get('gens')), clean = function (x) { return String(x || '').replace(/[^\w .\-+]/g, '').slice(0, 30); };
-  const make = clean(q.get('make')), model = clean(q.get('model')), year = parseInt(q.get('year'), 10), imgs = [q.get('img'), q.get('img2')];
-  if (!gens || !make || !model || !(year >= 1990 && year <= 2035) || !imgs[0] || !imgs[1] || imgs[0] === imgs[1] || !imgAllowed(imgs[0]) || !imgAllowed(imgs[1])) return json(env, { ok: false, error: 'bad_request' }, 400);
+  const make = clean(q.get('make')), model = clean(q.get('model')), year = parseInt(q.get('year'), 10);
+  const imgs = ['img', 'img2', 'img3', 'img4'].map(function (k) { return q.get(k); }).filter(Boolean);
+  if (!gens || !make || !model || !(year >= 1990 && year <= 2035) || imgs.length < 2 || imgs.some(function (u, i) { return !imgAllowed(u) || imgs.indexOf(u) !== i; })) return json(env, { ok: false, error: 'bad_request' }, 400);
   if (!env || !env.AI || typeof env.AI.run !== 'function') return json(env, { ok: false, error: 'no_ai' });
-  const key = 'https://carscout-cache.invalid/photogen?' + [make, model, year, gens.map(function (g) { return g.name + g.year; }).join(','), imgs[0], imgs[1]].map(encodeURIComponent).join('&');
+  const key = 'https://carscout-cache.invalid/photogen?' + [make, model, year, gens.map(function (g) { return g.name + g.year; }).join(',')].concat(imgs).map(encodeURIComponent).join('&');
   const store = typeof caches !== 'undefined' && caches.default ? caches.default : null;
   if (store) { try { const hit = await store.match(new Request(key)); if (hit) { const j = await hit.json(); j.cached = true; return json(env, j); } } catch (e) { } }
-  const votes = [], pics = await Promise.all(imgs.map(function (u) { return pgImage(u).catch(function () { return null; }); }));
-  if (!pics[0] || !pics[1]) return json(env, { ok: false, error: 'image_unavailable' });
-  for (let i = 0; i < 2; i++) {
-    const text = await pgAsk(env, pics[i], pgPrompt(make, model, year, gens, i === 1));
-    if (text == null) return json(env, { ok: false, error: 'ai_failed' });   // not cached: the allowance may come back tomorrow
-    votes.push(pgPick(text, gens));
+  const pics = await Promise.all(imgs.map(function (u) { return pgImage(u).catch(function () { return null; }); }));
+  const usable = pics.map(function (p, i) { return p ? { p: p, i: i } : null; }).filter(Boolean);
+  if (usable.length < 2) return json(env, { ok: false, error: 'image_unavailable' });
+  const votes = [], used = []; let failed = 0;
+  for (const u of usable) {
+    const a = await pgAsk(env, u.p, pgPrompt(make, model, year, gens, u.i % 2 === 1));   // the options in the opposite order for every second photo
+    if (a == null) { failed++; if (failed >= 2 || !votes.length) break; continue; }
+    votes.push(pgPick(a.text, gens)); used.push(a.model);
   }
-  const gen = votes[0] && votes[0] === votes[1] ? votes[0] : null;
-  const out = { ok: true, gen: gen, votes: votes, model: PG_MODEL };
+  if (!votes.length) return json(env, { ok: false, error: 'ai_failed' });   // not cached: the allowance may come back tomorrow
+  const gen = pgDecide(votes);
+  const out = { ok: true, gen: gen, votes: votes, model: used[0] };
   if (store) { try { const res = new Response(JSON.stringify(out), { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=' + (gen ? 2592000 : 86400) } }); const p = store.put(new Request(key), res); if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p; } catch (e) { } }
   return json(env, out);
 }
