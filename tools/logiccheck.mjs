@@ -148,6 +148,12 @@ const SCEN = [
     expect: v => [[/15 похожих/.test(v.basis), 'the car is compared with all 15 ads, not the 5 R-Line ads with 3 times the mileage', v.basis],
       [/всеми комплектациями/.test(v.notes) && /R-Line/.test(v.notes), 'a note says it: few R-Line ads with other mileage, so all trims are compared', v.notes],
       [!/Оценка неточная/.test(v.verdict) && /ориентировочно/i.test(v.verdict) && /комплектация \(R-Line\)/.test(v.basis), 'the verdict is not "inexact", only approximate, and names the trim as a reason', v.verdict + ' | ' + v.basis]] },
+  /* the Tiguan after that: all the ads of the market have 130-215 thousand km, this car 67 thousand. The generation is clear (2020 = the 2016-2023 body), so
+     this is not a doubt about WHICH cars were compared: the verdict stays (approximate, with the plain mileage reason), it is not "inexact estimate" */
+  { id: 'mileage-outlier-only-approximate', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig3.html', price: 22900, listing: { ...TIGUAN, mileage_km: 67092, asking_price: 22900 },
+    comps: { ss: [...tig(5, 20500, 190000, 'Volkswagen Tiguan R-Line 2.0 TDI', 0), ...tig(10, 21500, 150000, 'Volkswagen Tiguan 2.0 TDI', 20)] },
+    expect: v => [[!/Оценка неточная/.test(v.verdict) && /ориентировочно/i.test(v.verdict), 'a low-mileage car among high-mileage ads (the generation is clear) keeps its verdict, marked approximate', v.verdict],
+      [/цена поправлена на пробег/.test(v.basis) && !/другое поколение/.test(v.basis), 'and the reason is stated plainly (mileage-corrected, few similar-mileage cars), not as "maybe another generation"', v.basis]] },
   /* the same trim ads fit the mileage: they are used, and the page now SAYS the comparison is with that trim only */
   { id: 'trim-same-says-so', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig2.html', price: 25000, listing: TIGUAN,
     comps: { ss: [...tig(6, 26500, 60000, 'Volkswagen Tiguan R-Line 2.0 TDI', 0), ...tig(10, 24000, 90000, 'Volkswagen Tiguan 2.0 TDI', 20)] },
@@ -156,7 +162,7 @@ const SCEN = [
   { id: 'km-mismatch', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a5/zzkm1.html', price: 12000,
     listing: { make: 'Audi', model: 'A5', year: 2018, mileage_km: 90000, asking_price: 12000, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A5 2.0 TDI', src: {} },
     comps: { ss: Array.from({ length: 12 }, (_, k) => ({ price: 11800 + k * 40, km: 250000 + k * 2000, year: 2018, url: ssUrl(k), title: 'Audi A5 2.0 TDI', fuel: 'diesel', gear: 'automatic' })) },
-    expect: v => [[/ориентировочно/i.test(v.verdict) && /пробег сравниваемых машин/.test(v.basis), 'compared cars with 2.8 times the mileage: the verdict is marked approximate and says why', v.verdict + ' | ' + v.basis]] },
+    expect: v => [[/ориентировочно/i.test(v.verdict) && /пробег найденных машин/.test(v.basis), 'compared cars with 2.8 times the mileage: the verdict is marked approximate and says why', v.verdict + ' | ' + v.basis]] },
 ];
 
 const b = await chromium.launch(process.env.PW_EXEC ? { executablePath: process.env.PW_EXEC } : {});
