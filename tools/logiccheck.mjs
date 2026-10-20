@@ -27,7 +27,7 @@ const genItems = (n, mid, yr, km, off) => Array.from({ length: n }, (_, k) => ({
 /* every scenario: the listing, what each market returns, what the app must conclude */
 const SCEN = [
   { id: 'lv-fair', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvfair.html', price: 15200, comps: { ss: items(20, 15500, 'ss'), D: items(20, 12000, 'as') },
-    expect: v => [[v.region === 'Латвия', 'a Latvian ad is compared with Latvia', v.region], [/Рыночная цена/.test(v.verdict), 'a fair price is called fair', v.verdict], [!v.fraud, 'no scam warning', v.fraud]] },
+    expect: v => [[v.region === 'Латвия', 'a Latvian ad is compared with Latvia', v.region], [/Рыночная цена/.test(v.verdict), 'a fair price is called fair', v.verdict], [!/ваша на 0%/.test(v.body) && /как у вашей/.test(v.body), 'the same mileage as the compared cars is said plainly, not "yours 0% higher" in red', (v.body.match(/Медиана пробега.{0,60}/) || [''])[0]], [!v.fraud, 'no scam warning', v.fraud]] },
   { id: 'lv-very-cheap', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvcheap.html', price: 9500, comps: { ss: items(20, 15500, 'ss'), D: items(20, 12000, 'as') },
     expect: v => [[/Подозрительно/.test(v.verdict), '39% under the Latvian market with 20 ads is suspicious', v.verdict], [!!v.fraud, 'the scam block shows the price signal', 'no scam block']] },
   { id: 'lv-cheap-few', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvfew.html', price: 10500, comps: { ss: items(6, 15500, 'ss'), D: items(4, 12000, 'as') },
@@ -122,6 +122,24 @@ const SCEN = [
     comps: { ss: [...genItems(6, 16300, 2017, 270000, 0), ...genItems(4, 16800, 2018, 240000, 10), ...genItems(6, 24500, 2019, 110000, 20), ...genItems(2, 26000, 2020, 90000, 30)] },
     expect: v => [[/8 похожих/.test(v.basis) && /как 2019 год/.test(v.basis), 'the body found on the photos does the same: a 2019 car against 8 C8 ads', v.basis],
       [/кузов определён по фото/.test(v.notes), 'and the notes say the body was recognised from the photos', v.notes]] },
+  /* a mild-hybrid diesel listed as "hybrid" (Audi 50 TDI MHEV): it is compared with diesels, not with plug-in petrol hybrids */
+  { id: 'mhev-diesel-is-diesel', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzmhev1.html', price: 30000,
+    listing: { make: 'Audi', model: 'A6', model_raw: 'A6 Avant 50 TDI quattro MHEV', year: 2020, mileage_km: 100000, asking_price: 30000, fuel: 'hybrid', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant', src: {} },
+    comps: { ss: [...Array.from({ length: 10 }, (_, k) => ({ price: 29500 + k * 100, km: 95000 + k * 2000, year: 2020, url: ssUrl(k), title: 'Audi A6 Avant 50 TDI quattro', fuel: 'diesel', gear: 'automatic', engine_l: 3.0 })),
+      ...Array.from({ length: 6 }, (_, k) => ({ price: 45000 + k * 100, km: 60000 + k * 2000, year: 2020, url: ssUrl(20 + k), title: 'Audi A6 55 TFSI e quattro plug-in', fuel: 'hybrid', gear: 'automatic', engine_l: 2.0 }))] },
+    expect: v => [[/10 похожих/.test(v.basis) && /Рыночная/.test(v.verdict), 'compared with the 10 diesels (fair price), not with the 6 plug-in petrol hybrids', v.basis + ' | ' + v.verdict]] },
+  /* the same real market on a phone (390 px): the screen was checked by eye on 20 Oct and these were broken */
+  { id: 'ui-phone-real-a6', width: 390, url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzreal2.html', price: 22200, images: PHOTOS, photo: { ok: true, gen: 'C8', votes: ['C8', 'C8'] },
+    listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 140000, asking_price: 22200, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, description: 'Audi A6 Avant 3.0 TDI quattro Premium', src: {} },
+    comps: { ss: realItems(REAL_A6.ss, 'ss'), ee: realItems(REAL_A6.autoportaal, 'ee') },
+    expect: v => [[!v.ui.narrow.length, 'a note without an icon ("seller data unavailable", "no obvious pros") spans the row, not one word per line', v.ui.narrow],
+      [!v.ui.nearClip, 'the closest-listings table fits the phone (the "vs yours" column is not cut off)', v.ui.nearClip],
+      [!v.ui.pageScroll, 'the page does not scroll sideways', v.ui.pageScroll],
+      [!v.ui.planOverlap, 'the labels of the negotiation scale do not overlap', v.ui.planOverlap],
+      [new Set(v.ui.names).size === v.ui.names.length && /C8/.test(v.ui.names[0] || ''), 'the markets chart shows each country once, the C8 pool the verdict is based on first', v.ui.names],
+      [/^Распределение цен C8/i.test(v.hist), 'the price distribution opens on the C8 cars the verdict is based on, not on all bodies in Latvia', v.hist.slice(0, 80)],
+      [!/Proline/.test(v.life), 'a 2.0 with almost the same mileage is not shown as "possibly the same car" (this one is a 3.0)', v.life.slice(0, 300)],
+      [/Справедливый диапазон 25 650–36 850 €/.test(v.body) && /от 25 650 € до 36 850 €/.test(v.basis), 'the fair range is the same rounded figures in the tile and in the verdict', (v.body.match(/Справедливый диапазон.{0,30}/) || [''])[0] + ' | ' + v.basis.slice(0, 160)]] },
   /* the real market of the user's A6 C8 2018, 140 000 km, 22 200 €: Latvia has one C8 diesel (2019), Estonia several (45/50 TDI, some listed as "hybrid" = mild hybrid).
      The car is judged as a 2019 C8 against the C8 cars of Latvia and Estonia; the old C7 bodies are left out */
   { id: 'real-a6-c8-2018', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzreal1.html', price: 22200, images: PHOTOS, photo: { ok: true, gen: 'C8', votes: ['C8', 'C8'] },
@@ -224,7 +242,7 @@ const SCEN = [
 const b = await chromium.launch(process.env.PW_EXEC ? { executablePath: process.env.PW_EXEC } : {});
 const errs = [];
 for (const sc of SCEN) {
-  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } }); const pg = await ctx.newPage();
+  const ctx = await b.newContext({ viewport: { width: sc.width || 1280, height: 900 }, isMobile: (sc.width || 1280) < 500, hasTouch: (sc.width || 1280) < 500 }); const pg = await ctx.newPage();
   pg.on('pageerror', e => errs.push(sc.id + ': ' + e.message));
   const photoAsked = [];
   await pg.route('**/*', async r => {
@@ -251,6 +269,18 @@ for (const sc of SCEN) {
   const v = { photoAsked, ring: await t('#a-verdict .ring', 40), verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), notes: await t('#a-car .anotes', 3000), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
     msg: await t('#msg-text', 400), msgLang: await pg.$eval('#msg-lang', e => e.value).catch(() => ''), calc: await pg.$$eval('#k-lv,#k-de', e => e.map(x => x.id + '=' + x.value).join(' ')).catch(() => ''), checks: await pg.$eval('#a-checks', e => e.textContent.replace(/\s+/g, ' ')).catch(() => '') };
   v.region = v.region.split('·')[0].trim();
+  v.life = await t('#a-life', 2000); v.hist = await t('#a-hist', 300); v.body = await pg.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
+  /* layout: things that looked broken on a phone (a note squeezed into the icon column, a clipped table column, overlapping labels, the same country twice) */
+  v.ui = await pg.evaluate(() => {
+    const box = e => e.getBoundingClientRect(), over = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+    const narrow = [...document.querySelectorAll('.ls li > .rn')].filter(e => box(e).width > 0 && box(e).width < 120).map(e => e.textContent.slice(0, 40));
+    const sc = document.querySelector('#a-near .scroll'), tb = sc && sc.querySelector('table');
+    const nearClip = !!(sc && tb && tb.scrollWidth > sc.clientWidth + 2);
+    const pt = [...document.querySelectorAll('#a-plan svg text')].map(box); let planOverlap = false;
+    for (let i = 0; i < pt.length; i++) for (let j = i + 1; j < pt.length; j++) if (over(pt[i], pt[j])) planOverlap = true;
+    const names = [...document.querySelectorAll('#a-markets svg text.tv')].map(e => e.textContent).filter(t => !/€/.test(t));
+    return { narrow, nearClip, planOverlap, names, pageScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 };
+  });
   for (const [cond, what, detail] of sc.expect(v)) check(cond, sc.id + ': ' + what, detail);
   await ctx.close();
 }
