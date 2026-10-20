@@ -641,6 +641,8 @@ body.has-view .lead{display:none}
 .shh{font-size:12px;color:var(--muted);margin-bottom:10px;display:flex;gap:8px;align-items:center}.shh i{width:8px;height:8px;border-radius:2px;display:inline-block}
 .ls{list-style:none;display:flex;flex-direction:column;gap:11px}
 .ls li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;font-size:13.5px;line-height:1.45}
+.impbox{margin:14px 0 4px;padding:14px 16px;border:1px dashed var(--line2);border-radius:14px;font-size:13.5px;line-height:1.5}.impbox ol{margin:8px 0 0 18px;padding:0}.impbox li{margin:6px 0}.impbox .btn{margin:2px 4px 2px 0}
+.bmk{display:inline-block;padding:4px 12px;border-radius:999px;background:var(--accent);color:#111 !important;font-weight:700;text-decoration:none;cursor:grab;white-space:nowrap}
 .ls li>.rn:only-child{grid-column:1/-1;color:var(--muted)} /* a note with no icon spans the whole row (it used to fall into the 20px icon column, one word per line) */
 .ls li svg{margin-top:2px}
 .ls li small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
@@ -2101,6 +2103,92 @@ function addImages(files){
   renderThumbs();
 }
 
+/* ---------- pages the user opens in their own browser (the CarScout bookmark) ----------
+   autoplius.lt, autogidas.lt and auto24 refuse requests from servers. The user opens the page in their own browser (answering any "are you human"
+   question themselves) and presses the CarScout bookmark: the page they see is passed to a new CarScout tab, read by the server's readers
+   (/api/import, nothing fetched, nothing stored) and used here. A search results page adds that country's market to the comparison of the car
+   being checked; one ad is checked like a link. The ads are kept only in this browser, for 3 days. */
+var KEY_IMP='carscout_imports', KEY_IMPCTX='carscout_imp_ctx', IMP_DAYS=3;
+var IMP_HOST=/(^|\.)(autoplius\.lt|autogidas\.lt|auto24\.(ee|lv|lt))$/;
+function impOriginOk(o){ try{ var u=new URL(o); return u.protocol==='https:'&&IMP_HOST.test(u.hostname); }catch(e){ return false; } }
+function impNorm(x){ return String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,''); }
+function impLoad(){ try{ var a=JSON.parse(LS.get(KEY_IMP)||'[]'), lim=Date.now()-IMP_DAYS*864e5; return Array.isArray(a)?a.filter(function(x){return x&&x.at>lim&&Array.isArray(x.items)}):[]; }catch(e){ return []; } }
+function impSaveAll(a){ try{ LS.set(KEY_IMP,JSON.stringify(a.slice(-8))); }catch(e){ try{ LS.set(KEY_IMP,JSON.stringify(a.slice(-2))); }catch(x){} } }
+/* the bookmark itself: built for this copy of the app (its own address), texts in the chosen language */
+function bmkCode(){
+  var A=location.origin, P=location.origin+location.pathname+'#import';
+  var t1=L('CarScout: страница не передалась автоматически.','CarScout: the page was not passed automatically.','CarScout: lapa netika nodota automātiski.'), t2=L('Скопировать для CarScout','Copy for CarScout','Kopēt CarScout'), t3=L('Скопировано. Вставьте во вкладке CarScout (Ctrl+V).','Copied. Paste it in the CarScout tab (Ctrl+V).','Nokopēts. Ielīmējiet CarScout cilnē (Ctrl+V).');
+  var src="(function(){var A="+JSON.stringify(A)+",P="+JSON.stringify(P)+";if(location.origin===A)return;var d={type:'carscout-page',url:location.href,html:document.documentElement.outerHTML},ok=0;window.open(P,'_blank');function on(e){if(e.origin!==A||!e.data||e.data.type!=='carscout-ready')return;ok=1;try{e.source.postMessage(d,A)}catch(x){}window.removeEventListener('message',on)}window.addEventListener('message',on);"
+    +"setTimeout(function(){if(ok)return;var b=document.createElement('div');b.style.cssText='position:fixed;z-index:2147483647;top:16px;right:16px;max-width:320px;background:#111;color:#fff;font:14px/1.4 sans-serif;padding:14px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4)';b.textContent="+JSON.stringify(t1)+";var c=document.createElement('button');c.textContent="+JSON.stringify(t2)+";c.style.cssText='display:block;margin-top:10px;padding:8px 12px;border-radius:8px;border:0;background:#c6f432;color:#111;font-weight:600;cursor:pointer';"
+    +"c.onclick=function(){var t=JSON.stringify(d),f=function(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove()};(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).catch(f).then(function(){b.textContent="+JSON.stringify(t3)+";setTimeout(function(){b.remove()},8000)})};b.appendChild(c);document.body.appendChild(b)},5000)})()";
+  return 'javascript:'+encodeURIComponent(src);
+}
+function bmkHtml(){ return '<a class="bmk" draggable="true" data-act="bmk" href="'+esc(bmkCode())+'">⇢ CarScout</a>'; }
+async function apiPost(path,body,ms){
+  if(!S.api) return {ok:false,error:'no_api'};
+  var ctl=new AbortController(), to=setTimeout(function(){ctl.abort()},ms||40000);
+  try{ var r=await fetch(S.api+path,{method:'POST',headers:{'content-type':'text/plain'},body:JSON.stringify(body),signal:ctl.signal}); return await r.json(); }
+  catch(e){ return {ok:false,error:'network',message:String(e&&e.message||e)}; }
+  finally{ clearTimeout(to); }
+}
+/* make and model of a search page: what the user was checking when they opened it from CarScout, else read from the address */
+function impCtxOf(url){
+  try{ var c=JSON.parse(LS.get(KEY_IMPCTX)||'null'); if(c&&c.at>Date.now()-6*36e5&&c.host&&new URL(url).hostname.replace(/^(www|en|ru|lt)\./,'')===c.host) return c; }catch(e){}
+  var m=String(url).match(/autoplius\.lt\/(?:[a-z]{2}\/)?(?:ads|skelbimai)\/(?:used-cars|naudoti-automobiliai)\/([a-z0-9-]+)\/([a-z0-9-]+)/i)||String(url).match(/autogidas\.lt\/(?:[a-z]{2}\/)?skelbimai\/automobiliai\/([a-z0-9-]+)\/([a-z0-9-]+)/i);
+  return m?{make:m[1],model:m[2]}:{};
+}
+async function impHandle(d){
+  var host=''; try{ host=new URL(d.url).hostname.replace(/^(www|en|ru|lt)\./,''); }catch(e){}
+  showStatus('busy',function(){return L('Читаю страницу '+host+'…','Reading the '+host+' page…','Lasu lapu '+host+'…')},true);
+  try{ await S.connP; }catch(e){}
+  var r=await apiPost('/api/import',{url:d.url,html:d.html},45000);
+  if(!r||!r.ok){ var dg=r&&(r.diag||r.error)?' ('+(r.diag||r.error)+')':''; showStatus('err',function(){return L('Не удалось прочитать страницу '+host+'. Откройте список объявлений (поиск) или само объявление и нажмите закладку ещё раз. Если не выйдет, пришлите снимок этого сообщения'+dg+'.','The '+host+' page could not be read. Open a search results list or an ad and press the bookmark again. If it still fails, send a screenshot of this message'+dg+'.','Lapu '+host+' neizdevās nolasīt'+dg+'.')}); return; }
+  if(r.kind==='list'){
+    var c=impCtxOf(d.url), items=r.items.map(function(i){ return {price:i.price,km:i.km,year:i.year,url:i.url,title:i.title,fuel:i.fuel,gear:i.gear,engine_l:i.engine_l||null,drive:i.drive||null,img:i.img||null}; });
+    var a=impLoad().filter(function(x){ return x.url!==d.url; }); a.push({at:Date.now(),source:r.source,region:r.region||'LT',url:d.url,mk:impNorm(c.make),md:impNorm(c.model),items:items}); impSaveAll(a);
+    var n=items.length, src=r.source;
+    if(c.carUrl){ showStatus('ok',function(){return L('Получено объявлений с '+src+': '+n+'. Проверяю машину заново с ними…','Got '+n+' ads from '+src+'. Checking the car again with them…','Saņemti '+n+' sludinājumi no '+src+'.')}); var fu=$('#f-url'); if(fu){ fu.value=c.carUrl; run(); } }
+    else showStatus('ok',function(){return L('Получено объявлений с '+src+': '+n+'. Они будут учтены в проверке такой машины в ближайшие '+IMP_DAYS+' дня: вставьте ссылку на машину и нажмите «Проверить».','Got '+n+' ads from '+src+'. They will be used when you check such a car in the next '+IMP_DAYS+' days.','Saņemti '+n+' sludinājumi no '+src+'.')});
+    return;
+  }
+  S.prefetch={url:d.url,j:{ok:true,listing:r.listing,image:r.image,images:r.images,title:r.title,hints:r.hints,source:r.source,parser:r.parser}};
+  var fu2=$('#f-url'); if(fu2){ fu2.value=d.url; run(); }
+}
+/* the saved search pages that fit this car: the same make and model (from where it was opened), or, for one opened on its own, ads that name the model */
+function impResults(car){
+  var mk=impNorm(car.make), md=impNorm(car.model), out=[];
+  if(!mk||!md) return out;
+  impLoad().forEach(function(x,k){
+    var fits=x.mk&&x.md?(x.mk===mk||x.mk.indexOf(mk)===0||mk.indexOf(x.mk)===0)&&(x.md===md||md.indexOf(x.md)===0||x.md.indexOf(md)===0):(x.items.filter(function(i){ return impNorm(i.title).indexOf(md)>-1; }).length>=Math.max(3,x.items.length*0.6));
+    if(fits) out.push({key:'imp'+k,region:x.region,label:x.source+L(' (открыто вами)',' (opened by you)',' (atvērāt jūs)'),j:{ok:true,items:x.items,searchUrl:x.url,imported:x.at}});
+  });
+  return out;
+}
+function impBoot(){
+  /* a page passed by pasting (the bookmark's "Copy for CarScout" fallback) works at any time */
+  document.addEventListener('paste',function(e){ var t=''; try{ t=(e.clipboardData||window.clipboardData).getData('text'); }catch(x){} if(!t||t.charAt(0)!=='{'||t.indexOf('carscout-page')<0) return; try{ var d=JSON.parse(t); if(d&&d.type==='carscout-page'&&impOriginOk(new URL(d.url).origin)&&d.html){ e.preventDefault(); impHandle(d); } }catch(x){} });
+  if(location.hash!=='#import') return false;
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  var got=false, tries=0;
+  showStatus('busy',function(){return L('Жду страницу от закладки CarScout…','Waiting for the page from the CarScout bookmark…','Gaidu lapu no CarScout grāmatzīmes…')},false);
+  window.addEventListener('message',function(e){ var d=e.data; if(got||!d||d.type!=='carscout-page'||!d.html) return; var same=false; try{ same=new URL(d.url).origin===e.origin; }catch(x){} if(!impOriginOk(e.origin)||!same) return; got=true; impHandle(d); });
+  var ping=setInterval(function(){
+    if(got){ clearInterval(ping); return; }
+    if(!window.opener||++tries>40){ clearInterval(ping); showStatus('info',function(){return L('Страница не пришла автоматически. На той странице нажмите «Скопировать для CarScout», вернитесь сюда и нажмите Ctrl+V.','The page did not arrive automatically. On that page press “Copy for CarScout”, come back here and press Ctrl+V.','Lapa nepienāca automātiski.')}); return; }
+    try{ window.opener.postMessage({type:'carscout-ready'},'*'); }catch(x){}
+  },300);
+  return true;
+}
+/* the market panel: sites that refused the server, with a way to add them by hand */
+function impBox(v){
+  var bl=(v.regions||[]).filter(function(r){ var h=''; try{ h=new URL(r.url).hostname; }catch(e){} return !r.ok&&r.url&&IMP_HOST.test(h)&&!/^imp/.test(r.key); });
+  if(!bl.length) return '';
+  return '<div class="impbox"><b>'+esc(L('Эти сайты не пускают сервер, но их можно добавить вручную','These sites refuse the server, but you can add them yourself','Šīs vietnes neielaiž serveri, bet tās var pievienot pašam'))+'</b>'+
+    '<ol><li>'+esc(L('Один раз перетащите кнопку на панель закладок браузера: ','Once, drag this button to the browser bookmarks bar: ','Vienreiz ievelciet šo pogu grāmatzīmju joslā: '))+bmkHtml()+'</li>'+
+    '<li>'+esc(L('Откройте такой же поиск на сайте:','Open the same search on the site:','Atveriet to pašu meklēšanu vietnē:'))+' '+bl.map(function(r){ var h=new URL(r.url).hostname.replace(/^(www|en|ru|lt)\./,''); return '<button type="button" class="btn sm" data-act="imp-open" data-u="'+esc(r.url)+'">'+esc(h)+' ↗</button>'; }).join(' ')+'</li>'+
+    '<li>'+esc(L('На той странице нажмите закладку CarScout: объявления добавятся в сравнение (хранятся только в этом браузере, 3 дня).','On that page press the CarScout bookmark: its ads are added to the comparison (kept only in this browser, 3 days).','Tajā lapā nospiediet CarScout grāmatzīmi.'))+'</li></ol></div>';
+}
+
 /* ---------- main run ---------- */
 function stopRun(){ if(S.ctl) S.ctl.abort(); }
 function mergeCar(car,src,tag){
@@ -2133,7 +2221,7 @@ async function run(){
     if(hint&&!hint.bad){ car.cc=hint.cc; car.site=hint.site||hint.host; }
     if(f.url&&hint&&!hint.bad&&S.api){
       stage=L('Сервер читает объявление','The server is reading the listing');
-      var lj=await api('/api/listing',{url:f.url});
+      var lj=S.prefetch&&S.prefetch.url===f.url?S.prefetch.j:await api('/api/listing',{url:f.url}); S.prefetch=null;
       if(lj&&lj.listing&&(lj.ok||lj.listing.asking_price||lj.listing.make)){
         var l=lj.listing; var carL={make:l.make,model:l.model,year:l.year,km:l.mileage_km,price:l.asking_price,fuel:l.fuel,gear:l.gearbox,vin:l.vin};
         var lsrc=l.src||{}, lmap={make:'make',model:'model',year:'year',km:'mileage_km',price:'asking_price',fuel:'fuel',gear:'gearbox',vin:'vin'}; mergeCar(car,carL,function(k){return lsrc[lmap[k]]||'page'}); if(l.lpg) car.lpg=true; car.image=lj.image||null; car.title=lj.title||null; car.hints=lj.hints||{}; car.desc=l.description||''; car.rawModel=l.model_raw||l.model||''; car.images=lj.images||[]; car.posted=l.posted||null; car.updated=l.updated||null; car.engineL=l.engine_l||null; car.place=l.place||null; car.address=l.address||null; car.geo=l.geo||null; car.isDealer=!!l.dealer; car.sellerName=l.seller_name||null; car.accident=l.accident; car.repairedDamage=!!l.repaired_damage; car.owners=l.owners||null; car.reportUrl=l.report_url||null; car.reportName=l.report_name||null; car.powerKw=l.power_kw||null; if(l.drive) car.drive=l.drive; car.warranty=l.warranty||null;
@@ -2142,7 +2230,7 @@ async function run(){
         if(l.country&&/^(LV|LT|EE|DE|BE|NL|FR|PL)$/.test(l.country)&&l.country!==car.cc){ car.cc=l.country; notes.push((function(){return L('Машина находится: '+REGION_NAME[l.country][0]+' (по данным объявления), поэтому сначала сравниваю с этим рынком.','The car is in '+REGION_NAME[l.country][1]+' (as the listing says), so it is compared with that market first.')})); }
       } else {
         notes.push((function(){return L('Объявление по ссылке не прочитано: ','The link could not be read: ')+errText(lj)+'. '+L('Загрузите скриншот или введите данные вручную.','Upload a screenshot or enter the details manually.')}));
-        linkMsg=L('Сайт '+(hint.host||'')+' не отдаёт страницу серверу (защита от роботов). Откройте объявление в своём браузере, нажмите Ctrl+A, затем Ctrl+C и вставьте скопированное в поле «Текст объявления» ниже (на телефоне: выделить всё, копировать). Либо загрузите скриншот. Затем нажмите «Проверить автомобиль» ещё раз.','The site '+(hint.host||'')+' does not give the page to the server (bot protection). Open the listing in your own browser, press Ctrl+A then Ctrl+C and paste it into the “Listing text” field below (on a phone: select all, copy). Or upload a screenshot. Then press “Check this car” again.');
+        linkMsg=L('Сайт '+(hint.host||'')+' не отдаёт страницу серверу (защита от роботов). Проще всего: откройте объявление в своём браузере и нажмите закладку CarScout (кнопку для закладки найдёте в блоке «Рынки» после любой проверки). Или: нажмите там Ctrl+A, затем Ctrl+C и вставьте скопированное в поле «Текст объявления» ниже (на телефоне: выделить всё, копировать). Либо загрузите скриншот. Затем нажмите «Проверить автомобиль» ещё раз.','The site '+(hint.host||'')+' does not give the page to the server (bot protection). Open the listing in your own browser, press Ctrl+A then Ctrl+C and paste it into the “Listing text” field below (on a phone: select all, copy). Or upload a screenshot. Then press “Check this car” again.');
         if(!f.text&&!S.images.length){ $('#intake').classList.add('open'); var tf=$('#f-text'); if(tf){ tf.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){tf.focus()},400); } }
       }
     }else if(f.url&&!S.api){ notes.push((function(){return L('Сервер не подключён, поэтому ссылка использована только как подсказка (кнопка «Сервер»).','The server is not connected, so the link is used only as a hint (the “Server” button).')})); }
@@ -2244,6 +2332,7 @@ async function run(){
       results.push(r);
       setSrc(r.key,r.label+' ('+r.region+')',j.ok?'ok':'err',function(){ return j.ok?(L('найдено объявлений: ','ads found: ')+n+(j.weak?L(' (грубое чтение)',' (rough reading)'):'')):errText(j); },j.searchUrl||r.url,j.ok?n:null);
     })}));
+    impResults(car).forEach(function(r){ results.push(r); setSrc(r.key,r.label+' ('+r.region+')','ok',function(){ return L('найдено объявлений: ','ads found: ')+r.j.items.length; },r.j.searchUrl,r.j.items.length); });
     S.lastResults=results;
     if(photoJob) await photoJob;
     S.view=compute(car,results,f,notes); favRefreshFromView(S.view);
@@ -2343,7 +2432,7 @@ function fairOf(st){
    within 1000 km) counts once. Sites that failed stay as their own rows so their errors are shown. Extra links (key x*) stay apart. */
 function mergeByRegion(results){
   var MERGE={ss:1,a24lv:1,apl:1,agl:1,ape:1,a24ee:1}, byR={}, out=[];
-  results.forEach(function(r){ var j=r.j||{}; if(MERGE[r.key]&&j.ok&&(j.items||[]).length){ (byR[r.region]=byR[r.region]||[]).push(r); } else out.push(r); });
+  results.forEach(function(r){ var j=r.j||{}; if((MERGE[r.key]||/^imp/.test(r.key))&&j.ok&&(j.items||[]).length){ (byR[r.region]=byR[r.region]||[]).push(r); } else out.push(r); });
   Object.keys(byR).forEach(function(reg){
     var g=byR[reg]; if(g.length===1){ out.push(g[0]); return; }
     var items=[], seen=[];
@@ -2869,7 +2958,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-20.2', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-20.3', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -3331,7 +3420,7 @@ function pMarkets(v){
   var de=v.regions.some(function(r){return FAR[r.region]&&r.fair});
   var tbl='<details class="adet"'+(aMob()?'':' open')+'><summary>'+esc(L('Таблица и ссылки на поиск','Table and search links'))+'</summary><div class="scroll"><table class="tbl"><thead><tr><th>'+esc(L('Рынок','Market'))+'</th><th class="r">'+esc(L('Объявл.','Ads'))+'</th><th class="r">'+esc(L('Справедливая','Fair'))+'</th><th class="r">'+esc(L('Мин – макс','Min – max'))+'</th><th></th></tr></thead><tbody>'+v.regions.map(function(r){
     var u=r.url&&safeUrl(r.url); return '<tr><td><b>'+esc(rname(r.region))+'</b><div class="rn">'+esc(r.label)+'</div></td><td class="r">'+(r.ok?r.n+(r.total>r.n?' / '+r.total:''):'–')+'</td><td class="r">'+(r.fair?eur(r.fair.mid):'–')+'</td><td class="r">'+(r.stats?fmt(r.stats.min)+' – '+eur(r.stats.max):'<span class="rn">'+esc(r.err||'')+'</span>')+'</td><td class="r">'+(u?'<a class="sbtn" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть','Open'))+'</a>':'')+'</td></tr>'; }).join('')+'</tbody></table></div></details>';
-  return aPanel('a-markets','c7',aHead(L('Рынки · медиана и разброс','Markets · median and spread'),de?aMeta(L('Западная Европа — без учёта ввоза','Western Europe — before import costs')):''),svg+tbl);
+  return aPanel('a-markets','c7',aHead(L('Рынки · медиана и разброс','Markets · median and spread'),de?aMeta(L('Западная Европа — без учёта ввоза','Western Europe — before import costs')):''),svg+impBox(v)+tbl);
 }
 /* ---- negotiation ---- */
 function aLadder(p,F,W){
@@ -5373,6 +5462,8 @@ document.addEventListener('click',function(e){
   else if(a==='recheck') applyCheck();
   else if(a==='more'){ var fm=$('#intake'); fm.classList.toggle('open'); b.setAttribute('aria-expanded',fm.classList.contains('open')?'true':'false'); }
   else if(a==='go-comps'){ var gc=document.getElementById('a-near')||document.getElementById('a-scatter'); if(gc){ var yg=gc.getBoundingClientRect().top+window.scrollY-80; window.scrollTo({top:yg,behavior:'smooth'}); } }
+  else if(a==='bmk'){ e.preventDefault(); showStatus('info',function(){return L('Эту кнопку не нажимают здесь: перетащите её мышкой на панель закладок браузера (если панели не видно: Ctrl+Shift+B).','Do not click it here: drag it to the browser bookmarks bar (to show the bar: Ctrl+Shift+B).','Nespiediet šeit: ievelciet to grāmatzīmju joslā (Ctrl+Shift+B).')}); }
+  else if(a==='imp-open'){ var iu=b.getAttribute('data-u'); try{ var ih=new URL(iu); if(ih.protocol==='https:'&&IMP_HOST.test(ih.hostname)){ var cv=S.view&&S.view.car||{}; LS.set(KEY_IMPCTX,JSON.stringify({at:Date.now(),host:ih.hostname.replace(/^(www|en|ru|lt)\./,''),make:cv.make||'',model:cv.model||'',carUrl:cv.url||''})); window.open(ih.href,'_blank','noopener'); } }catch(x){} }
   else if(a==='hreg'){ S.histReg=b.getAttribute('data-r'); var hp=document.getElementById('a-hist'); if(hp&&S.view){ var nh=pHist(S.view,S.histReg); var tmp=document.createElement('div'); tmp.innerHTML=nh; hp.parentNode.replaceChild(tmp.firstChild,hp); } }
   else if(a==='ck-tab'){ var pn=b.closest('.ap'); pn.querySelectorAll('[data-act=ck-tab]').forEach(function(x){x.classList.toggle('on',x===b)}); pn.querySelectorAll('.cklist').forEach(function(x){x.hidden=x.getAttribute('data-t')!==b.getAttribute('data-t')}); }
   else if(a==='go-acc'){ var ac=document.getElementById('a-acc'); if(ac){ var yy=ac.getBoundingClientRect().top+window.pageYOffset-(aMob()?70:16); window.scrollTo({top:Math.max(0,yy),behavior:'smooth'}); } }
@@ -5427,7 +5518,8 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   S.connP=(S.api||API_DEFAULT)?connect().then(function(ok){ if(ok){ favAutoCheck(); huntAutoCheck(); } return ok; }):Promise.resolve(false);
   try{ gcBoot(); }catch(e){}
   try{ favBadge(); huntBadge(); bootLink(); }catch(e){}
-  try{ autoUpdate(false); }catch(e){}
+  var impMode=false; try{ impMode=impBoot(); }catch(e){}
+  try{ if(!impMode) autoUpdate(false); }catch(e){}
   /* ---------- install as an app (PWA) ---------- */
 (function(){
   var deferred=null, btn=$('#btn-install');
@@ -5443,7 +5535,7 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
     else showStatus('info',function(){return L('Откройте меню браузера (три точки) и выберите «Установить приложение» или «Добавить на главный экран».','Open the browser menu (three dots) and choose “Install app” or “Add to Home screen”.')});
   });
 })();
-window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant,UPD:UPD,autoUpdate:autoUpdate};
+window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant,UPD:UPD,autoUpdate:autoUpdate,bmkCode:bmkCode};
 /* used by the daily logic check (tools/logiccheck.mjs) to test the "Find me a car" filters directly */
 window.fzFilter=fzFilter; window.pickList=pickList; window.varFamily=varFamily; window.varOk=varOk;
 })();

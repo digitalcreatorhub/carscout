@@ -14,7 +14,7 @@
  * Settings (Workers > your worker > Settings > Variables):
  *   ALLOW_ORIGIN  optional, e.g. https://yourname.github.io  (default: any origin)
  */
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
@@ -878,6 +878,52 @@ async function hPhotoGen(env, q, ctx) {
   return json(env, out);
 }
 
+/* an ad page (from the server's own request, or from the user's browser through /api/import) -> the reader that fits the site */
+function readAdHtml(text, pageUrl, host, url) {
+  let res, parser;
+  if (/(^|\.)ss\.(com|lv)$/.test(host) && /\/msg\//.test(url)) {
+    res = parseSsListing(text, pageUrl); parser = 'ss';
+    const g = parseGenericListing(text, pageUrl);
+    res.image = g.image; res.title = g.title;
+    Object.keys(g.listing).forEach(function (k) { if (k === 'fuel') return; if (res.listing[k] == null || res.listing[k] === '') res.listing[k] = g.listing[k]; });
+  } else if (/(^|\.)autoscout24\.[a-z.]+$/.test(host) && (res = parseAs24Listing(text, pageUrl))) { parser = 'as24';
+  } else if (/(^|\.)autoportaal\.ee$/.test(host) && (res = parseApListing(text, pageUrl))) { parser = 'autoportaal';
+  } else if (/(^|\.)auto24\.(ee|lv|lt)$/.test(host) && (res = parseA24Listing(text, pageUrl))) { parser = 'auto24';
+  } else { res = parseGenericListing(text, pageUrl); parser = 'generic'; res.hints = {}; }
+  return { res: res, parser: parser };
+}
+
+/* ---------------- a page the user opened in their own browser ----------------
+   Sites like autoplius.lt, autogidas.lt and auto24 refuse requests from servers. The user can open such a page in their own browser
+   (answering any "are you human" question themselves) and press the CarScout bookmark: the page they see is sent here only to be read
+   with the same readers as above. Nothing is fetched from the site, nothing is stored: the result goes back to the user's browser. */
+const IMPORT_MAX = 6000000;
+function importRegion(host) { return /\.lt$/.test(host) ? 'LT' : /\.ee$/.test(host) ? 'EE' : /\.lv$/.test(host) || /(^|\.)ss\.com$/.test(host) ? 'LV' : /\.de$/.test(host) ? 'DE' : /\.pl$/.test(host) ? 'PL' : null; }
+async function hImport(env, request) {
+  const len = parseInt(request.headers.get('content-length') || '0', 10);
+  if (len > IMPORT_MAX) return json(env, { ok: false, error: 'too_big' }, 413);
+  let body; try { const t = await request.text(); if (t.length > IMPORT_MAX) return json(env, { ok: false, error: 'too_big' }, 413); body = JSON.parse(t); } catch (e) { return json(env, { ok: false, error: 'bad_request' }, 400); }
+  const url = String(body && body.url || ''), html = String(body && body.html || '');
+  if (!url || !allowed(url) || html.length < 200) return json(env, { ok: false, error: 'bad_request' }, 400);
+  const host = new URL(url).hostname, region = importRegion(host);
+  let items = [], label = host.replace(/^(www|en|ru|lt|m)\./, '');
+  if (/(^|\.)autoplius\.lt$/.test(host)) items = parseAutopliusList(html, url);
+  else if (/(^|\.)autogidas\.lt$/.test(host)) items = parseAgList(html);
+  else if (/(^|\.)auto24\.(ee|lv|lt)$/.test(host)) items = parseA24List(html).map(function (i) { return Object.assign({}, i, { url: i.url.replace('https://www.auto24.ee/soidukid/', 'https://' + host + '/' + (/\.lv$/.test(host) ? 'lietoti' : /\.lt$/.test(host) ? 'naudoti' : 'soidukid') + '/') }); });
+  else if (/(^|\.)ss\.(com|lv)$/.test(host) && !/\/msg\//.test(url)) items = parseSsList(html, url);
+  else if (/(^|\.)autoportaal\.ee$/.test(host)) items = parseApList(html);
+  if (items.length >= 3) return json(env, { ok: true, kind: 'list', source: label, region: region, url: url, items: items.slice(0, 200) });
+  const rd = readAdHtml(html, url, host, url), L = rd.res.listing;
+  const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;
+  if (filled < 2) {
+    /* what the page had, so a screenshot of the message is enough to fix a reader when a site changes its markup */
+    const cnt = function (re) { return (html.match(re) || []).length; };
+    const diag = 'b' + Math.round(html.length / 1024) + 'k a' + cnt(/announcement-item/g) + ' g' + cnt(/list-item-new/g) + ' r' + cnt(/result-row/g) + ' j' + cnt(/application\/ld\+json/g) + ' e' + cnt(/€|&euro;/g) + ' n' + items.length;
+    return json(env, { ok: false, error: 'parse_failed', kind: items.length ? 'list' : 'ad', source: label, n: items.length, diag: diag, message: 'Could not read this page.' });
+  }
+  return json(env, { ok: true, kind: 'ad', source: host, region: region, parser: rd.parser, url: url, listing: L, image: rd.res.image || null, images: rd.res.images || collectImages(html, url), title: rd.res.title || null, hints: rd.res.hints || {} });
+}
+
 /* ---------------- handlers ---------------- */
 async function hListing(env, q, ctx) {
   const url = q.get('url');
@@ -887,16 +933,7 @@ async function hListing(env, q, ctx) {
   const b = blockedBy(p);
   if (b) return json(env, { ok: false, error: 'blocked', message: 'The site refused the server request (' + b + ').', diag: { status: p.status, bytes: p.text.length } });
   if (p.status === 404) { later(ctx, memGone(env, url)); return json(env, { ok: false, error: 'not_found', message: 'Listing page not found (removed or wrong link).' }); }
-  let res, parser;
-  if (/(^|\.)ss\.(com|lv)$/.test(host) && /\/msg\//.test(url)) {
-    res = parseSsListing(p.text, p.url); parser = 'ss';
-    const g = parseGenericListing(p.text, p.url);
-    res.image = g.image; res.title = g.title;
-    Object.keys(g.listing).forEach(function (k) { if (k === 'fuel') return; if (res.listing[k] == null || res.listing[k] === '') res.listing[k] = g.listing[k]; });
-  } else if (/(^|\.)autoscout24\.[a-z.]+$/.test(host) && (res = parseAs24Listing(p.text, p.url))) { parser = 'as24';
-  } else if (/(^|\.)autoportaal\.ee$/.test(host) && (res = parseApListing(p.text, p.url))) { parser = 'autoportaal';
-  } else if (/(^|\.)auto24\.(ee|lv|lt)$/.test(host) && (res = parseA24Listing(p.text, p.url))) { parser = 'auto24';
-  } else { res = parseGenericListing(p.text, p.url); parser = 'generic'; res.hints = {}; }
+  const rd = readAdHtml(p.text, p.url, host, url), res = rd.res, parser = rd.parser;
   const L = res.listing;
   if (parser === 'ss' && L.removed) { later(ctx, memGone(env, url)); } 
   if (parser === 'ss' && L.removed) return json(env, { ok: false, error: 'not_found', removed: true, message: 'The listing was removed or has expired.', source: host, parser: parser, listing: L });
@@ -1798,10 +1835,11 @@ export default {
     if (rk && !(await rlAllow(env, request, rk))) return tooMany(env);
     if (request.method === 'POST' && u.pathname === '/api/push/sub') { try { return await hPushSub(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method === 'POST' && u.pathname === '/api/push/inbox') { try { return await hPushInbox(env, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
+    if (request.method === 'POST' && u.pathname === '/api/import') { try { return await hImport(env, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method === 'POST' && u.pathname === '/api/watch') { try { return await hWatchSave(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method !== 'GET') return json(env, { ok: false, error: 'method' }, 405);
     try {
-      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, photoAI: !!(env && env.AI && typeof env.AI.run === 'function'), endpoints: ['/api/listing', '/api/seller', '/api/comps', '/api/memory', '/api/search', '/api/img', '/api/photogen', '/api/debug'] });
+      if (u.pathname === '/' || u.pathname === '') return json(env, { ok: true, name: 'CarScout Live worker', version: VERSION, photoAI: !!(env && env.AI && typeof env.AI.run === 'function'), endpoints: ['/api/listing', '/api/import', '/api/seller', '/api/comps', '/api/memory', '/api/search', '/api/img', '/api/photogen', '/api/debug'] });
       if (u.pathname === '/api/listing') return await hListing(env, u.searchParams, ctx);
       if (u.pathname === '/api/comps') return await hComps(env, u.searchParams, ctx);
       if (u.pathname === '/api/memory') return await hMemory(env, u.searchParams);

@@ -140,6 +140,16 @@ const SCEN = [
       [/^Распределение цен C8/i.test(v.hist), 'the price distribution opens on the C8 cars the verdict is based on, not on all bodies in Latvia', v.hist.slice(0, 80)],
       [!/Proline/.test(v.life), 'a 2.0 with almost the same mileage is not shown as "possibly the same car" (this one is a 3.0)', v.life.slice(0, 300)],
       [/Справедливый диапазон 25 650–36 850 €/.test(v.body) && /от 25 650 € до 36 850 €/.test(v.basis), 'the fair range is the same rounded figures in the tile and in the verdict', (v.body.match(/Справедливый диапазон.{0,30}/) || [''])[0] + ' | ' + v.basis.slice(0, 160)]] },
+  /* Lithuania refuses the server; the user opened the autoplius search for this car and pressed the CarScout bookmark: those ads (kept in this
+     browser) are a Lithuanian market in the comparison, and the panel offers the bookmark for the sites that refused */
+  { id: 'import-adds-lithuania', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzimp1.html', price: 15200, comps: { ss: items(20, 15500, 'ss') },
+    imports: [{ source: 'autoplius.lt', region: 'LT', url: 'https://en.autoplius.lt/ads/used-cars/audi/a6', mk: 'audi', md: 'a6', items: Array.from({ length: 9 }, (_, k) => ({ price: 14000 + k * 150, km: 150000 + k * 3000, year: 2018, url: 'https://en.autoplius.lt/ads/audi-a6-' + (900 + k) + '.html', title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' })) },
+      { source: 'autoplius.lt', region: 'LT', url: 'https://en.autoplius.lt/ads/used-cars/bmw/520', mk: 'bmw', md: '520', items: Array.from({ length: 9 }, (_, k) => ({ price: 30000, km: 90000, year: 2018, url: 'https://en.autoplius.lt/ads/bmw-' + k + '.html', title: 'BMW 520d', fuel: 'diesel', gear: 'automatic' })) }],
+    expect: v => [[/Литва[^€]*9 объявл/.test(v.markets) && !/30 000 €/.test(v.markets), 'the 9 Audi A6 ads the user brought from autoplius are the Lithuanian market (the BMW search is not used for an Audi)', v.markets.slice(0, 400)],
+      [v.region === 'Латвия' && /Рыночная цена/.test(v.verdict), 'the verdict is still based on Latvia (the car is on ss.lv)', v.region + ' | ' + v.verdict],
+      [v.srcs.length > 0, 'the sources list says these ads were opened by the user', v.srcs]] },
+  { id: 'import-offers-bookmark', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzimp2.html', price: 15200, comps: { ss: items(20, 15500, 'ss') }, blockedSearch: true,
+    expect: v => [[/не пускают сервер/.test(v.markets) && /CarScout/.test(v.markets), 'the markets panel shows how to add the sites that refused the server, with the bookmark button', v.markets.slice(0, 300)]] },
   /* the real market of the user's A6 C8 2018, 140 000 km, 22 200 €: Latvia has one C8 diesel (2019), Estonia several (45/50 TDI, some listed as "hybrid" = mild hybrid).
      The car is judged as a 2019 C8 against the C8 cars of Latvia and Estonia; the old C7 bodies are left out */
   { id: 'real-a6-c8-2018', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzreal1.html', price: 22200, images: PHOTOS, photo: { ok: true, gen: 'C8', votes: ['C8', 'C8'] },
@@ -250,14 +260,16 @@ for (const sc of SCEN) {
     if (u.startsWith(API)) {
       const x = new URL(u); let body = { ok: true, version: 'test' };
       if (x.pathname === '/api/listing') body = { ok: true, images: sc.images, title: 'Audi A6 Avant', source: sc.listing ? new URL(sc.url).hostname : sc.cc ? 'autoscout24' : 'ss', parser: sc.listing ? 'auto24' : undefined, listing: sc.listing || { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
+      else if (x.pathname === '/api/import') body = sc.imp || { ok: false, error: 'test' };
       else if (x.pathname === '/api/photogen') { photoAsked.push(x.searchParams.toString()); body = sc.photo || { ok: false, error: 'no_ai' }; }
-      else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : s === 'auto24' ? sc.comps['a24' + String(x.searchParams.get('cc')).toLowerCase()] : s === 'autogidas' ? sc.comps.ag : null; body = its ? { ok: true, items: its } : { ok: false, error: 'blocked' }; }
+      else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : s === 'auto24' ? sc.comps['a24' + String(x.searchParams.get('cc')).toLowerCase()] : s === 'autogidas' ? sc.comps.ag : null; body = its ? { ok: true, items: its } : { ok: false, error: 'blocked', searchUrl: sc.blockedSearch && s === 'autoplius' ? 'https://en.autoplius.lt/ads/used-cars/audi/a6' : undefined }; }
       else if (x.pathname !== '/') body = { ok: false, error: 'test' };
       return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
     }
     if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort();
     return r.continue();
   });
+  if (sc.imports) await pg.addInitScript(a => { try { localStorage.setItem('carscout_imports', JSON.stringify(a.map(x => ({ ...x, at: Date.now() - 3600e3 })))); } catch (e) { } }, sc.imports);
   await pg.addInitScript(() => { try { localStorage.setItem('carscout_lang', 'ru'); localStorage.setItem('carscout_api', 'https://carscout.pmax70095.workers.dev'); } catch (e) { } });
   await pg.goto(SITE + (SITE.startsWith('file:') ? '' : '?r=' + Date.now()));
   await pg.waitForTimeout(800);
@@ -269,6 +281,7 @@ for (const sc of SCEN) {
   const v = { photoAsked, ring: await t('#a-verdict .ring', 40), verdict: await t('#a-verdict .vk', 200) + ' ' + await t('#a-verdict .vd', 300), region: await t('#a-verdict .am', 60), basis: await t('#a-verdict .vbase', 500), notes: await t('#a-car .anotes', 3000), fraud: await t('#a-fraud', 200), near: await t('#a-near', 3000),
     msg: await t('#msg-text', 400), msgLang: await pg.$eval('#msg-lang', e => e.value).catch(() => ''), calc: await pg.$$eval('#k-lv,#k-de', e => e.map(x => x.id + '=' + x.value).join(' ')).catch(() => ''), checks: await pg.$eval('#a-checks', e => e.textContent.replace(/\s+/g, ' ')).catch(() => '') };
   v.region = v.region.split('·')[0].trim();
+  v.markets = await t('#a-markets', 2500); v.srcs = await pg.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').match(/открыто вами[^)]*\)[^.]{0,40}/g) || []);
   v.life = await t('#a-life', 2000); v.hist = await t('#a-hist', 300); v.body = await pg.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
   /* layout: things that looked broken on a phone (a note squeezed into the icon column, a clipped table column, overlapping labels, the same country twice) */
   v.ui = await pg.evaluate(() => {
@@ -282,6 +295,47 @@ for (const sc of SCEN) {
     return { narrow, nearClip, planOverlap, names, pageScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 };
   });
   for (const [cond, what, detail] of sc.expect(v)) check(cond, sc.id + ': ' + what, detail);
+  await ctx.close();
+}
+
+/* the CarScout bookmark end to end: on a (fake) autoplius search page the bookmark opens a CarScout tab, the page is passed to it, read by
+   /api/import and the car being checked is checked again with those Lithuanian ads */
+{
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+  const posted = [];
+  const lt = Array.from({ length: 8 }, (_, k) => ({ price: 14500 + k * 100, km: 150000 + k * 2000, year: 2018, url: 'https://en.autoplius.lt/ads/audi-a6-' + (700 + k) + '.html', title: 'Audi A6 Avant 2.0 TDI', fuel: 'diesel', gear: 'automatic' }));
+  await ctx.route('**/*', async r => {
+    const u = r.request().url();
+    if (u.startsWith('https://en.autoplius.lt/')) return r.fulfill({ status: 200, headers: { 'content-type': 'text/html' }, body: '<html><head><title>Audi A6 | autoplius.lt</title></head><body><h1>Audi A6</h1>' + 'ad '.repeat(100) + '</body></html>' });
+    if (u.startsWith(API)) {
+      const x = new URL(u); let body = { ok: true, version: 'test' };
+      if (x.pathname === '/api/import') { posted.push(JSON.parse(r.request().postData() || '{}')); body = { ok: true, kind: 'list', source: 'autoplius.lt', region: 'LT', url: 'https://en.autoplius.lt/ads/used-cars/audi/a6', items: lt }; }
+      else if (x.pathname === '/api/listing') body = { ok: true, title: 'Audi A6 Avant', source: 'www.ss.com', listing: { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: 15200, fuel: 'diesel', gearbox: 'automatic', src: {} } };
+      else if (x.pathname === '/api/comps') body = x.searchParams.get('source') === 'ss' ? { ok: true, items: items(20, 15500, 'ss') } : x.searchParams.get('source') === 'autoplius' ? { ok: false, error: 'blocked', searchUrl: 'https://en.autoplius.lt/ads/used-cars/audi/a6' } : { ok: false, error: 'blocked' };
+      else if (x.pathname !== '/') body = { ok: false, error: 'test' };
+      return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort();
+    return r.continue();
+  });
+  await ctx.addInitScript(() => { try { localStorage.setItem('carscout_lang', 'ru'); localStorage.setItem('carscout_api', 'https://carscout.pmax70095.workers.dev'); } catch (e) { } });
+  const pg = await ctx.newPage(); pg.on('pageerror', e => errs.push('bookmark: ' + e.message));
+  await pg.goto(SITE + (SITE.startsWith('file:') ? '' : '?r=' + Date.now())); await pg.waitForTimeout(800);
+  await pg.fill('#f-url', 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzbmk1.html'); await pg.click('#btn-go');
+  await pg.waitForSelector('#a-verdict', { timeout: 30000 }).catch(() => null); await pg.waitForTimeout(500);
+  const btn = await pg.$('#a-markets [data-act="imp-open"]');
+  check(!!btn, 'bookmark: a site that refused the server has an "open the same search" button', !!btn);
+  const code = await pg.evaluate(() => decodeURIComponent(window.__carscout.bmkCode().slice(11)));
+  if (btn) { const [tab] = await Promise.all([ctx.waitForEvent('page'), btn.click()]); await tab.close(); }
+  const ap = await ctx.newPage(); await ap.goto('https://en.autoplius.lt/ads/used-cars/audi/a6');
+  const [cs] = await Promise.all([ctx.waitForEvent('page'), ap.evaluate(code)]);
+  cs.on('pageerror', e => errs.push('bookmark tab: ' + e.message));
+  const okV = await cs.waitForFunction(() => /открыто вами/.test(document.body.innerText) && !!document.querySelector('#a-markets'), null, { timeout: 40000 }).then(() => true, () => false);
+  const mk = await cs.$eval('#a-markets', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
+  check(posted.length === 1 && posted[0].url === 'https://en.autoplius.lt/ads/used-cars/audi/a6' && /<h1>Audi A6<\/h1>/.test(posted[0].html || ''), 'bookmark: the page the user sees (its address and its HTML) is passed to the new CarScout tab and sent for reading', posted.map(p => p.url));
+  check(okV && /Литва[^€]*8 объявл/.test(mk), 'bookmark: the CarScout tab checks the same car again, now with the 8 Lithuanian ads', mk.slice(0, 300));
+  const fake = await cs.evaluate(() => new Promise(res => { window.postMessage({ type: 'carscout-page', url: 'https://evil.example/x', html: '<html>' + 'x'.repeat(300) + '</html>' }, '*'); setTimeout(() => res(true), 800); }));
+  check(fake && posted.length === 1, 'bookmark: a page from any other site (or the app itself) is ignored', posted.length);
   await ctx.close();
 }
 
