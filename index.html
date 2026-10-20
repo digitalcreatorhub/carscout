@@ -696,8 +696,8 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
 .thumbn{display:block;width:72px;height:54px;border-radius:8px;overflow:hidden;background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 130' fill='none' stroke='%235A6472' stroke-width='6'%3E%3Cpath d='M22 96 L22 78 Q24 66 38 62 L78 54 Q102 30 136 26 L206 24 Q236 24 254 42 L272 60 Q296 64 300 78 L300 96 Z'/%3E%3Ccircle cx='79' cy='96' r='22'/%3E%3Ccircle cx='243' cy='96' r='22'/%3E%3C/svg%3E") center/60% no-repeat;border:1px solid var(--line)}
 .thumbn img{width:100%;height:100%;object-fit:cover;display:block}
 #a-near td{vertical-align:middle}
-.yrm{display:none}@media (max-width:760px){.yrm{display:inline}} /* the year column is hidden on phones: the year goes under the title */
-@media (max-width:480px){#a-near .thc{display:none}#a-near td,#a-near th{padding-left:6px;padding-right:6px}} /* phones: no thumbnails, so the price difference column fits */
+.yrm,.kmm{display:none}@media (max-width:760px){.yrm{display:inline}} /* the year column is hidden on phones: the year goes under the title */
+@media (max-width:480px){#a-near .thc{display:none}#a-near th:nth-child(4),#a-near td:nth-child(4){display:none}.kmm{display:inline}#a-near td,#a-near th{padding-left:6px;padding-right:6px}} /* phones: no thumbnails, so the price difference column fits */
 @media (max-width:760px){.thc{width:66px}.thumbn{width:58px;height:44px}#a-near th:nth-child(3),#a-near td:nth-child(3){display:none}#a-near th:nth-child(2),#a-near td:nth-child(2){display:table-cell}}
 /* check-the-data card */
 .cgrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px}
@@ -2869,7 +2869,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-20.1', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-10-20.2', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -3401,7 +3401,7 @@ function pNear(v){
     '<div class="scroll"><table class="tbl"><thead><tr><th class="thc"></th><th>'+esc(L('Объявление','Listing'))+'</th><th class="r">'+esc(L('Год','Year'))+'</th><th class="r">'+esc(L('Пробег','Mileage'))+'</th><th class="r">'+esc(L('Цена','Price'))+'</th><th class="r">'+esc(L('К вашей','vs yours'))+'</th></tr></thead><tbody>'+v.near.slice(0,8).map(function(i){
       var d=c.price>0?(i.price-c.price)/c.price*100:null, u=safeUrl(i.url);
       var ti=i.img?aImg(i.img):''; var thumb='<td class="thc">'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" tabindex="-1">':'')+'<span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span>'+(u?'</a>':'')+'</td>';
-      return '<tr>'+thumb+'<td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(i.title||L('Объявление','Listing')).slice(0,48))+'</a>':esc(String(i.title||'').slice(0,48)))+'<div class="rn">'+esc(i.src+' · '+rname(i.region))+(i.year?'<span class="yrm"> · '+i.year+'</span>':'')+'</div></td><td class="r">'+(i.year||'–')+'</td><td class="r">'+(i.km!=null?esc(aKmTxt(i.km)):'–')+'</td><td class="r">'+esc(eur(i.price))+'</td><td class="r" style="color:var(--'+(d==null?'muted':d<0?'good':'bad')+')">'+(d!=null?esc(pct(d)):'–')+'</td></tr>'; }).join('')+'</tbody></table></div>'+
+      return '<tr>'+thumb+'<td>'+(u?'<a class="nl" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(String(i.title||L('Объявление','Listing')).slice(0,48))+'</a>':esc(String(i.title||'').slice(0,48)))+'<div class="rn">'+esc(i.src+' · '+rname(i.region))+(i.year?'<span class="yrm"> · '+i.year+'</span>':'')+(i.km!=null?'<span class="kmm"> · '+esc(aKmTxt(i.km))+'</span>':'')+'</div></td><td class="r">'+(i.year||'–')+'</td><td class="r">'+(i.km!=null?esc(aKmTxt(i.km)):'–')+'</td><td class="r">'+esc(eur(i.price))+'</td><td class="r" style="color:var(--'+(d==null?'muted':d<0?'good':'bad')+')">'+(d!=null?esc(pct(d)):'–')+'</td></tr>'; }).join('')+'</tbody></table></div>'+
     '<div class="abtns"><button class="btn sm" type="button" data-act="go-msg">'+esc(L('Сообщение продавцу','Message to the seller'))+'</button><button class="btn sm" type="button" data-act="nav-compare">'+esc(L('Сравнить с избранным','Compare with favourites'))+'</button></div>');
 }
 

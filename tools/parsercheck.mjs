@@ -143,6 +143,9 @@ const SSA = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/golf-7/aaaaaa.h
   const g = (o) => run('parseSsListing', ssAd(o), SSA).listing;
   const gas = g({ engine: '1.4 Бензин/Газ', gear: 'Механика', desc: 'Продаю Golf 7 1.4 TSI с газовым оборудованием, всё работает отлично, документы в порядке, торг.' });
   check(gas.fuel === 'petrol' && gas.lpg === true && gas.gearbox === 'manual', 'ss.com ad: petrol + gas is a petrol car with a gas installation (fuel petrol, lpg true)', gas);
+  /* ss.com in English writes "gasoline/gas" (a real BMW 418 ad, 20 Oct 2026: the daily check found lpg true in LV and RU, false in EN) */
+  const gasEn = g({ engine: '1.9 gasoline/gas', gear: 'Manual', desc: 'BMW 418 in good condition, documents in order, price negotiable, call any time.' });
+  check(gasEn.fuel === 'petrol' && gasEn.lpg === true, 'ss.com ad (EN): "gasoline/gas" is a petrol car with a gas installation, as in Latvian and Russian', gasEn);
   const hbo = g({ engine: '1.4', desc: 'Автомобиль в отличном состоянии, установлено ГБО 4 поколения, расход газа маленький, торг уместен.' });
   check(hbo.fuel === 'petrol' && hbo.lpg === true, 'ss.com ad: a gas installation named only in the text (ГБО) is found', hbo);
   const dsl = g({ engine: '2.0 Дизель', desc: 'Дизель, без газа и других переделок, продаю потому что купил новую машину, всё в порядке.' });

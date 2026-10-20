@@ -251,7 +251,7 @@ function fuelEarliest(s) {
   if (best.k === 'petrol' && hasLpg) return 'petrol';
   return best.k;
 }
-function hasLpg(s) { return /\blpg\b|\b(?:petrol|benzin\w*)\s*[\/+]\s*gas\b|\bgas\s*[\/+]\s*(?:petrol|benzin\w*)|(^|[^а-яёa-z])газ(?![а-яё])|(^|[^а-яё])газов\w*\s+(?:оборуд|установк|баллон)|(^|[^а-яё])гбо(?![а-яё])|(^|[^a-zāēīūčšž])gāz(?:e|es|i)(?![a-zāēīūčšž])|\bhbo\b|пропан|propān/i.test(String(s || '')); }
+function hasLpg(s) { return /\blpg\b|\b(?:petrol|gasoline|benzin\w*)\s*[\/+]\s*gas\b|\bgas\s*[\/+]\s*(?:petrol|gasoline|benzin\w*)|(^|[^а-яёa-z])газ(?![а-яё])|(^|[^а-яё])газов\w*\s+(?:оборуд|установк|баллон)|(^|[^а-яё])гбо(?![а-яё])|(^|[^a-zāēīūčšž])gāz(?:e|es|i)(?![a-zāēīūčšž])|\bhbo\b|пропан|propān/i.test(String(s || '')); }
 function normFuel(s) {
   s = String(s || '').toLowerCase();
   if (/diesel|d[iī]ze[lļ]|дизел|\bd\b/.test(s)) return 'diesel';
