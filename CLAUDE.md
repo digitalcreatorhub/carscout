@@ -22,3 +22,7 @@
 - The worker limits requests per address (RL_LIMIT in worker.js, best effort, per server instance) and cleans old rows
   out of the database once a day from the cron (ss.com and VIN ads are kept a year, other ads 120 days). Change those
   numbers only together with ratecheck / dbcheck: the free D1 plan allows 100 000 rows written a day.
+- Sites that refuse servers (autoplius, autogidas, auto24) are added only through the CarScout bookmark: the user opens the page in
+  their own browser and presses it; POST /api/import reads that HTML with the same readers and stores nothing (no D1 write, no fetch
+  from the site); the ads are kept only in the user's browser (localStorage, 3 days). Covered by parsercheck (import) and logiccheck
+  (import-* scenarios and the bookmark end-to-end block).

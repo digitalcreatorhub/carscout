@@ -319,4 +319,32 @@ const as24Page = (v = {}) => '<html><script id="__NEXT_DATA__" type="application
   check(e.asking_price === null && e.make === null, 'generic reader: a page with nothing gives empty fields, not made-up ones', e);
 }
 
+/* =====================================================================================================================
+   8. /api/import: a page the user opened in their own browser (autoplius, autogidas, auto24 refuse servers)
+   ===================================================================================================================== */
+{
+  const post = async (body, raw) => { ctx.__b = raw ?? JSON.stringify(body); return JSON.parse(await W(`__worker.fetch(new Request('https://carscout.test/api/import', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: __b }), env, { waitUntil() {} }).then(function (r) { return r.text(); })`)); };
+  const card = (id, price, year, km) => `<a href="https://en.autoplius.lt/ads/volkswagen-golf-${id}.html" class="announcement-item announcement-item-regular"><div class="announcement-body"><div class="announcement-title">Volkswagen Golf</div><div class="announcement-title-parameters"><div><span>${year}-03</span></div></div></div><div class="announcement-pricing-info"><strong> ${price} &euro;</strong></div><div class="announcement-parameters"><div class="announcement-parameters-block"><div><span>${km} km</span><span>Diesel</span><span>Automatic</span><span>2.0 l.</span></div></div></div></a>`;
+  const listHtml = '<html><body>' + [1, 2, 3, 4].map(k => card(20000000 + k, (9000 + k * 300) + '', 2017, 150000 + k * 5000)).join('') + '</body></html>';
+  const n0 = calls.length;
+  let r = await post({ url: 'https://en.autoplius.lt/ads/used-cars/volkswagen/golf', html: listHtml });
+  check(r.ok && r.kind === 'list' && r.region === 'LT' && r.items.length === 4 && r.items[0].price === 9300 && r.items[0].year === 2017 && r.items[0].km === 155000 && r.source === 'autoplius.lt', 'import: an autoplius search page the user opened gives its ads (Lithuania)', r);
+  check(calls.length === n0, 'import: nothing is fetched from the site (the page came from the user)', calls.length - n0);
+  const agCard = (id, price) => `<article class="list-item-new" data-price="${price}"><a href="/skelbimas/volkswagen-golf-${id}.html"><h2 class="item-title">Volkswagen Golf</h2></a><span class="parameter-value">2017 m.</span><span class="parameter-value">Dyzelinas</span><span class="parameter-value">160 000 km</span><span class="parameter-value">Automatinė</span><span class="parameter-value">2.0 L / 110 kW</span></article>`;
+  r = await post({ url: 'https://autogidas.lt/skelbimai/automobiliai/volkswagen/golf/', html: '<html>' + [1, 2, 3].map(k => agCard(k, 9500 + k * 100)).join('') + '</html>' });
+  check(r.ok && r.kind === 'list' && r.items.length === 3 && r.items[0].url === 'https://autogidas.lt/skelbimas/volkswagen-golf-1.html' && r.items[0].fuel === 'diesel' && r.items[0].engine_l === 2, 'import: an autogidas search page gives its ads', r.items && r.items[0]);
+  const a24Row = (id, price) => `<div class="result-row"><a href="/naudoti/${id}" class="main">Volkswagen Golf</a><span class="price">${price} €</span><div class="extra"><span class="year">2017</span><span class="mileage">160 000 km</span><span class="fuel">Dyzelinas</span><span class="transmission">Automatinė</span></div></div>`;
+  r = await post({ url: 'https://www.auto24.lt/naudoti/nimekiri.php?b=4', html: '<html>' + [11, 12, 13].map(k => a24Row(k, 9800)).join('') + '</html>' });
+  check(r.ok && r.kind === 'list' && r.region === 'LT' && r.items.length === 3 && r.items[0].url === 'https://www.auto24.lt/naudoti/11', 'import: an auto24.lt list keeps the links on auto24.lt (not auto24.ee)', r.items && r.items[0]);
+  const ad = `<html><head><title>Volkswagen Golf 2.0 TDI, 2017</title><script type="application/ld+json">${JSON.stringify({ '@type': 'Car', name: 'Volkswagen Golf 2.0 TDI', brand: { name: 'Volkswagen' }, model: 'Golf', offers: { price: '10900' }, mileageFromOdometer: { value: '158000' }, vehicleModelDate: '2017', fuelType: 'Diesel', vehicleTransmission: 'Automatic' })}</script></head><body><p>Volkswagen Golf 2.0 TDI, 2017, 158 000 km, 10 900 €. ` + 'x'.repeat(300) + '</p></body></html>';
+  r = await post({ url: 'https://en.autoplius.lt/ads/volkswagen-golf-2-0-l-hatchback-2017-diesel-29000001.html', html: ad });
+  check(r.ok && r.kind === 'ad' && r.listing.asking_price === 10900 && r.listing.mileage_km === 158000 && r.listing.year === 2017 && r.listing.make === 'Volkswagen' && r.region === 'LT', 'import: one autoplius ad the user opened is read like a link (make, year, mileage, price)', r.listing);
+  for (const [what, body, raw] of [['a site that is not supported', { url: 'https://evil.example/x', html: listHtml }], ['no page', { url: 'https://en.autoplius.lt/ads/x.html', html: '' }], ['not JSON', null, 'hello'], ['a page that is too big', { url: 'https://en.autoplius.lt/ads/x.html', html: 'x'.repeat(6000001) }]]) {
+    const x = await post(body, raw); check(x.ok === false && /bad_request|too_big/.test(x.error), 'import: refused: ' + what, x.error);
+  }
+  r = await post({ url: 'https://en.autoplius.lt/ads/x.html', html: '<html><body>' + 'nothing here '.repeat(40) + '</body></html>' });
+  check(r.ok === false && r.error === 'parse_failed', 'import: a page with no ads and no car gives "parse_failed", not made-up data', r);
+  check(W("rlKind('POST', '/api/import')") === 'write', 'import: counted against the write budget of the request limits', W("rlKind('POST', '/api/import')"));
+}
+
 finish();
