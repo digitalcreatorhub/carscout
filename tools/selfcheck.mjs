@@ -24,7 +24,7 @@ for (const cat of CATS) {
   for (const it of pick) {
     const id = it.url.replace(/^.*\/msg\/[a-z]{2}\//, '');
     const vars = { lv: 'https://www.ss.lv/msg/lv/' + id, ru: 'https://www.ss.com/msg/ru/' + id, en: 'https://www.ss.com/msg/en/' + id };
-    const got = {};
+    const got = {}, priceOff = [];
     for (const [lang, url] of Object.entries(vars)) {
       const j = await get('/api/listing', { url });
       if (!j.listing) { bad(`ss ${lang} ${url}`, j.error || 'no listing'); continue; }
@@ -33,15 +33,20 @@ for (const cat of CATS) {
       if (cat !== 'others' && l.mileage_km == null && it.km != null) miss.push('mileage_km');
       if (miss.length) bad(`ss ${lang} ${url}`, 'not read: ' + miss.join(', '));
       if (it.year && l.year && it.year !== l.year) bad(`ss ${lang} ${url}`, `year ${l.year}, list says ${it.year}`);
-      if (it.price && l.asking_price && Math.abs(it.price - l.asking_price) > 1) bad(`ss ${lang} ${url}`, `price ${l.asking_price}, list says ${it.price}`);
+      if (it.price && l.asking_price && Math.abs(it.price - l.asking_price) > 1) priceOff.push([lang, url, l.asking_price]);
       if (it.km && l.mileage_km && Math.abs(it.km - l.mileage_km) > 1000) bad(`ss ${lang} ${url}`, `mileage ${l.mileage_km}, list says ${it.km}`);
       if (it.fuel && l.fuel && fuelOf(it.fuel) !== fuelOf(l.fuel) && !(it.fuel === 'petrol' && l.fuel === 'hybrid')) bad(`ss ${lang} ${url}`, `fuel ${l.fuel}, engine column says ${it.fuel}`);
       adsChecked++;
     }
     const langs = Object.keys(got);
+    /* an ad edited (and lifted) minutes before the check can still show its old price in one cached copy for a moment: that is a warning,
+       not a reader error. "Edited" = the newest change date any of the three pages shows is less than 30 minutes old (Riga time). */
+    const ago = (u) => { if (!u) return Infinity; return Math.min(...['+02:00', '+03:00'].map(o => Math.abs(Date.now() - Date.parse(String(u).replace(' ', 'T') + o))).filter(x => x === x)); };
+    const edited = langs.some(l => ago(got[l].updated) < 30 * 60e3);
+    for (const [lang, url, p] of priceOff) { if (edited) warns.push(`- ss ${lang} ${url}: price ${p}, list says ${it.price} (the ad was edited minutes before the check)`); else bad(`ss ${lang} ${url}`, `price ${p}, list says ${it.price}`); }
     for (const k of ['make', 'model', 'year', 'mileage_km', 'asking_price', 'fuel', 'gearbox', 'lpg']) {
       const vals = [...new Set(langs.map(l => JSON.stringify(got[l][k])))];
-      if (vals.length > 1) bad(`ss languages differ ${id}`, `${k}: ` + langs.map(l => l + '=' + JSON.stringify(got[l][k])).join(' '));
+      if (vals.length > 1) (k === 'asking_price' && edited ? warns.push(`- ss languages differ ${id}: ${k} (the ad was edited minutes before the check): ` + langs.map(l => l + '=' + JSON.stringify(got[l][k])).join(' ')) : bad(`ss languages differ ${id}`, `${k}: ` + langs.map(l => l + '=' + JSON.stringify(got[l][k])).join(' ')));
     }
   }
 }
@@ -51,7 +56,9 @@ good(`ss: ${adsChecked} ad pages read (LV/RU/EN)`);
 {
   const list = await get('/api/search', { url: 'https://www.ss.com/ru/transport/cars/volkswagen/' });
   const it = (list.items || [])[0];
-  if (it) { const s = await get('/api/seller', { url: it.url }); if (!s.ok || s.views == null) bad('ss seller', s.error || 'no views'); else good(`ss seller: views ${s.views}, ${s.phoneLinked ? 'cars ' + s.carAds : 'no phone link (other ads hidden by seller)'}`); }
+  if (it) { let s = await get('/api/seller', { url: it.url });
+    /* the seller block takes three requests to ss.com; one of them failing now and then is not a reader error: try once more */
+    if (!s.ok || s.views == null) { await new Promise(r => setTimeout(r, 4000)); s = await get('/api/seller', { url: it.url }); } if (!s.ok || s.views == null) bad('ss seller', s.error || 'no views'); else good(`ss seller: views ${s.views}, ${s.phoneLinked ? 'cars ' + s.carAds : 'no phone link (other ads hidden by seller)'}`); }
 }
 
 // 3. comparables on every market
