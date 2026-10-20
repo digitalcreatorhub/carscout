@@ -929,7 +929,8 @@ async function hListing(env, q, ctx) {
   const url = q.get('url');
   if (!url || !allowed(url)) return json(env, { ok: false, error: 'bad_url', message: 'Link missing or site not supported.' }, 400);
   const host = new URL(url).hostname;
-  const p = await getPage(url, 600);
+  /* an ss.com ad is kept only 2 minutes: dealers edit the price and lift the ad often, and a 10-minute copy showed the old price (daily check, 20 Oct) */
+  const p = await getPage(url, /(^|\.)ss\.(com|lv)$/.test(host) ? 120 : 600);
   const b = blockedBy(p);
   if (b) return json(env, { ok: false, error: 'blocked', message: 'The site refused the server request (' + b + ').', diag: { status: p.status, bytes: p.text.length } });
   if (p.status === 404) { later(ctx, memGone(env, url)); return json(env, { ok: false, error: 'not_found', message: 'Listing page not found (removed or wrong link).' }); }
