@@ -9,12 +9,16 @@ on:
       - 'worker/**'
       - 'index.html'
       - 'tools/**'
+      - 'README.md'
+      - '.github/workflows/**'
       - '.github/workflows/lifecheck.yml'
   pull_request:
     paths:
       - 'worker/**'
       - 'index.html'
       - 'tools/**'
+      - 'README.md'
+      - '.github/workflows/**'
       - '.github/workflows/lifecheck.yml'
   workflow_dispatch:
 permissions:
@@ -32,3 +36,4 @@ jobs:
       - run: node --no-warnings tools/dbcheck.mjs
       - run: node --no-warnings tools/parsercheck.mjs
       - run: node --no-warnings tools/photocheck.mjs
+      - run: node --no-warnings tools/readmecheck.mjs

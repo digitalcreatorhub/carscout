@@ -19,6 +19,9 @@
   before changing worker/worker.js. The pages in parsercheck are built from what each reader looks for, not saved
   copies of live pages: when a site changes its markup and the daily selfcheck reports a reader failing, put the
   smallest piece of the failing page into a builder in tools/parsercheck.mjs and add the expected values.
+- README.md describes the parts, the /api/... addresses, the checks and the workflows. tools/readmecheck.mjs (offline, in
+  lifecheck.yml) fails when an address of worker/worker.js, a file in tools/ or a workflow is missing from the README, or the README names an
+  address the worker no longer answers. Whenever you add or remove one of those, update README.md in the same pull request.
 - The worker limits requests per address (RL_LIMIT in worker.js, best effort, per server instance) and cleans old rows
   out of the database once a day from the cron (ss.com and VIN ads are kept a year, other ads 120 days). Change those
   numbers only together with ratecheck / dbcheck: the free D1 plan allows 100 000 rows written a day.
