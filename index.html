@@ -2559,7 +2559,10 @@ function compute(car,results,f,notes){
     if(home.genPhoto) softWhy.push('photo'); /* the generation was guessed from the photos: a hint, so the verdict stays "approximate" */
     /* the compared cars are far older (or newer) than this one by mileage: a sign of a different generation or condition, whatever the reason */
     var kmH=home.items.filter(function(i){return i.km!=null}).map(function(i){return i.km});
-    if(car.km>0&&kmH.length>=4){ var mkm=median(kmH), rk=mkm/car.km; if(rk>=1.8||rk<=0.55){ softWhy.push('km'); ver.softKm={their:Math.round(mkm),mine:car.km,gen:!!(home.genFew!=null||home.genAmb)}; } }
+    /* was the price really corrected for mileage? Only by a price-mileage line of the compared ads, or by a correction taken from a bigger market.
+       Without either, the figure is the plain median of cars with a very different mileage, and must not be presented as corrected. */
+    var kmFixed=!!(home.stats&&home.stats.reg)||home.fair.source==='comps-adj';
+    if(car.km>0&&kmH.length>=4){ var mkm=median(kmH), rk=mkm/car.km; if(rk>=1.8||rk<=0.55){ softWhy.push('km'); ver.softKm={their:Math.round(mkm),mine:car.km,gen:!!(home.genFew!=null||home.genAmb),fixed:kmFixed}; } }
     if(softWhy.length) ver.soft=softWhy;
     /* a doubt about WHICH cars were compared (a known generation with few ads of it, another engine variant) together with any second doubt
        (few ads, a wide range, a mileage far from this car's), or two such doubts: a loud verdict would be a guess, so no verdict and no score
@@ -2569,6 +2572,12 @@ function compute(car,results,f,notes){
     var mism=softWhy.filter(function(w){return (w==='gen'&&home.genFew!=null)||w==='variant'}), stat=softWhy.indexOf('few')>-1||softWhy.indexOf('wide')>-1||softWhy.indexOf('km')>-1;
     if(mism.length>=2||(mism.length>=1&&stat)){
       ver={key:'unsure',delta:null,rawDelta:ver.delta,was:ver.key,soft:softWhy,softKm:ver.softKm}; score=null;
+    }
+    /* the mileage is far from the compared cars' and the price was NOT corrected for it, and the gap to the ads points the way the mileage explains
+       (a low-mileage car "above market", a high-mileage car "below market"): that gap is the mileage, not the price, so there is no verdict */
+    else if(ver.softKm&&!ver.softKm.fixed){
+      var lowKm=ver.softKm.mine<ver.softKm.their, byKm=lowKm?(ver.key==='high'||ver.key==='overpriced'):(ver.key==='good'||ver.key==='too_cheap');
+      if(byKm){ ver={key:'unsure',delta:null,rawDelta:ver.delta,was:ver.key,soft:softWhy,softKm:ver.softKm,kmOnly:true}; score=null; }
     }
   }
   var cross=null;
@@ -3263,7 +3272,9 @@ function aVerdictText(v){
   else if(k==='too_cheap') t=L('Подозрительно дёшево. Тщательно проверьте документы, пробег и историю.','Suspiciously cheap. Check the papers, mileage and history carefully.');
   else if(k==='unsure'){
     var rd=v.ver.rawDelta, rs=rd!=null?Math.abs(rd).toFixed(1).replace('.',',')+'%':'';
-    t=L('Надёжно оценить цену не получилось: найденные объявления слишком отличаются от этой машины. ','The price could not be judged reliably: the ads found differ too much from this car. ')
+    var sk=v.ver.kmOnly&&v.ver.softKm;
+    t=(sk?L('Пробег этой машины ('+fmt(sk.mine)+' км) '+(sk.mine<sk.their?'намного меньше':'намного больше')+', чем у найденных объявлений (в среднем '+fmt(sk.their)+' км), и пересчитать цену на пробег не удалось: честно сравнить цены нельзя. ','The mileage of this car ('+fmt(sk.mine)+' km) is much '+(sk.mine<sk.their?'lower':'higher')+' than in the ads found (typically '+fmt(sk.their)+' km), and the price could not be corrected for it: the prices cannot be compared fairly. ')
+      :L('Надёжно оценить цену не получилось: найденные объявления слишком отличаются от этой машины. ','The price could not be judged reliably: the ads found differ too much from this car. '))
       +(rd!=null&&Math.abs(rd)>=1?L('Цена в объявлении на '+rs+(rd>0?' выше':' ниже')+' этих объявлений, но это не вывод о рынке. ','The asking price is '+rs+(rd>0?' above':' below')+' those ads, which is not a conclusion about the market. '):'')
       +L('Сравните сами с машинами в списке ниже.','Compare it yourself with the cars in the list below.');
     return pre+t;
@@ -3302,7 +3313,8 @@ function vBasis(v){
     if(w.indexOf('years')>-1&&h.genName) pr.push(L('машин вашего поколения ('+h.genName+') в ваши годы мало, поэтому взяты машины этого же поколения с разницей до ±'+h.genWide+' л.: новее обычно дороже, поэтому оценка грубая','cars of your generation ('+h.genName+') are few in your years, so cars of the same generation up to ±'+h.genWide+' years apart are used: newer usually costs more, so the estimate is rough','jūsu paaudzes ('+h.genName+') auto jūsu gados ir maz, tāpēc ņemti tās pašas paaudzes auto līdz ±'+h.genWide+' gadiem: jaunāki parasti dārgāki'));
     if(w.indexOf('nbr')>-1&&v.altGen) pr.push(L('в '+rloc(v.altGen.from)+' машин вашего поколения ('+v.altGen.gen+') мало ('+v.altGen.fromN+'), поэтому взяты '+v.altGen.gen+' и из соседних стран, цены там могут слегка отличаться','cars of your generation ('+v.altGen.gen+') are few in '+rname(v.altGen.from)+' ('+v.altGen.fromN+'), so '+v.altGen.gen+' cars of the neighbouring countries are used too, prices there can differ slightly','jūsu paaudzes auto '+rloc(v.altGen.from)+' ir maz ('+v.altGen.fromN+'), tāpēc ņemti arī kaimiņvalstu auto'));
     if(w.indexOf('photo')>-1&&h.genName) pr.push(L('поколение ('+h.genName+') определено нейросетью по фото объявления, это подсказка: проверьте по объявлению','the generation ('+h.genName+') was guessed by a neural network from the listing photos, a hint only: check it in the listing','paaudze ('+h.genName+') noteikta pēc foto ar neironu tīklu, tā ir norāde'));
-    if(w.indexOf('km')>-1&&v.ver.softKm&&!v.ver.softKm.gen) pr.push(L('пробег найденных машин в среднем '+fmt(v.ver.softKm.their)+' км, у вашей '+fmt(v.ver.softKm.mine)+' км: цена поправлена на пробег, но близких по пробегу машин мало, поэтому оценка грубая','the compared cars have '+fmt(v.ver.softKm.their)+' km on average, yours '+fmt(v.ver.softKm.mine)+' km: the price is corrected for mileage, but few cars with a similar mileage exist, so the estimate is rough','atrasto auto nobraukums vidēji '+fmt(v.ver.softKm.their)+' km, jūsējam '+fmt(v.ver.softKm.mine)+' km: cena koriģēta pēc nobraukuma, bet līdzīga nobraukuma auto ir maz, tāpēc vērtējums ir aptuvens'));
+    if(w.indexOf('km')>-1&&v.ver.softKm&&!v.ver.softKm.fixed&&!v.ver.softKm.gen) pr.push(L('пробег найденных машин в среднем '+fmt(v.ver.softKm.their)+' км, у вашей '+fmt(v.ver.softKm.mine)+' км, а похожих по пробегу объявлений слишком мало, чтобы пересчитать цену на пробег: цена НЕ поправлена на пробег, и разница с ними во многом объясняется пробегом','the compared cars have '+fmt(v.ver.softKm.their)+' km on average, yours '+fmt(v.ver.softKm.mine)+' km, and there are too few ads of a similar mileage to correct the price for it: the price is NOT corrected for mileage, and much of the gap to them is the mileage','atrasto auto nobraukums vidēji '+fmt(v.ver.softKm.their)+' km, jūsējam '+fmt(v.ver.softKm.mine)+' km, un līdzīga nobraukuma sludinājumu ir par maz, lai cenu koriģētu: cena NAV koriģēta pēc nobraukuma'));
+    else if(w.indexOf('km')>-1&&v.ver.softKm&&!v.ver.softKm.gen) pr.push(L('пробег найденных машин в среднем '+fmt(v.ver.softKm.their)+' км, у вашей '+fmt(v.ver.softKm.mine)+' км: цена поправлена на пробег, но близких по пробегу машин мало, поэтому оценка грубая','the compared cars have '+fmt(v.ver.softKm.their)+' km on average, yours '+fmt(v.ver.softKm.mine)+' km: the price is corrected for mileage, but few cars with a similar mileage exist, so the estimate is rough','atrasto auto nobraukums vidēji '+fmt(v.ver.softKm.their)+' km, jūsējam '+fmt(v.ver.softKm.mine)+' km: cena koriģēta pēc nobraukuma, bet līdzīga nobraukuma auto ir maz, tāpēc vērtējums ir aptuvens'));
     else if(w.indexOf('km')>-1&&v.ver.softKm) pr.push(L('пробег сравниваемых машин (в среднем '+fmt(v.ver.softKm.their)+' км) сильно отличается от вашего ('+fmt(v.ver.softKm.mine)+' км): возможно, это другое поколение или состояние','the mileage of the compared cars (typically '+fmt(v.ver.softKm.their)+' km) is very different from yours ('+fmt(v.ver.softKm.mine)+' km): maybe another generation or condition','salīdzināto auto nobraukums ('+fmt(v.ver.softKm.their)+' km) ļoti atšķiras no jūsējā ('+fmt(v.ver.softKm.mine)+' km)'));
     sf=v.ver.key==='unsure'?L('Почему оценка неточная: '+pr.join(', ')+'.','Why the estimate is inexact: '+pr.join(', ')+'.','Kāpēc vērtējums neprecīzs: '+pr.join(', ')+'.')
       :L('Ориентировочная оценка: '+pr.join(', ')+'. Не считайте её точной.','Approximate estimate: '+pr.join(', ')+'. Do not treat it as exact.','Aptuvens vērtējums: '+pr.join(', ')+'.'); }

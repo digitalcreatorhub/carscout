@@ -233,11 +233,32 @@ const SCEN = [
       [/всеми комплектациями/.test(v.notes) && /R-Line/.test(v.notes), 'a note says it: few R-Line ads with other mileage, so all trims are compared', v.notes],
       [!/Оценка неточная/.test(v.verdict) && /ориентировочно/i.test(v.verdict) && /комплектация \(R-Line\)/.test(v.basis), 'the verdict is not "inexact", only approximate, and names the trim as a reason', v.verdict + ' | ' + v.basis]] },
   /* the Tiguan after that: all the ads of the market have 130-215 thousand km, this car 67 thousand. The generation is clear (2020 = the 2016-2023 body), so
-     this is not a doubt about WHICH cars were compared: the verdict stays (approximate, with the plain mileage reason), it is not "inexact estimate" */
-  { id: 'mileage-outlier-only-approximate', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig3.html', price: 22900, listing: { ...TIGUAN, mileage_km: 67092, asking_price: 22900 },
+     this is not a doubt about WHICH cars were compared, but only 5 ads are left (the same trim): too few for a price-mileage line, so the price is NOT
+     corrected for mileage and the 11% "above" is the mileage speaking. No verdict, the reason says so (before the C5 report this case kept "above market"
+     and claimed the price was corrected for mileage, which it was not) */
+  { id: 'mileage-outlier-uncorrected-no-verdict', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig3.html', price: 22900, listing: { ...TIGUAN, mileage_km: 67092, asking_price: 22900 },
     comps: { ss: [...tig(5, 20500, 190000, 'Volkswagen Tiguan R-Line 2.0 TDI', 0), ...tig(10, 21500, 150000, 'Volkswagen Tiguan 2.0 TDI', 20)] },
-    expect: v => [[!/Оценка неточная/.test(v.verdict) && /ориентировочно/i.test(v.verdict), 'a low-mileage car among high-mileage ads (the generation is clear) keeps its verdict, marked approximate', v.verdict],
-      [/цена поправлена на пробег/.test(v.basis) && !/другое поколение/.test(v.basis), 'and the reason is stated plainly (mileage-corrected, few similar-mileage cars), not as "maybe another generation"', v.basis]] },
+    expect: v => [[/Оценка неточная/.test(v.verdict) && /Пробег этой машины/.test(v.verdict), 'a low-mileage car among high-mileage ads and no mileage correction: "inexact estimate" with the mileage as the reason', v.verdict],
+      [/НЕ поправлена на пробег/.test(v.basis) && !/другое поколение/.test(v.basis) && !/цена поправлена на пробег/.test(v.basis), 'the basis says plainly the price is not corrected for mileage, not "maybe another generation"', v.basis]] },
+  /* the price-mileage line exists (12 ads with a clear fall of price with mileage): the price IS corrected for mileage, so the verdict stays, marked approximate */
+  { id: 'mileage-outlier-corrected-keeps-verdict', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig4.html', price: 20000, listing: { ...TIGUAN, mileage_km: 67092, asking_price: 20000 },
+    comps: { ss: Array.from({ length: 12 }, (_, k) => ({ price: Math.round(16500 - k * 500 + (k % 2 ? 150 : -150)), km: 150000 + k * 10000, year: 2020, url: ssUrl(120 + k), title: 'Volkswagen Tiguan 2.0 TDI', fuel: 'diesel', gear: 'automatic', engine_l: 2.0 })) },
+    expect: v => [[!/Оценка неточная/.test(v.verdict) && /ориентировочно/i.test(v.verdict), 'with a price-mileage line the low-mileage car keeps its verdict, marked approximate', v.verdict],
+      [/цена поправлена на пробег/.test(v.basis) && !/НЕ поправлена/.test(v.basis), 'and the basis says the price is corrected for mileage', v.basis]] },
+  /* the Citroen C5 the user reported: 2011, 58 thousand km, 6 500 EUR, while the six similar ads all have about 200 thousand km and cost 3 500-4 500.
+     Six ads are too few to draw a price-mileage line, so the figure is a plain median and is NOT corrected for mileage: "above market" would be the
+     mileage speaking, not the price. No verdict, and the page must not claim the price was corrected for mileage */
+  { id: 'low-mileage-uncorrected-no-verdict', url: 'https://www.ss.com/msg/ru/transport/cars/citroen/c5/zzc5low.html', price: 6500,
+    listing: { make: 'Citroen', model: 'C5', year: 2011, mileage_km: 57900, asking_price: 6500, fuel: 'petrol', gearbox: 'automatic', engine_l: 1.6, description: 'Citroen C5 1.6 automāts, tikai 58 000 km nobraukums', src: {} },
+    comps: { ss: Array.from({ length: 6 }, (_, k) => ({ price: 3500 + k * 200, km: 200000, year: 2011, url: ssUrl(60 + k), title: 'Citroen C5 1.6 THP', fuel: 'petrol', gear: 'automatic', engine_l: 1.6 })) },
+    expect: v => [[/Оценка неточная/.test(v.verdict) && !/Выше рынка/.test(v.verdict), 'a car with 58 thousand km among ads with 200 thousand, price not corrected for mileage: "inexact estimate", not "above market"', v.verdict],
+      [/Пробег этой машины/.test(v.verdict) && /намного меньше/.test(v.verdict), 'the verdict says the mileage is the reason', v.verdict],
+      [/НЕ поправлена на пробег/.test(v.basis) && !/цена поправлена на пробег/.test(v.basis), 'the basis says the price is NOT corrected for mileage', v.basis]] },
+  /* the same the other way round: a car with far more mileage than the ads, cheaper, and nothing corrects for it: not "below market" */
+  { id: 'high-mileage-uncorrected-no-verdict', url: 'https://www.ss.com/msg/ru/transport/cars/citroen/c5/zzc5high.html', price: 2500,
+    listing: { make: 'Citroen', model: 'C5', year: 2011, mileage_km: 380000, asking_price: 2500, fuel: 'petrol', gearbox: 'automatic', engine_l: 1.6, description: 'Citroen C5 1.6 automāts', src: {} },
+    comps: { ss: Array.from({ length: 6 }, (_, k) => ({ price: 3500 + k * 200, km: 150000, year: 2011, url: ssUrl(80 + k), title: 'Citroen C5 1.6 THP', fuel: 'petrol', gear: 'automatic', engine_l: 1.6 })) },
+    expect: v => [[/Оценка неточная/.test(v.verdict) && !/Ниже рынка|Подозрительно/.test(v.verdict), 'a car with far more mileage than the ads, no mileage correction: "inexact estimate", not "below market"', v.verdict]] },
   /* the same trim ads fit the mileage: they are used, and the page now SAYS the comparison is with that trim only */
   { id: 'trim-same-says-so', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig2.html', price: 25000, listing: TIGUAN,
     comps: { ss: [...tig(6, 26500, 60000, 'Volkswagen Tiguan R-Line 2.0 TDI', 0), ...tig(10, 24000, 90000, 'Volkswagen Tiguan 2.0 TDI', 20)] },
