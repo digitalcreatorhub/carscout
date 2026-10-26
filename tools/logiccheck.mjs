@@ -251,9 +251,19 @@ const SCEN = [
   { id: 'low-mileage-uncorrected-no-verdict', url: 'https://www.ss.com/msg/ru/transport/cars/citroen/c5/zzc5low.html', price: 6500,
     listing: { make: 'Citroen', model: 'C5', year: 2011, mileage_km: 57900, asking_price: 6500, fuel: 'petrol', gearbox: 'automatic', engine_l: 1.6, description: 'Citroen C5 1.6 automāts, tikai 58 000 km nobraukums', src: {} },
     comps: { ss: Array.from({ length: 6 }, (_, k) => ({ price: 3500 + k * 200, km: 200000, year: 2011, url: ssUrl(60 + k), title: 'Citroen C5 1.6 THP', fuel: 'petrol', gear: 'automatic', engine_l: 1.6 })) },
-    expect: v => [[/Оценка неточная/.test(v.verdict) && !/Выше рынка/.test(v.verdict), 'a car with 58 thousand km among ads with 200 thousand, price not corrected for mileage: "inexact estimate", not "above market"', v.verdict],
-      [/Пробег этой машины/.test(v.verdict) && /намного меньше/.test(v.verdict), 'the verdict says the mileage is the reason', v.verdict],
-      [/НЕ поправлена на пробег/.test(v.basis) && !/цена поправлена на пробег/.test(v.basis), 'the basis says the price is NOT corrected for mileage', v.basis]] },
+    expect: v => [[/Редкий пробег/.test(v.verdict) && !/Выше рынка|Оценка неточная/.test(v.verdict), 'a 15-year-old car with 58 thousand km (3.9 thousand a year) among ads with 200 thousand: "rare low mileage, worth a look", not "above market"', v.verdict],
+      [/Балл показывает редкость пробега/.test(v.verdict) && /убедитесь, что пробег настоящий/.test(v.body) && /csdd\.lv/.test(v.body), 'the text says the score is about the mileage, and the page tells to check that the mileage is genuine (csdd.lv)', v.verdict],
+      [/7[,.]9/.test(v.ring), 'the score is the rarity of the mileage (3.5 times fewer km than the ads: 7.9)', v.ring],
+      [!/Предложить|предложение/.test(v.verdict), 'no counter-offer is built from cars of another mileage', v.verdict]] },
+  /* the same old low-mileage car, but asked for more than double the typical price: not a "find" */
+  { id: 'low-mileage-double-price-not-rare', url: 'https://www.ss.com/msg/ru/transport/cars/citroen/c5/zzc5dbl.html', price: 9500,
+    listing: { make: 'Citroen', model: 'C5', year: 2011, mileage_km: 57900, asking_price: 9500, fuel: 'petrol', gearbox: 'automatic', engine_l: 1.6, description: 'Citroen C5 1.6 automāts', src: {} },
+    comps: { ss: Array.from({ length: 6 }, (_, k) => ({ price: 3500 + k * 200, km: 200000, year: 2011, url: ssUrl(100 + k), title: 'Citroen C5 1.6 THP', fuel: 'petrol', gear: 'automatic', engine_l: 1.6 })) },
+    expect: v => [[!/Редкий пробег/.test(v.verdict), 'more than double the typical price is not called a rare find', v.verdict]] },
+  /* a young car (2020) with low mileage is not "rare for its age" */
+  { id: 'young-low-mileage-not-rare', url: 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/zztig5.html', price: 22900, listing: { ...TIGUAN, mileage_km: 30000, asking_price: 22900 },
+    comps: { ss: [...tig(5, 20500, 190000, 'Volkswagen Tiguan R-Line 2.0 TDI', 0), ...tig(10, 21500, 150000, 'Volkswagen Tiguan 2.0 TDI', 20)] },
+    expect: v => [[!/Редкий пробег/.test(v.verdict), 'a 6-year-old car is not "rare mileage for its age"', v.verdict]] },
   /* the same the other way round: a car with far more mileage than the ads, cheaper, and nothing corrects for it: not "below market" */
   { id: 'high-mileage-uncorrected-no-verdict', url: 'https://www.ss.com/msg/ru/transport/cars/citroen/c5/zzc5high.html', price: 2500,
     listing: { make: 'Citroen', model: 'C5', year: 2011, mileage_km: 380000, asking_price: 2500, fuel: 'petrol', gearbox: 'automatic', engine_l: 1.6, description: 'Citroen C5 1.6 automāts', src: {} },
