@@ -256,6 +256,28 @@ check(res.ok && res.market && res.market.sold === ls.events && res.market.days =
   }
   const off = vm.createContext({ S: { lang: 'ru' }, lvT: x => x, console }); vm.runInContext(code.replace('TRIP_BETA=true', 'TRIP_BETA=false') + '\n' + html.slice(html.indexOf('function tripBeta'), tz), off);
   check(vm.runInContext('tripBeta({ car: {} })', off) === '', 'with the test switch off the trip block is not drawn');
+
+  /* the cost of 100 km of an electric car */
+  check(e('evCons("Tesla","Model 3")') === 16 && e('evCons("Porsche","Taycan")') === 21 && e('evCons("Renault","Zoe")') === 16 && e('evCons("Kia","EV6")') === 18 && e('evCons(null,null)') === 18, 'EV consumption guide by class');
+  check(e('evCost100(18, 0.22)') === 4 && e('evCost100(18, 0.4)') === 7.2 && e('evCost100(16, 0.2)') === 3.2, 'EV cost of 100 km = kWh/100 km × price, one decimal');
+  check(e('evMoney(7.2)') === '7,2 €' && e('evMoney(null)') === '–', 'EV money is written with a comma and a euro sign');
+  check(e('evLine(18, 0.22, 0.4, 7, 2.038)') === '100 км: ≈ 4,0 € на домашней зарядке, ≈ 7,2 € на быстрой. Бензиновая машина (7 л/100 км) — ≈ 14,3 €. Дома на 100 км дешевле бензина на ≈ 10,3 €.', 'EV line: home, fast and the petrol comparison', e('evLine(18, 0.22, 0.4, 7, 2.038)'));
+  for (const lang of ['en', 'lv']) {
+    const t = J(mkctx(lang), 'evLine(18, 0.22, 0.4, 7, 2.038)');
+    check(t.length > 80 && !/undefined|NaN|null/.test(t) && /4,0 €/.test(t) && /14,3 €/.test(t), lang + ': EV line is complete', t);
+  }
+  {
+    const evCode = code + '\n' + line(/^function isEvCar\(c\)\{[\s\S]*?\n\}/m) + '\n' + html.slice(html.indexOf('function evBlock'), html.indexOf('function evRecalc'));
+    const mk = (lang, extra = '') => { const c = vm.createContext({ S: { lang }, lvT: x => x, console }); vm.runInContext(evCode + '\n' + extra, c); return c; };
+    const tesla = { sell: false, car: { make: 'Tesla', model: 'Model 3', fuel: 'electric' } };
+    const blk = J(mk('ru'), `evBlock(${JSON.stringify(tesla)})`);
+    check(/id="ev-cost"/.test(blk) && /id="ev-cons" inputmode="decimal" value="16"/.test(blk) && /≈ 3,5 € на домашней/.test(blk), 'EV ad: the 100 km block is drawn with the editable fields', blk && blk.slice(0, 80));
+    check(J(mk('ru'), `evBlock(${JSON.stringify({ sell: false, car: { make: 'Skoda', model: 'Octavia', fuel: 'petrol' } })})`) === '', 'a petrol car gets no EV block');
+    check(J(mk('ru'), `evBlock(${JSON.stringify({ sell: true, car: { make: 'Tesla', model: 'Model 3', fuel: 'electric' } })})`) === '', 'selling your own car: no EV block');
+    check(J(mk('ru', 'EV_COST=false;'), `evBlock(${JSON.stringify(tesla)})`) === '', 'with the test switch off the EV block is not drawn');
+    const lv = J(mk('lv'), `evBlock(${JSON.stringify(tesla)})`);
+    check(/Cik maksā 100 km/.test(lv) && !/undefined|NaN/.test(lv), 'EV block in Latvian is complete');
+  }
 }
 
 /* ---------- 9. the verdict picture: what it says (the drawing itself is checked by looking at it in a browser) ---------- */
