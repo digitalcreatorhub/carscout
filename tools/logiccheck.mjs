@@ -135,6 +135,8 @@ const SCEN = [
     expect: v => [[!v.ui.narrow.length, 'a note without an icon ("seller data unavailable", "no obvious pros") spans the row, not one word per line', v.ui.narrow],
       [!v.ui.nearClip, 'the closest-listings table fits the phone (the "vs yours" column is not cut off)', v.ui.nearClip],
       [!v.ui.pageScroll, 'the page does not scroll sideways', v.ui.pageScroll],
+      [v.ui.kpiOrder, 'the key numbers (fair price, vs market) come right after the verdict and before the "check the data" form', v.ui.kpiOrder],
+      [v.ui.closedSrc === 1 && v.ui.offChips.length === Number(v.ui.offCount) && new Set(v.ui.offChips).size === v.ui.offChips.length, 'sites closed to servers are listed once with one reason, each site once', v.ui],
       [!v.ui.planOverlap, 'the labels of the negotiation scale do not overlap', v.ui.planOverlap],
       [new Set(v.ui.names).size === v.ui.names.length && /C8/.test(v.ui.names[0] || ''), 'the markets chart shows each country once, the C8 pool the verdict is based on first', v.ui.names],
       [/^Распределение цен C8/i.test(v.hist), 'the price distribution opens on the C8 cars the verdict is based on, not on all bodies in Latvia', v.hist.slice(0, 80)],
@@ -323,7 +325,12 @@ for (const sc of SCEN) {
     const pt = [...document.querySelectorAll('#a-plan svg text')].map(box); let planOverlap = false;
     for (let i = 0; i < pt.length; i++) for (let j = i + 1; j < pt.length; j++) if (over(pt[i], pt[j])) planOverlap = true;
     const names = [...document.querySelectorAll('#a-markets svg text.tv')].map(e => e.textContent).filter(t => !/€/.test(t));
-    return { narrow, nearClip, planOverlap, names, pageScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 };
+    /* result page order: the key numbers come right after the verdict, before the form that corrects the data; sites that gave nothing for the same reason are listed once */
+    const kp = document.querySelector('#a-kpis'), fm = document.querySelector('#a-check'), vd = document.querySelector('#a-verdict');
+    const kpiOrder = !!(kp && fm && vd && vd.getBoundingClientRect().top <= kp.getBoundingClientRect().top + 1 && kp.getBoundingClientRect().top < fm.getBoundingClientRect().top);
+    const srcText = (document.querySelector('#sec-src') || { innerText: '' }).innerText, closedSrc = (srcText.match(/закрыт для серверов/g) || []).length;
+    const offChips = [...document.querySelectorAll('#sec-src li.srcoff .chip')].map(e => e.textContent.trim()), offCount = (document.querySelector('#sec-src li.srcoff .soc') || {}).textContent;
+    return { kpiOrder, closedSrc, offChips, offCount, narrow, nearClip, planOverlap, names, pageScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 };
   });
   for (const [cond, what, detail] of sc.expect(v)) check(cond, sc.id + ': ' + what, detail);
   await ctx.close();
