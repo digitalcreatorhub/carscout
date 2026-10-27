@@ -3909,7 +3909,7 @@ function pLife(v){
     if(others.length) parts+='<div class="shh"><i style="background:var(--muted)"></i>'+esc(L('Другие машины продавца','The seller’s other cars','Citi pārdevēja auto'))+' ('+others.length+')</div><div class="sthumbs">'+others.slice(0,8).map(function(i){ var u=safeUrl(i.url), ti=i.img?aImg(i.img):''; return '<a href="'+esc(u||'#')+'" target="_blank" rel="noopener noreferrer" title="'+esc(String(i.title||'').slice(0,80))+'"><span class="thumbn">'+(ti?'<img src="'+esc(ti)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'</span><small>'+esc([(i.mk||'').replace(/-/g,' '),i.year].filter(Boolean).join(' '))+'<br>'+esc(eur(i.price))+'</small></a>'; }).join('')+'</div>'+(se.searchUrl&&safeUrl(se.searchUrl)?'<p class="mini"><a class="nl" href="'+esc(safeUrl(se.searchUrl))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Все объявления продавца на ss.lv','All the seller’s ads on ss.lv','Visi pārdevēja sludinājumi ss.lv'))+'</a></p>':'');
   }
   return aPanel('a-life','c7',aHead(L('Объявление и продавец','The ad and the seller','Sludinājums un pārdevējs'),aMeta(isSs?L('данные ss.lv','ss.lv data','ss.lv dati'):(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})())),
-    (isSs||o.days!=null?kp:'')+mapBlock(c)+tripBeta(v)+histBlock(v)+'<ul class="ls">'+fl+'</ul>'+parts+(v.photoState==='run'?'<p class="anote">'+esc(L('Сравниваю фото с другими объявлениями…','Comparing photos with other ads…','Salīdzinu foto ar citiem sludinājumiem…'))+'</p>':''));
+    (isSs||o.days!=null?kp:'')+mapBlock(c)+tripBeta(v)+evBlock(v)+histBlock(v)+'<ul class="ls">'+fl+'</ul>'+parts+(v.photoState==='run'?'<p class="anote">'+esc(L('Сравниваю фото с другими объявлениями…','Comparing photos with other ads…','Salīdzinu foto ar citiem sludinājumiem…'))+'</p>':''));
 }
 
 /* ---- what is known about this car's history: shown only when something was actually found ---- */
@@ -4825,6 +4825,24 @@ renderA=function(v){ var h=memRender0(v); if(!v||!v.mem||v.sell) return h; var m
 /*BETA-PURE-START*/
 var DROP_DAYS=5, TRIP_BETA=true;
 var FUEL_REF={date:'2026-09-28',petrol:2.038,diesel:2.133};
+/* Running cost of an electric car: a guide, every number can be changed on the card. Home price is a typical household tariff
+   (entered by hand), the fast-charger price is the typical public DC price seen in Latvia in October 2026 (Uzlādes Radars live data). */
+var EV_COST=true, EV_REF={date:'2026-10-27',home:0.22,fast:0.40};
+function evCons(make,model){
+  var s=(String(make||'')+' '+String(model||'')).toLowerCase();
+  if(/taycan|e[\s\-]?tron|\bix\d?\b|q4|cybertruck|model[\s\-]?x|buzz|\bid\.?\s?[78]\b/.test(s)) return 21;
+  if(/spring|zoe|leaf|e[\s\-]?up|corsa[\s\-]?e|\b208|\bi3\b|dolphin|seagull|\bora\b/.test(s)) return 16;
+  if(/model[\s\-]?[3y]\b/.test(s)) return 16;
+  return 18;
+}
+function evCost100(cons,price){ return Math.round(cons*price*10)/10; }
+function evMoney(n){ return n==null||!isFinite(n)?'–':n.toFixed(1).replace('.',',')+' €'; }
+function evLine(cons,home,fast,pCons,pPrice){
+  var h=evCost100(cons,home), f=evCost100(cons,fast), g=evCost100(pCons,pPrice), save=Math.round((g-h)*10)/10;
+  return L('100 км: ≈ '+evMoney(h)+' на домашней зарядке, ≈ '+evMoney(f)+' на быстрой. Бензиновая машина ('+String(pCons).replace('.',',')+' л/100 км) — ≈ '+evMoney(g)+'. Дома на 100 км дешевле бензина на ≈ '+evMoney(save)+'.',
+    '100 km: ≈ '+evMoney(h)+' charging at home, ≈ '+evMoney(f)+' on a fast charger. A petrol car ('+String(pCons).replace('.',',')+' l/100 km) costs ≈ '+evMoney(g)+'. Home charging saves ≈ '+evMoney(save)+' per 100 km against petrol.',
+    '100 km: ≈ '+evMoney(h)+' uzlādējot mājās, ≈ '+evMoney(f)+' ātrajā lādētājā. Benzīna auto ('+String(pCons).replace('.',',')+' l/100 km) — ≈ '+evMoney(g)+'. Mājās 100 km ir lētāki par benzīnu apmēram par '+evMoney(save)+'.');
+}
 /* A drop counts only when the price fell within the last `days` days and has not gone back up since. */
 function recentDrop(hist,now,days){
   var ps=[]; (hist||[]).filter(function(x){return x&&x.p>0&&x.t>0}).sort(function(a,b){return a.t-b.t}).forEach(function(x){ if(!ps.length||ps[ps.length-1].p!==x.p) ps.push(x); });
@@ -4921,6 +4939,24 @@ function tripRecalc(){
   o.textContent=tripLine(parseFloat(b.getAttribute('data-km')),num('trip-mode',2),num('trip-cons',parseFloat(b.getAttribute('data-cons'))),num('trip-price',parseFloat(b.getAttribute('data-price'))),g===''||g==null?null:parseFloat(g));
 }
 document.addEventListener('input',function(e){ var t=e.target; if(t&&t.closest&&t.closest('#trip-beta')) tripRecalc(); });
+function evBlock(v){
+  if(!EV_COST||!v||v.sell||!v.car||!isEvCar(v.car)) return '';
+  var c=v.car, cons=evCons(c.make,c.model), pc=tripCons('petrol',1.6), pp=FUEL_REF.petrol;
+  var inp=function(id,lab,val){ return '<label class="ff"><span>'+esc(lab)+'</span><input class="in" id="'+id+'" inputmode="decimal" value="'+esc(String(val).replace('.',','))+'"></label>'; };
+  return '<div class="shh"><i style="background:var(--warn)"></i>'+esc(L('Сколько стоят 100 км','What 100 km costs','Cik maksā 100 km'))+'<span class="betab">'+esc(L('тест','beta','tests'))+'</span></div>'+
+    '<div id="ev-cost" data-pcons="'+pc+'" data-pprice="'+pp+'">'+
+    '<div class="row3">'+inp('ev-cons',L('Расход, кВт·ч/100 км','Consumption, kWh/100 km','Patēriņš, kWh/100 km'),cons)+inp('ev-home',L('Дома, €/кВт·ч','Home, €/kWh','Mājās, €/kWh'),EV_REF.home)+inp('ev-fast',L('Быстрая, €/кВт·ч','Fast charger, €/kWh','Ātrā, €/kWh'),EV_REF.fast)+'</div>'+
+    '<p class="rn" id="ev-out" style="margin-top:8px">'+esc(evLine(cons,EV_REF.home,EV_REF.fast,pc,pp))+'</p>'+
+    '<p class="anote">'+esc(L('Расход — ориентир для такого класса машин, не для этого экземпляра: зимой он заметно выше. Цены за кВт·ч внесены вручную на '+memDate(new Date(EV_REF.date+'T12:00:00').getTime())+' (дом — типичный тариф, быстрая — типичная цена публичных зарядок в Латвии), поправьте под свой тариф. Бензин: 7 л/100 км по '+String(pp).replace('.',',')+' €/л (цена ЕК на '+memDate(new Date(FUEL_REF.date+'T12:00:00').getTime())+'). Батарея и её износ здесь не считаются. Тестовая функция.',
+      'The consumption is a guide for this class of car, not for this very one: it is clearly higher in winter. The kWh prices were entered by hand on '+memDate(new Date(EV_REF.date+'T12:00:00').getTime())+' (home is a typical tariff, fast is the typical public charger price in Latvia), please change them to your own tariff. Petrol: 7 l/100 km at '+String(pp).replace('.',',')+' €/l (EC bulletin of '+memDate(new Date(FUEL_REF.date+'T12:00:00').getTime())+'). The battery and its wear are not counted. Test feature.',
+      'Patēriņš ir orientieris šādas klases auto, nevis šim eksemplāram: ziemā tas ir manāmi lielāks. kWh cenas ievadītas ar roku '+memDate(new Date(EV_REF.date+'T12:00:00').getTime())+' (mājās — tipisks tarifs, ātrā — tipiska publisko lādētāju cena Latvijā), izlabojiet pēc sava tarifa. Benzīns: 7 l/100 km par '+String(pp).replace('.',',')+' €/l (EK biļetens '+memDate(new Date(FUEL_REF.date+'T12:00:00').getTime())+'). Akumulators un tā nolietojums netiek skaitīts. Testa funkcija.'))+'</p></div>';
+}
+function evRecalc(){
+  var b=document.getElementById('ev-cost'), o=document.getElementById('ev-out'); if(!b||!o) return;
+  var num=function(id,d,max){ var e=document.getElementById(id), x=e?parseFloat(String(e.value).replace(',','.')):NaN; return isFinite(x)&&x>0&&x<max?x:d; };
+  o.textContent=evLine(num('ev-cons',18,100),num('ev-home',EV_REF.home,5),num('ev-fast',EV_REF.fast,5),parseFloat(b.getAttribute('data-pcons')),parseFloat(b.getAttribute('data-pprice')));
+}
+document.addEventListener('input',function(e){ var t=e.target; if(t&&t.closest&&t.closest('#ev-cost')) evRecalc(); });
 
 /* ======================= Verdict card: a picture to send. Drawn on this device; nothing is uploaded. =======================
    No seller contact data, no photos from the ad, no notes. Text is made by cardLines (tested in tools/lifecheck.mjs). */
