@@ -962,7 +962,8 @@ const SS_GEN = {
    ss.com does not disallow /filter/ (it disallows the sort links, which are not used). Any doubt -> null, and the caller
    reads the plain category pages as before: a filter that was not applied (years outside the range come back), a refusal,
    an empty answer. The pages are not cached: the content depends on the cookie. */
-async function fetchSsYears(base, yf, yt, maxPages) {
+async function fetchSsYears(base, yf, yt, maxPages, info) {
+  const why = function (s) { if (info) info.why = s; return null; };
   try {
     const url = base + 'filter/';
     const hdr = { 'user-agent': UA, 'accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8', 'accept-language': 'en-US,en;q=0.9,lv;q=0.8,ru;q=0.7' };
@@ -972,18 +973,30 @@ async function fetchSsYears(base, yf, yt, maxPages) {
       sc.forEach(function (c) { const m = String(c).match(/^\s*([^=;\s]+)=([^;]*)/); if (m) jar[m[1]] = m[2]; });
     };
     const cookie = function () { return Object.keys(jar).map(function (k) { return k + '=' + jar[k]; }).join('; '); };
+    const withCookie = function (extra) { const c = cookie(); return Object.assign({}, hdr, extra || {}, c ? { 'cookie': c } : {}); };
+    /* ss.com ties the filter to a session cookie that must exist BEFORE the filter is posted: a POST without it is answered with a
+       redirect to the plain, unfiltered category. So: open the category first (that gives the cookie), then post. If the answer still
+       is not the filter page, the cookie of that answer is in the jar and the post is repeated once. */
+    take(await fetch(base, { headers: withCookie(), redirect: 'manual' }));
     const body = 'topt%5B18%5D%5Bmin%5D=' + yf + '&topt%5B18%5D%5Bmax%5D=' + yt;
-    let r = await fetch(url, { method: 'POST', headers: Object.assign({ 'content-type': 'application/x-www-form-urlencoded', 'referer': url }, hdr), body: body, redirect: 'manual' });
-    take(r);
-    for (let hop = 0; hop < 2 && r.status >= 300 && r.status < 400 && r.headers.get('location'); hop++) {
-      const next = new URL(r.headers.get('location'), url).href;
-      if (!/^https:\/\/www\.ss\.(com|lv)\//.test(next)) return null;
-      r = await fetch(next, { headers: Object.assign({ 'cookie': cookie() }, hdr), redirect: 'manual' });
+    let r = null, cur = url;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      cur = url;
+      r = await fetch(url, { method: 'POST', headers: withCookie({ 'content-type': 'application/x-www-form-urlencoded', 'referer': url }), body: body, redirect: 'manual' });
       take(r);
+      for (let hop = 0; hop < 3 && r.status >= 300 && r.status < 400 && r.headers.get('location'); hop++) {
+        const next = new URL(r.headers.get('location'), cur).href;
+        if (!/^https:\/\/www\.ss\.(com|lv)\//.test(next)) return why('redirect to ' + next.slice(0, 60));
+        cur = next;
+        r = await fetch(next, { headers: withCookie(), redirect: 'manual' });
+        take(r);
+      }
+      if (r.status === 200 && /\/filter\/$/.test(cur)) break;
     }
-    if (r.status !== 200) return null;
+    if (r.status !== 200) return why('post answer ' + r.status);
     const first = { status: 200, url: url, text: (await r.text()).slice(0, 3000000) };
-    if (!/id="tr_\d/.test(first.text)) return null;
+    if (!/id="tr_\d/.test(first.text)) return why('no ads in the answer');
+    if (!/\/filter\/$/.test(cur)) return why('answer is not the filter page (' + cur.replace(/^https:\/\/www\.ss\.(com|lv)/, '').slice(0, 50) + ')');
     let last = 1; const re = /filter\/page(\d+)\.html/g; let m;
     while ((m = re.exec(first.text))) last = Math.max(last, parseInt(m[1], 10));
     last = Math.min(last, maxPages);
@@ -991,14 +1004,14 @@ async function fetchSsYears(base, yf, yt, maxPages) {
     for (let k = 2; k <= last; k++) rest.push(k);
     const more = await Promise.all(rest.map(function (k) {
       const u = url + 'page' + k + '.html';
-      return fetch(u, { headers: Object.assign({ 'cookie': cookie() }, hdr), redirect: 'follow' }).then(function (x) { return x.text().then(function (t) { return { status: x.status, url: u, text: t.slice(0, 3000000) }; }); }).catch(function () { return { status: 0, url: u, text: '' }; });
+      return fetch(u, { headers: withCookie(), redirect: 'follow' }).then(function (x) { return x.text().then(function (t) { return { status: x.status, url: u, text: t.slice(0, 3000000) }; }); }).catch(function (e) { return { status: 0, text: '', url: u }; });
     }));
     const pages = [first].concat(more);
     let n = 0, ok = 0;
     pages.forEach(function (p) { if (p.status === 200) parseSsList(p.text, p.url).forEach(function (i) { n++; if (i.year >= yf && i.year <= yt) ok++; }); });
-    if (!n || ok < n * 0.8) return null;   /* the filter was not applied: do not trust these pages */
+    if (!n || ok < n * 0.8) return why('filter not applied (' + ok + ' of ' + n + ' in the years)');
     return pages;
-  } catch (e) { return null; }
+  } catch (e) { return why('error ' + String(e && e.message || e).slice(0, 60)); }
 }
 async function hComps(env, q, ctx) {
   const source = q.get('source');
@@ -1026,8 +1039,8 @@ async function hComps(env, q, ctx) {
     const fetchSs0 = function (b, n) { const us = [b]; for (let k = 2; k <= n; k++) us.push(b + 'page' + k + '.html'); return Promise.all(us.map(function (u) { return getPage(u, 900).catch(function (e) { return { status: 0, text: '', url: u, err: String(e) }; }); })); };
     const fetchSs = fetchSs0;
     /* the finder asks for the years it wants (yfilter=1): then only those years are read; otherwise, or if that fails, the first pages of the category */
-    let yearsOnly = null;
-    if (!others && q.get('yfilter') === '1' && yf && yt && yf <= yt && yf >= 1950 && yt <= 2035) yearsOnly = await fetchSsYears(base, yf, yt, 8);
+    let yearsOnly = null; const yInfo = {};
+    if (!others && q.get('yfilter') === '1' && yf && yt && yf <= yt && yf >= 1950 && yt <= 2035) yearsOnly = await fetchSsYears(base, yf, yt, 8, yInfo);
     let pages = yearsOnly || await fetchSs(base, others ? 8 : 5);
     /* ss.lv splits some models into generations (golf-7, passat-b8 ...): pick the ones for this year */
     if (!others && (pages[0].status === 404 || !/id="tr_\d/.test(pages[0].text))) {
@@ -1057,7 +1070,7 @@ async function hComps(env, q, ctx) {
     items = dedupe(items);
     if (others) items = filterOthers(items, make, model);
     later(ctx, memSave(env, memRowsFromItems(items, make, model, 'ss')));
-    return json(env, { ok: items.length > 0, source: 'ss', region: 'LV', label: 'ss.com', searchUrl: base, items: items, yearsOnly: !!yearsOnly, pages: pages.filter(function (p) { return p.status === 200; }).length, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
+    return json(env, { ok: items.length > 0, source: 'ss', region: 'LV', label: 'ss.com', searchUrl: base, items: items, yearsOnly: !!yearsOnly, yearsWhy: yearsOnly ? undefined : (yInfo.why || undefined), pages: pages.filter(function (p) { return p.status === 200; }).length, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
   }
   if (source === 'as24de' || source === 'as24') {
     const CY = { D: 'DE', B: 'BE', NL: 'NL', F: 'FR', A: 'AT', I: 'IT', L: 'LU' };
@@ -1787,7 +1800,7 @@ function pzMatches(items, p, model) {
     const t = (i.title || '') + ' ' + (i.model_raw || '');
     if (p.nobad && pzIsBad(t)) return;
     const vl = p.vs && model ? p.vs[model] : null; if (vl && vl.length && !pzVarOk(pzVarText(i), vl)) return;
-    if (p.drive) { const dv = pzDrive(i); if (p.drive === 'awd' ? dv !== 'awd' : dv === 'awd') return; }
+    if (p.drive) { const dv = pzDrive(i); if (dv && (p.drive === 'awd' ? dv !== 'awd' : dv === 'awd')) return; }
     if (p.body) { const b = pzBody(t); if (b && b !== p.body) return; }
     if (p.engf || p.engt) { const e = pzEng(i); if (e != null && ((p.engf && e < p.engf - 0.05) || (p.engt && e > p.engt + 0.05))) return; }
     const near = all.filter(function (x) { return x.year && i.year && Math.abs(x.year - i.year) <= 1; }).map(function (x) { return x.price; });

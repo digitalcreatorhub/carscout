@@ -227,15 +227,18 @@ const SSA = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/golf-7/aaaaaa.h
   const html = (k, years, last) => `<html><table>${rowsFor(k, years)}</table><div><a rel="prev" href="/ru/transport/cars/audi/a6/filter/page${last}.html">prev</a> <a href="/ru/transport/cars/audi/a6/filter/page2.html">2</a></div></html>`;
   const resp = (status, body, extra = {}) => ({ status, headers: { get: (n) => extra[n.toLowerCase()] ?? null, getSetCookie: () => extra.cookies || [] }, text: async () => body });
   const seen = [];
-  const S = { applied: true, postStatus: 200, last: 3 };
+  const S = { applied: true, postStatus: 200, last: 3, cookieOnGet: true };
   const realFetch = ctx.fetch;
+  /* like the real site: a POST without the session cookie is answered with a redirect to the plain category; with it, a redirect to .../filter/ */
   ctx.fetch = async (url, init = {}) => {
     const method = init.method || 'GET', ck = (init.headers || {}).cookie;
     seen.push(`${method} ${url}${init.body ? ' ' + init.body : ''}${ck ? ' [' + ck + ']' : ''}`);
+    if (url === BASE && init.redirect === 'manual') return resp(200, '<html>plain</html>', S.cookieOnGet ? { cookies: [COOKIE + '; path=/; HttpOnly'] } : {});
     if (url === BASE + 'filter/' && method === 'POST') {
       if (S.postStatus !== 200) return resp(S.postStatus, 'denied');
-      return resp(200, html(1, S.applied ? [2018, 2019, 2020] : [2004, 2006, 2011], S.last), { cookies: [COOKIE + '; path=/; HttpOnly'] });
+      return ck === COOKIE ? resp(302, '', { location: '/ru/transport/cars/audi/a6/filter/' }) : resp(302, '', { location: '/ru/transport/cars/audi/a6/', cookies: [COOKIE + '; path=/; HttpOnly'] });
     }
+    if (url === BASE + 'filter/') return resp(200, html(1, ck === COOKIE && S.applied ? [2018, 2019, 2020] : [2004, 2006, 2011], S.last));
     const m = url.match(/^https:\/\/www\.ss\.com\/ru\/transport\/cars\/audi\/a6\/filter\/page(\d+)\.html$/);
     if (m) return resp(200, html(+m[1], ck === COOKIE && S.applied ? [2018, 2019, 2020] : [2003, 2004, 2005], S.last));
     return realFetch(url, init);
@@ -246,8 +249,8 @@ const SSA = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/golf-7/aaaaaa.h
 
   let r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
   check(r.j.ok === true && r.j.yearsOnly === true && r.j.items.length === 9 && years(r.j).join() === '2018,2019,2020', 'ss.com, requested years: the filtered pages come back (3 pages x 3 ads), only the requested years', { ok: r.j.ok, only: r.j.yearsOnly, n: (r.j.items || []).length, years: years(r.j) });
-  check(/^POST .*audi\/a6\/filter\/ topt%5B18%5D%5Bmin%5D=2018&topt%5B18%5D%5Bmax%5D=2021$/.test(r.calls[0]), 'ss.com, requested years: the years are sent as the site\'s own filter fields (topt[18][min] / [max])', r.calls[0]);
-  check(r.calls.length === 3 && r.calls[1] === 'GET ' + BASE + 'filter/page2.html [' + COOKIE + ']' && r.calls[2] === 'GET ' + BASE + 'filter/page3.html [' + COOKIE + ']', 'ss.com, requested years: pages 2 and 3 are read with the cookie from the answer, 3 requests in all, the plain category is not read', r.calls);
+  check(r.calls[0] === 'GET ' + BASE && /^POST .*audi\/a6\/filter\/ topt%5B18%5D%5Bmin%5D=2018&topt%5B18%5D%5Bmax%5D=2021 \[SSID=abc123\]$/.test(r.calls[1]), 'ss.com, requested years: the category is opened first (that gives the session cookie), then the years are POSTed with that cookie as the site\'s own filter fields (topt[18][min] / [max])', r.calls.slice(0, 2));
+  check(r.calls.length === 5 && r.calls[2] === 'GET ' + BASE + 'filter/ [' + COOKIE + ']' && r.calls[3] === 'GET ' + BASE + 'filter/page2.html [' + COOKIE + ']' && r.calls[4] === 'GET ' + BASE + 'filter/page3.html [' + COOKIE + ']', 'ss.com, requested years: the redirect to the filter page is followed with the cookie, pages 2 and 3 are read with it too, 5 requests in all', r.calls);
   S.last = 40; r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
   check(r.j.yearsOnly === true && r.calls.filter(c => /filter\/page\d+\.html/.test(c)).length === 7, 'ss.com, requested years: at most 8 pages (the first plus 7), however long the list is', r.calls.length); S.last = 3;
   r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021');
@@ -256,6 +259,10 @@ const SSA = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/golf-7/aaaaaa.h
   check(r.j.ok === true && r.j.yearsOnly === false && r.calls.includes('GET ' + BASE), 'ss.com, requested years: if the answer is not filtered (other years come back), it is not trusted and the plain category pages are read', { only: r.j.yearsOnly, calls: r.calls });
   S.applied = true; S.postStatus = 403; r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
   check(r.j.ok === true && r.j.yearsOnly === false && r.calls.includes('GET ' + BASE), 'ss.com, requested years: if the filter is refused, the plain category pages are read', { only: r.j.yearsOnly, calls: r.calls });
+  S.postStatus = 200; S.cookieOnGet = false; r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
+  check(r.j.yearsOnly === true && r.calls.filter(c => c.startsWith('POST')).length === 2 && /\[SSID=abc123\]$/.test(r.calls.filter(c => c.startsWith('POST'))[1]), 'ss.com, requested years: if the category gave no cookie, the first post gets one, and the post is repeated once with it', r.calls);
+  S.cookieOnGet = true; S.applied = false; r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
+  check(r.j.yearsOnly === false && /filter not applied/.test(r.j.yearsWhy || ''), 'ss.com, requested years: when the filter does not work, the answer says why (yearsWhy), so a short list can be explained', r.j.yearsWhy); S.applied = true;
   S.postStatus = 200; r = await ask('source=ss&make=Audi&model=A6&yfrom=2021&yto=2018&yfilter=1');
   check(!r.calls.some(c => c.startsWith('POST')), 'ss.com, requested years: years the wrong way round or missing never reach the filter', r.calls);
   ctx.fetch = realFetch;
