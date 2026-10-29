@@ -4187,7 +4187,8 @@ async function finderCore(p){
       rows.push(Object.assign({region:r.region,src:r.label,exp:Math.round(e/50)*50,d:d,n:its.length},i)); });
   });
   rows.sort(function(a,b){return a.d-b.d});
-  return {rows:rows,notes:notes,scanned:res.reduce(function(a,r){return a+((r.j&&r.j.items)||[]).length},0),cm:cm};
+  var lv=res.filter(function(r){ return r.region==='LV'&&r.j&&r.j.ok; })[0];
+  return {rows:rows,notes:notes,scanned:res.reduce(function(a,r){return a+((r.j&&r.j.items)||[]).length},0),cm:cm,ys:lv?(lv.j.yearsOnly?1:0):null,yw:lv&&lv.j.yearsWhy||''};
 }
 async function runFinder(){
   var g=function(id){ var e=document.getElementById(id); return e?String(e.value||'').trim():''; }, gi=function(id){ var x=g(id).replace(/[^\d]/g,''); return x?parseInt(x,10):null; };
@@ -5266,7 +5267,8 @@ function fzFilter(rows,p,fn){
   var out=rows.filter(function(x){
     var t=[x.title,x.model_raw].join(' ');
     if(p.nobad&&fzIsBad(t)){ cut.bad++; return false; }
-    if(p.drive){ var dv=x.drive||driveOf(t); if(p.drive==='awd'?dv!=='awd':dv==='awd'){ cut.drive++; return false; } }
+    /* drive: only a car that says it has another drive is dropped; an ad that does not mention the drive stays (most ads never say "quattro") */
+    if(p.drive){ var dv=x.drive||driveOf(t); if(dv&&(p.drive==='awd'?dv!=='awd':dv==='awd')){ cut.drive++; return false; } }
     if(p.body){ var b=fzBodyOf(t); if(b&&b!==p.body){ cut.body++; return false; } }
     if(p.engf||p.engt){ var en=fzEngOf(x); if(en!=null&&((p.engf&&en<p.engf-0.05)||(p.engt&&en>p.engt+0.05))){ cut.eng++; return false; } }
     if(p.cheap&&!(x.d<-3)){ cut.cheap++; return false; }
@@ -5275,17 +5277,17 @@ function fzFilter(rows,p,fn){
   return out;
 }
 async function fzSearch(p){
-  var all=[], notes=[], scanned=0;
+  var all=[], notes=[], scanned=0, ys=null, yw='';
   var fams=p.fam&&p.fam.length?p.fam:p.models;   /* searches saved before exact models existed have no fam */
   for(var i=0;i<(fams.length||1);i++){
     var D=await finderCore({make:p.make,model:fams[i]||'',yf:p.yf,yt:p.yt,pmax:p.pmax,kmax:p.kmax,fuel:p.fuel,gear:p.gear,mk:p.mk});
     if(!D) continue;
     var vl=(p.vs||{})[fams[i]]; if(vl&&vl.length) D.rows=D.rows.filter(function(x){ return varOk(varText(x),vl); });
-    all=all.concat(D.rows); notes=notes.concat(D.notes); scanned+=D.scanned||0;
+    all=all.concat(D.rows); notes=notes.concat(D.notes); scanned+=D.scanned||0; if(D.ys!=null&&ys!==0) ys=D.ys; if(D.ys===0&&D.yw) yw=D.yw;
   }
   var seen={}; all=all.filter(function(x){ var id=rowId(x); if(seen[id]) return false; seen[id]=1; return true; });
   var cut=null, fr=fzFilter(all,p,function(c){ cut=c; });
-  return {rows:fr.sort(function(a,b){ return a.d-b.d; }),notes:notes,scanned:scanned,before:all.length,cut:cut};
+  return {rows:fr.sort(function(a,b){ return a.d-b.d; }),notes:notes,scanned:scanned,before:all.length,cut:cut,ys:ys,yw:yw};
 }
 /* ---- radar: the search at work; dots are the cars that match now (closer to the centre = cheaper against the market) ---- */
 function fzRadar(rows,live){
@@ -5322,9 +5324,10 @@ function fzRequests(){
 /* where the cars went: scanned -> fit year/price/mileage -> removed by each extra filter (so "only 1 car" is explained, not a mystery) */
 function fzFunnel(R){
   if(R.before==null||!R.cut) return '';
+  var yl=R.ys===1?L('ss.lv: прочитаны только нужные годы','ss.lv: only the requested years were read','ss.lv: lasīti tikai vajadzīgie gadi'):R.ys===0?L('ss.lv: фильтр по годам не сработал, прочитаны последние объявления','ss.lv: the year filter did not work, the latest ads were read','ss.lv: gadu filtrs nedarbojās, lasīti jaunākie sludinājumi')+(R.yw?' ('+R.yw+')':''):'';
   var c=R.cut, names={bad:L('битые / на запчасти','damaged / for parts','bojāti / uz daļām'),drive:L('привод','drive','piedziņa'),body:L('кузов','body','virsbūve'),eng:L('объём двигателя','engine size','motora tilpums'),cheap:L('«только дешевле рынка»','“only below the market”','«tikai lētāk par tirgu»')};
   var parts=Object.keys(c).filter(function(k){ return c[k]>0; }).map(function(k){ return names[k]+' −'+c[k]; });
-  return '<small>'+esc(L('подошли по году, цене и пробегу: ','fit year, price and mileage: ','atbilst gadam, cenai un nobraukumam: ')+R.before+(parts.length?L(' · убрали фильтры: ',' · removed by filters: ',' · noņēmuši filtri: ')+parts.join(', '):''))+'</small>';
+  return '<small>'+esc(L('подошли по году, цене и пробегу: ','fit year, price and mileage: ','atbilst gadam, cenai un nobraukumam: ')+R.before+(parts.length?L(' · убрали фильтры: ',' · removed by filters: ',' · noņēmuši filtri: ')+parts.join(', '):''))+'</small>'+(yl?'<small>'+esc(yl)+'</small>':'');
 }
 function fzResults(p,R){
   var rows=R.rows||[], head=aHead(L('Подходит сейчас','Matches right now','Atbilst tagad'),aMeta(fzName(p)));
