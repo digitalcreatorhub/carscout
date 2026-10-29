@@ -405,4 +405,68 @@ const as24Page = (v = {}) => '<html><script id="__NEXT_DATA__" type="application
   check(W("rlKind('POST', '/api/import')") === 'write', 'import: counted against the write budget of the request limits', W("rlKind('POST', '/api/import')"));
 }
 
+/* =====================================================================================================================
+   9. autouncle.de (Germany, an aggregator; refuses servers, so only through the bookmark). Built from what a real results page and
+      ad page of 29 Oct 2026 look like: hashed class names, an <article> per car, a facts list, the first price before the labels of
+      AutoUncle's own verdict, a FAQ <article> at the end, new cars ("Neu (2026)") between the used ones, JSON-LD Product/Vehicle on the ad page.
+   ===================================================================================================================== */
+{
+  const li = (t) => `<li class="_vh91Z9 _AcHqqh">${t}</li>`;
+  const card = ({ id, head, facts, prices = [], labels = true }) => `<article class="_3faffL"><div class="_VitZgD"><div class="_hWIIhC"><button class="_Wy1GIS"><div class="_ZylZec"><img alt="Gebraucht BMW M3" loading="lazy" class="_Wjcaj6" src="https://images.autouncle.com/de/car_images/medium_${id}.webp"></div></button></div>` +
+    `<a class="_9Da-uE" href="/de/d/${id}-gebraucht-2022-bmw-m3-competition" title="Details für ${head} anzeigen"><div class="_9Da-uE"><div class="_ES-bDr"><h3 class="_jNrUl_ _rUPjzn" data-weight="bold">${head}</h3><p class="_jNrUl_">Competition M SPORT+HuD+H/K+DA</p></div><ul class="_EKB7Vb">${facts.map(li).join('')}<li><span class="_AOGLZW">Details<div class="_iEAJDY"><svg/></div></span></li></ul></div></a>` +
+    `<div class="_3I41Lu"><div class="_2GbTvp"><img src="https://fe-assets.autouncle.com/images/logos/au-badge.webp" alt="autouncle-certified"><div class="_nj1TZA"><p class="_c5X7pp">Guter Preis</p></div></div>${prices.map((p, k) => `<div class="${k ? '_QYH9ni' : '_hPeORc'}">${p}&nbsp;€</div>`).join('')}</div>` +
+    (labels ? `<div class="_nJ03_m"><div class="_Y4umQW"><button class="_UqqJYF"><span class="_ke1BGv">Unter dem Marktpreis<div class="_iEAJDY"><svg/></div></span><span class="_7sUAH5">2.601&nbsp;€</span></button><button class="_UqqJYF"><span class="_ke1BGv">Preisänderung</span><span class="_7sUAH5">↓ -1%</span></button><button class="_UqqJYF"><span class="_ke1BGv">Tage inseriert</span><span>17</span></button></div></div>` : '') +
+    `</div><div class="_1dR5Q9"><div class="_0an15T">Procar Automobile</div><div>48163 Münster, Nordrhein-Westfalen</div><a class="_n41Km1" href="/de/das_wiedersehen/procar-automobile-de/${id}/421200763" target="_blank">Zum Angebot</a></div></article>`;
+  const m3 = (id, price, year, km, extra = {}) => card({ id, head: `Gebraucht (${year}) BMW M3 Competition Edition 510 PS | Guter Preis`, facts: [`Jul ${year}`, `${km} km`, '<span>Ausstattungslinie<!-- -->:&nbsp;</span>Competition Edition', '3.0L Benzin', 'Limousine', 'Automatik', '510 PS (375 kW)', '<span>CO2-Klasse<!-- -->:&nbsp;</span>G', '224 g CO2/km komb.', '9.9 L/100Km'], prices: [price], ...extra });
+  const faq = '<article class="_faq"><h3>Wie ist das Preisniveau bei BMW M3 gebraucht?</h3><ul><li>BMW M3 kombi: 861 Fahrzeuge - Durchschnittspreis €99.493</li></ul></article>';
+  const page = (cards) => '<html><head><title>BMW M3 gebraucht kaufen</title></head><body>' + cards.join('') + faq + '<footer>Impressum 12.345 € km</footer></body></html>';
+  const cards = [
+    m3(228435247, '85.999', 2026, '13.412', {}),                                                                       // two prices: the first is the price, the second the old one
+    m3(209186618, '87.850', 2025, '6.000'),
+    card({ id: 210277758, head: 'Neu (2026) BMW M3 Competition Edition 510 PS | Superpreis', facts: ['Neuwagen', '20 km', '3.0L Benzin', 'Automatik'], prices: ['89.990'] }),   // a new car: left out
+    card({ id: 215119075, head: 'Gebraucht (2026) BMW M3 Competition Edition 530 PS | Guter Preis', facts: ['Neuwagen', '4.000 km', '3.0L Benzin', 'Kombi', 'Automatik', '530 PS (390 kW)'], prices: ['92.730'] }),   // used, first month unknown
+    card({ id: 229347368, head: 'Gebraucht (2022) BMW M3 Competition Edition 510 PS | Superpreis', facts: ['Jul 2022', '66.200 km', '3.0L Benzin', 'Limousine', 'Automatik', '510 PS (375 kW)'], prices: ['64.990'], labels: false }),   // no verdict labels at all
+    card({ id: 230000001, head: 'Gebraucht (2021) Tesla Model 3 Long Range | Guter Preis', facts: ['Mär 2021', '45.000 km', 'Elektro', 'Automatik', '351 PS (258 kW)'], prices: ['29.900'] }),
+    card({ id: 230000002, head: 'Gebraucht (2020) BMW 330e | Guter Preis', facts: ['Mai 2020', '70.000 km', '2.0L Benzin/Elektro', 'Automatik', '292 PS'], prices: ['27.500'] }),
+    card({ id: 230000003, head: 'Gebraucht (2019) BMW 320d | Fairer Preis', facts: ['Mai 2019', '120.000 km', '2.0L Diesel', 'Schaltgetriebe', '190 PS (140 kW)'], prices: ['19.900'] }),
+    card({ id: 230000004, head: 'Gebraucht (2019) BMW M2 | Preis auf Anfrage', facts: ['Mai 2019', '50.000 km', '3.0L Benzin'], prices: [] }),   // no price: left out
+    m3(228435247, '85.999', 2026, '13.412')                                                                              // the same ad twice: counted once
+  ];
+  const html = page(cards), url = 'https://www.autouncle.de/de/gebrauchtwagen/BMW/M3';
+  const it = run('parseAuList', html, url);
+  check(it.length === 7, 'autouncle list: 7 of 10 cards (the new car, the card without a price and the repeated ad are dropped; the FAQ block is not a car)', it.map(x => x.url));
+  const by = (id) => it.find(x => x.url.includes('/' + id + '-')) || {};
+  check(by(228435247).price === 85999 && by(228435247).year === 2026 && by(228435247).km === 13412 && by(228435247).url === 'https://www.autouncle.de/de/d/228435247-gebraucht-2022-bmw-m3-competition', 'autouncle list: the first of two prices, year, mileage with a thousands dot, absolute link', by(228435247));
+  check(by(228435247).fuel === 'petrol' && by(228435247).gear === 'automatic' && by(228435247).engine_l === 3 && by(228435247).power_kw === 375 && by(228435247).title === 'BMW M3 Competition Edition 510 PS', 'autouncle list: fuel, gearbox, engine, power in kW and a title without the "Gebraucht (year)" and the price verdict', by(228435247));
+  check(by(229347368).price === 64990 && by(229347368).km === 66200, 'autouncle list: a card without the verdict labels still gives its price', by(229347368));
+  check(by(215119075).km === 4000 && by(215119075).year === 2026 && by(215119075).power_kw === 390, 'autouncle list: a used car whose first facts say "Neuwagen" is kept (title says Gebraucht) with its mileage', by(215119075));
+  check(by(230000001).fuel === 'electric' && by(230000001).power_kw === 258 && by(230000002).fuel === 'hybrid' && by(230000002).power_kw === 215 && by(230000003).fuel === 'diesel' && by(230000003).gear === 'manual', 'autouncle list: electric, hybrid (petrol/electric), diesel and manual; PS converted to kW when kW is not given', [by(230000001), by(230000002), by(230000003)]);
+  check(it.every(x => x.price !== 2601 && x.price >= 300) && !it.some(x => /Neu\b/.test(x.title)), 'autouncle list: the saving ("Unter dem Marktpreis 2.601 €") is never taken for the price; no new cars', it.map(x => x.price));
+  check(by(228435247).img === 'https://images.autouncle.com/de/car_images/medium_228435247.webp', 'autouncle list: the photo of the car (not the AutoUncle badge)', by(228435247).img);
+  check(run('parseAuList', '<html><body>nothing</body></html>', url).length === 0 && run('parseAuList', '', url).length === 0, 'autouncle list: a page with no cards gives nothing');
+
+  const ldAd = { '@context': 'https://schema.org', '@graph': [{ '@type': 'Organization', name: 'AutoUncle' }, { '@type': ['Product', 'Vehicle'], '@id': 'x#product', name: 'Gebraucht 2022 BMW M3 Competition Edition 510 PS in Grau', description: 'Gebraucht BMW M3 Competition Edition in Grau. 66.200 km, Automatik, 510 PS. Superpreis: 64.990 €.', color: 'Grau', brand: { '@type': 'Brand', name: 'BMW' }, model: 'M3', vehicleModelDate: '2022', vehicleTransmission: 'Automatik',
+    image: { '@type': 'ImageObject', url: 'https://images.autouncle.com/de/car_images/9fc08f9a_2022-bmw-m3.webp' }, offers: { '@type': 'Offer', price: 64990, priceCurrency: 'EUR', availableAtOrFrom: { '@type': 'Place', address: { addressCountry: 'DE', postalCode: '58636', addressLocality: 'Iserlohn', addressRegion: 'Nordrhein-Westfalen' } } },
+    bodyType: 'Limousine', fuelType: 'Benzin', vehicleEngine: { engineDisplacement: { value: 3, unitText: 'L' }, enginePower: { value: 510, unitText: 'PS', additionalProperty: { name: 'kilowatt', value: 375, unitCode: 'KWT', unitText: 'kW' } } }, mileageFromOdometer: { value: 66200, unitCode: 'KMT' } }] };
+  const adHtml = '<html><head><title>Gebraucht BMW M3 Competition Edition 510 PS (2022) in Iserlohn - 64.990 € | AutoUncle</title><script type="application/ld+json">' + JSON.stringify(ldAd) + '</script></head><body>' + cards.slice(0, 4).join('') + '<p>' + 'Preisgeprüft durch AutoUncle. '.repeat(10) + '</p></body></html>';
+  const adUrl = 'https://www.autouncle.de/de/d/229347368-gebraucht-2022-bmw-m3-competition-edition-510-ps';
+  const ra = run('parseAuListing', adHtml, adUrl), L = ra && ra.listing || {};
+  check(L.make === 'BMW' && L.model === 'M3' && L.year === 2022 && L.mileage_km === 66200 && L.asking_price === 64990 && L.fuel === 'petrol' && L.gearbox === 'automatic' && L.engine_l === 3 && L.power_kw === 375, 'autouncle ad: make, model, year, mileage, price, fuel, gearbox, engine and power from the JSON-LD', L);
+  check(L.country === 'DE' && L.place === '58636 Iserlohn, DE' && L.body === 'Limousine' && L.model_raw === 'M3 Competition Edition 510 PS' && ra.image === 'https://images.autouncle.com/de/car_images/9fc08f9a_2022-bmw-m3.webp', 'autouncle ad: where the car is (Germany), body, the version text without "Gebraucht 2022" and the colour, the photo', { L, image: ra && ra.image });
+  check(run('parseAuListing', '<html><body>no data</body></html>', adUrl) === null, 'autouncle ad: a page without the vehicle data gives null (the generic reader takes over)');
+
+  const post = async (body) => { ctx.__b = JSON.stringify(body); return JSON.parse(await W(`__worker.fetch(new Request('https://carscout.test/api/import', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: __b }), env, { waitUntil() {} }).then(function (r) { return r.text(); })`)); };
+  const n0 = calls.length;
+  let r = await post({ url, html });
+  check(r.ok && r.kind === 'list' && r.region === 'DE' && r.source === 'autouncle.de' && r.items.length === 7 && r.items[0].price === 85999, 'import: an autouncle.de results page the user opened gives its used ads (Germany)', r.ok ? { n: r.items.length, region: r.region, source: r.source } : r);
+  r = await post({ url: url + '?page=2', html });
+  check(r.ok && r.kind === 'list' && r.items.length === 7, 'import: a results page with ?page=2 is a list too', r.kind);
+  r = await post({ url: adUrl, html: adHtml });
+  check(r.ok && r.kind === 'ad' && r.parser === 'autouncle' && r.listing.asking_price === 64990 && r.listing.mileage_km === 66200 && r.listing.year === 2022 && r.listing.make === 'BMW' && r.region === 'DE', 'import: one autouncle.de ad (its page also shows similar cars) is ONE ad, read like a link', r.ok ? r.listing : r);
+  check(calls.length === n0, 'import: nothing is fetched from autouncle.de (the page came from the user)', calls.length - n0);
+  const ok = (u) => P(`allowed(${JSON.stringify(u)})`), img = (u) => P(`imgAllowed(${JSON.stringify(u)})`);
+  check(ok('https://www.autouncle.de/de/d/1-x') && ok('https://autouncle.de/') && !ok('https://autouncle.de.evil.com/') && !ok('https://notautouncle.de/') && !ok('https://www.autouncle.com/'), 'autouncle.de is a supported site; look-alike hosts are not', ['https://autouncle.de.evil.com/', 'https://notautouncle.de/'].map(ok));
+  check(img('https://images.autouncle.com/de/car_images/a.webp') && !img('https://images.autouncle.com.evil.com/a.webp') && !img('http://images.autouncle.com/a.webp'), 'autouncle photos (images.autouncle.com) may be shown through the photo proxy; look-alikes and plain http may not');
+}
+
 finish();
