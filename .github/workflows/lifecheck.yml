@@ -1,6 +1,6 @@
 name: Offline checks
 # Runs the offline tests on every change of the worker, the page or the tests (and on pull requests, before a merge
-# deploys the worker): time on sale, request limits, database clean-up, page readers, generation from photos.
+# deploys the worker): time on sale, request limits, database clean-up, page readers, generation from photos, accounts.
 # No network and no secrets: a real SQLite database, fixed test pages and a fixed clock.
 on:
   push:
@@ -36,4 +36,5 @@ jobs:
       - run: node --no-warnings tools/dbcheck.mjs
       - run: node --no-warnings tools/parsercheck.mjs
       - run: node --no-warnings tools/photocheck.mjs
+      - run: node --no-warnings tools/accountcheck.mjs
       - run: node --no-warnings tools/readmecheck.mjs

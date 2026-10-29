@@ -30,7 +30,7 @@ function cors(env) {
   return {
     'access-control-allow-origin': (env && env.ALLOW_ORIGIN) || '*',
     'access-control-allow-methods': 'GET, POST, OPTIONS',
-    'access-control-allow-headers': 'content-type, x-carscout-auth',
+    'access-control-allow-headers': 'content-type, x-carscout-auth, authorization',
     'access-control-max-age': '86400'
   };
 }
@@ -1485,7 +1485,7 @@ async function aliveTick(env, force) {
    Searches and subscriptions are not touched. Every run is capped (a free D1 database allows 100 000 rows written a day,
    a deleted row and each of its index entries count), so an old backlog is cleared over several days, not at once.
    The ad rows are picked through the ads_alive index (gone, lt), so the run does not read the whole table. */
-const GC_EVERY = 23 * 3600000, GC_LONG = 365 * 86400000, GC_SHORT = 120 * 86400000, GC_INBOX = 14 * 86400000, GC_BATCH = 3000;
+const GC_EVERY = 23 * 3600000, GC_LONG = 365 * 86400000, GC_SHORT = 120 * 86400000, GC_INBOX = 14 * 86400000, GC_SESS = 180 * 86400000, GC_BATCH = 3000;
 async function dbCleanup(env, force) {
   if (!(await memInit(env))) return { ok: false, error: 'no_db' };
   const now = Date.now();
@@ -1506,7 +1506,8 @@ async function dbCleanup(env, force) {
     ]);
     out.hist += (res[0] && res[0].meta && res[0].meta.changes) || 0; out.ads += (res[1] && res[1].meta && res[1].meta.changes) || 0;
   }
-  try { const r = await env.DB.prepare('DELETE FROM pinbox WHERE t < ?1').bind(now - GC_INBOX).run(); out.inbox = (r && r.meta && r.meta.changes) || 0; } catch (e) { }   // the table exists only after the first phone subscription
+  try { const r = await env.DB.prepare('DELETE FROM pinbox WHERE t < ?1').bind(now - GC_INBOX).run(); out.inbox = (r && r.meta && r.meta.changes) || 0; } catch (e) { }
+  try { const r = await env.DB.prepare('DELETE FROM sess WHERE t < ?1').bind(now - GC_SESS).run(); out.sess = (r && r.meta && r.meta.changes) || 0; } catch (e) { }   // the table exists only after the first sign-in   // the table exists only after the first phone subscription
   return out;
 }
 
@@ -1890,6 +1891,121 @@ async function pushTick(env, ctx) {
 }
 async function hPushTick(env, ctx) { return json(env, await pushTick(env, ctx)); }
 
+/* ---------------- accounts: sign in with Google, one stored copy of the person's lists ----------------
+   Why: favourites and "my searches" live in the browser of one device; with an account the same lists show on a second phone
+   and on a computer. Sign-in is Google's: the page gets a signed ID token from Google, this server checks the signature against
+   Google's public keys, the audience (our client id, GOOGLE_CLIENT_ID in wrangler.toml, not a secret) and the expiry, and then gives
+   the page its own random session token (only its hash is stored). No passwords exist here. Without GOOGLE_CLIENT_ID the whole
+   thing is off. What is stored per account: the lists named in SYNC_KEYS, each with the time of its last change; the newer change
+   of a list wins. Phone-alert and Telegram settings belong to a device and are not part of it. */
+const SYNC_KEYS = ['carscout_favs', 'carscout_finds', 'carscout_hunt', 'carscout_insp', 'carscout_hist'];
+const SYNC_KEY_MAX = 60000, SYNC_TOTAL_MAX = 240000, SESS_MS = 180 * 86400000, GJWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
+let ACCT_READY = false, GJWKS = null, GJWKS_AT = 0;
+async function acctInit(env) {
+  if (!(await memInit(env))) return false; if (ACCT_READY) return true;
+  await env.DB.batch([
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS acct(uid TEXT PRIMARY KEY, email TEXT, name TEXT, data TEXT, t INT)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS sess(h TEXT PRIMARY KEY, uid TEXT, t INT)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS sess_uid ON sess(uid)')
+  ]);
+  ACCT_READY = true; return true;
+}
+function b64uBytes(s) {
+  s = String(s || '').replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '=';
+  const b = atob(s), a = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a;
+}
+async function sha256hex(s) {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+  let o = ''; for (let i = 0; i < d.length; i++) o += (d[i] < 16 ? '0' : '') + d[i].toString(16); return o;
+}
+async function googleKeys(force) {
+  const now = Date.now(); if (!force && GJWKS && now - GJWKS_AT < 3600000) return GJWKS;
+  const r = await fetch(GJWKS_URL); if (!r.ok) throw new Error('keys ' + r.status);
+  const j = await r.json(); GJWKS = (j && j.keys) || []; GJWKS_AT = now; return GJWKS;
+}
+/* a Google ID token (RS256 JWT) -> { uid, email, name } or { err } */
+async function googleVerify(env, token) {
+  const cid = env && env.GOOGLE_CLIENT_ID; if (!cid) return { err: 'auth_off' };
+  token = String(token || ''); const p = token.split('.');
+  if (p.length !== 3 || token.length > 4000) return { err: 'bad_token' };
+  let h, c;
+  try { const dec8 = new TextDecoder(); h = JSON.parse(dec8.decode(b64uBytes(p[0]))); c = JSON.parse(dec8.decode(b64uBytes(p[1]))); } catch (e) { return { err: 'bad_token' }; }
+  if (!h || h.alg !== 'RS256' || !h.kid || !c) return { err: 'bad_token' };
+  let keys = await googleKeys(false), jwk = keys.filter(function (k) { return k.kid === h.kid; })[0];
+  if (!jwk) { keys = await googleKeys(true); jwk = keys.filter(function (k) { return k.kid === h.kid; })[0]; }
+  if (!jwk) return { err: 'bad_token' };
+  let ok = false;
+  try {
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64uBytes(p[2]), new TextEncoder().encode(p[0] + '.' + p[1]));
+  } catch (e) { ok = false; }
+  if (!ok) return { err: 'bad_token' };
+  const now = Math.floor(Date.now() / 1000);
+  if (c.iss !== 'https://accounts.google.com' && c.iss !== 'accounts.google.com') return { err: 'bad_token' };
+  if (c.aud !== cid || !(c.exp > now - 30) || (c.iat && c.iat > now + 300)) return { err: 'bad_token' };
+  if (!(c.email_verified === true || c.email_verified === 'true') || !c.sub) return { err: 'bad_token' };
+  return { uid: 'g:' + String(c.sub).slice(0, 60), email: String(c.email || '').slice(0, 200), name: String(c.name || '').slice(0, 100) };
+}
+function bearerToken(request) { const m = String(request.headers.get('authorization') || '').match(/^Bearer\s+([A-Za-z0-9_-]{20,100})$/); return m ? m[1] : ''; }
+async function sessUser(env, request) {
+  const t = bearerToken(request); if (!t) return null;
+  const h = await sha256hex(t);
+  const r = await env.DB.prepare('SELECT s.uid AS uid, a.email AS email FROM sess s JOIN acct a ON a.uid = s.uid WHERE s.h = ?1 AND s.t > ?2').bind(h, Date.now() - SESS_MS).first();
+  return r ? { uid: r.uid, email: r.email, h: h } : null;
+}
+async function hAuthConfig(env) { return json(env, { ok: true, clientId: (env && env.GOOGLE_CLIENT_ID) || '' }); }
+async function hAuthGoogle(env, request) {
+  if (!(await acctInit(env))) return json(env, { ok: false, error: 'no_db' });
+  let d = {}; try { d = JSON.parse((await request.text()).slice(0, 8000)); } catch (e) { }
+  let v; try { v = await googleVerify(env, d.credential); } catch (e) { return json(env, { ok: false, error: 'auth_unavailable' }, 503); }
+  if (v.err === 'auth_off') return json(env, { ok: false, error: 'auth_off' }, 503);
+  if (v.err) return json(env, { ok: false, error: v.err }, 401);
+  const raw = b64u(crypto.getRandomValues(new Uint8Array(32))), now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO acct(uid, email, name, data, t) VALUES(?1, ?2, ?3, \'{}\', ?4) ON CONFLICT(uid) DO UPDATE SET email = excluded.email, name = excluded.name').bind(v.uid, v.email, v.name, now),
+    env.DB.prepare('INSERT INTO sess(h, uid, t) VALUES(?1, ?2, ?3)').bind(await sha256hex(raw), v.uid, now)
+  ]);
+  return json(env, { ok: true, token: raw, email: v.email, name: v.name });
+}
+async function hAuthLogout(env, request) {
+  if (!(await acctInit(env))) return json(env, { ok: true });
+  const u = await sessUser(env, request); if (u) await env.DB.prepare('DELETE FROM sess WHERE h = ?1').bind(u.h).run();
+  return json(env, { ok: true });
+}
+async function hAuthDelete(env, request) {
+  if (!(await acctInit(env))) return json(env, { ok: false, error: 'no_db' });
+  const u = await sessUser(env, request); if (!u) return json(env, { ok: false, error: 'auth' }, 401);
+  await env.DB.batch([env.DB.prepare('DELETE FROM sess WHERE uid = ?1').bind(u.uid), env.DB.prepare('DELETE FROM acct WHERE uid = ?1').bind(u.uid)]);
+  return json(env, { ok: true });
+}
+function syncParse(s) { try { const o = JSON.parse(s || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
+async function hSyncGet(env, request) {
+  if (!(await acctInit(env))) return json(env, { ok: false, error: 'no_db' });
+  const u = await sessUser(env, request); if (!u) return json(env, { ok: false, error: 'auth' }, 401);
+  const r = await env.DB.prepare('SELECT data FROM acct WHERE uid = ?1').bind(u.uid).first();
+  return json(env, { ok: true, email: u.email, data: syncParse(r && r.data) });
+}
+/* the page sends the lists that changed on this device; per list the newer change wins; the answer is the whole stored copy */
+async function hSyncPost(env, request) {
+  if (!(await acctInit(env))) return json(env, { ok: false, error: 'no_db' });
+  const u = await sessUser(env, request); if (!u) return json(env, { ok: false, error: 'auth' }, 401);
+  const raw = await request.text(); if (raw.length > SYNC_TOTAL_MAX * 1.5) return json(env, { ok: false, error: 'too_big' }, 413);
+  let d = {}; try { d = (JSON.parse(raw) || {}).data || {}; } catch (e) { return json(env, { ok: false, error: 'bad_request' }, 400); }
+  const maxT = Date.now() + 86400000, inc = {};
+  SYNC_KEYS.forEach(function (k) { const x = d[k]; if (x && typeof x.v === 'string' && x.v.length <= SYNC_KEY_MAX && typeof x.t === 'number' && isFinite(x.t) && x.t > 0) inc[k] = { v: x.v, t: Math.min(Math.round(x.t), maxT) }; });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const row = await env.DB.prepare('SELECT data, t FROM acct WHERE uid = ?1').bind(u.uid).first();
+    const cur = syncParse(row && row.data); let changed = false;
+    Object.keys(inc).forEach(function (k) { if (!cur[k] || !(cur[k].t >= inc[k].t)) { cur[k] = inc[k]; changed = true; } });
+    if (!changed) return json(env, { ok: true, data: cur });
+    const out = JSON.stringify(cur); if (out.length > SYNC_TOTAL_MAX) return json(env, { ok: false, error: 'too_big' }, 413);
+    const now = Date.now() > ((row && row.t) || 0) ? Date.now() : ((row && row.t) || 0) + 1;
+    const res = await env.DB.prepare('UPDATE acct SET data = ?2, t = ?3 WHERE uid = ?1 AND t = ?4').bind(u.uid, out, now, (row && row.t) || 0).run();
+    if (!res || !res.meta || res.meta.changes !== 0) return json(env, { ok: true, data: cur });   /* two devices writing at once: the other one won the row, read again and merge again */
+  }
+  return json(env, { ok: false, error: 'busy' }, 409);
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env) });
@@ -1897,6 +2013,10 @@ export default {
     const rk = rlKind(request.method, u.pathname);
     if (rk && !(await rlAllow(env, request, rk))) return tooMany(env);
     if (request.method === 'POST' && u.pathname === '/api/push/sub') { try { return await hPushSub(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
+    if (request.method === 'POST' && (u.pathname === '/api/auth/google' || u.pathname === '/api/auth/logout' || u.pathname === '/api/auth/delete' || u.pathname === '/api/sync')) {
+      try { return await (u.pathname === '/api/auth/google' ? hAuthGoogle(env, request) : u.pathname === '/api/auth/logout' ? hAuthLogout(env, request) : u.pathname === '/api/auth/delete' ? hAuthDelete(env, request) : hSyncPost(env, request)); }
+      catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); }
+    }
     if (request.method === 'POST' && u.pathname === '/api/push/inbox') { try { return await hPushInbox(env, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method === 'POST' && u.pathname === '/api/import') { try { return await hImport(env, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
     if (request.method === 'POST' && u.pathname === '/api/watch') { try { return await hWatchSave(env, u.searchParams, request); } catch (e) { return json(env, { ok: false, error: 'worker_error', message: String(e && e.message || e) }, 500); } }
@@ -1909,6 +2029,8 @@ export default {
       if (u.pathname === '/api/trend') return await hTrend(env, u.searchParams);
       if (u.pathname === '/api/watch') return await hWatchGet(env, u.searchParams);
       if (u.pathname === '/api/push/key') return await hPushKey(env);
+      if (u.pathname === '/api/auth/config') return await hAuthConfig(env);
+      if (u.pathname === '/api/sync') return await hSyncGet(env, request);
       if (u.pathname === '/api/push/finds') return await hPushFinds(env, u.searchParams);
       if (u.pathname === '/api/push/tick') return await hPushTick(env, ctx);
       if (u.pathname === '/api/alive/tick') return json(env, await aliveTick(env, false));
