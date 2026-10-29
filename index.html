@@ -1224,7 +1224,7 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
     <form id="intake" class="sheet intake" novalidate autocomplete="off">
       <div class="fld">
         <label for="f-url" data-ru="Ссылка на объявление" data-en="Listing link"></label>
-        <input class="in lg" id="f-url" type="url" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="ss.com, autoplius, autoportaal, mobile.de, autoscout24…">
+        <input class="in lg" id="f-url" type="url" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="ss.com, autoplius, autoportaal, mobile.de, autoscout24, autouncle…">
         <div id="link-hints" class="chips"></div>
       </div>
 
@@ -1378,7 +1378,7 @@ function decodeVin(raw){
 function plain(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 
 var SITES=[['ss.lv','SS.lv','LV'],['ss.com','SS.com','LV'],['auto24.lv','Auto24','LV'],['auto24.ee','Auto24','EE'],['autoportaal.ee','Autoportaal','EE'],
-  ['autoplius.lt','Autoplius','LT'],['autogidas.lt','Autogidas','LT'],['mobile.de','mobile.de','DE'],
+  ['autoplius.lt','Autoplius','LT'],['autogidas.lt','Autogidas','LT'],['mobile.de','mobile.de','DE'],['autouncle.de','AutoUncle','DE'],
   ['kleinanzeigen.de','Kleinanzeigen','DE'],['otomoto.pl','Otomoto','PL'],['marktplaats.nl','Marktplaats','NL'],
   ['leboncoin.fr','Leboncoin','FR'],['subito.it','Subito','IT'],['coches.net','Coches.net','ES'],
   ['standvirtual.com','Standvirtual','PT'],['sauto.cz','Sauto','CZ'],['avto.net','Avto.net','SI'],
@@ -2123,12 +2123,12 @@ function addImages(files){
 }
 
 /* ---------- pages the user opens in their own browser (the CarScout bookmark) ----------
-   autoplius.lt, autogidas.lt and auto24 refuse requests from servers. The user opens the page in their own browser (answering any "are you human"
+   autoplius.lt, autogidas.lt, auto24 and autouncle.de refuse requests from servers. The user opens the page in their own browser (answering any "are you human"
    question themselves) and presses the CarScout bookmark: the page they see is passed to a new CarScout tab, read by the server's readers
    (/api/import, nothing fetched, nothing stored) and used here. A search results page adds that country's market to the comparison of the car
    being checked; one ad is checked like a link. The ads are kept only in this browser, for 3 days. */
 var KEY_IMP='carscout_imports', KEY_IMPCTX='carscout_imp_ctx', IMP_DAYS=3;
-var IMP_HOST=/(^|\.)(autoplius\.lt|autogidas\.lt|auto24\.(ee|lv|lt))$/;
+var IMP_HOST=/(^|\.)(autoplius\.lt|autogidas\.lt|auto24\.(ee|lv|lt)|autouncle\.de)$/;
 function impOriginOk(o){ try{ var u=new URL(o); return u.protocol==='https:'&&IMP_HOST.test(u.hostname); }catch(e){ return false; } }
 function impNorm(x){ return String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,''); }
 function impLoad(){ try{ var a=JSON.parse(LS.get(KEY_IMP)||'[]'), lim=Date.now()-IMP_DAYS*864e5; return Array.isArray(a)?a.filter(function(x){return x&&x.at>lim&&Array.isArray(x.items)}):[]; }catch(e){ return []; } }
@@ -2154,7 +2154,12 @@ async function apiPost(path,body,ms){
 function impCtxOf(url){
   try{ var c=JSON.parse(LS.get(KEY_IMPCTX)||'null'); if(c&&c.at>Date.now()-6*36e5&&c.host&&new URL(url).hostname.replace(/^(www|en|ru|lt)\./,'')===c.host) return c; }catch(e){}
   var m=String(url).match(/autoplius\.lt\/(?:[a-z]{2}\/)?(?:ads|skelbimai)\/(?:used-cars|naudoti-automobiliai)\/([a-z0-9-]+)\/([a-z0-9-]+)/i)||String(url).match(/autogidas\.lt\/(?:[a-z]{2}\/)?skelbimai\/automobiliai\/([a-z0-9-]+)\/([a-z0-9-]+)/i);
-  return m?{make:m[1],model:m[2]}:{};
+  if(m) return {make:m[1],model:m[2]};
+  /* autouncle.de/de/gebrauchtwagen/<Make>/<Model>[/y-2023|/b-limousine|/t-...]: the second part is a model unless it is "in" (a place) or a filter such as y-2023 */
+  var au=String(url).match(/autouncle\.de\/de\/gebrauchtwagen\/([^\/?#]+)\/([^\/?#]+)/i);
+  if(au){ var a1,a2; try{ a1=decodeURIComponent(au[1]); a2=decodeURIComponent(au[2]); }catch(e){ a1=au[1]; a2=au[2]; }
+    if(!/^[a-z]-/i.test(a1)&&!/^(in|[a-z]-.*)$/i.test(a2)) return {make:a1,model:a2}; }
+  return {};
 }
 async function impHandle(d){
   var host=''; try{ host=new URL(d.url).hostname.replace(/^(www|en|ru|lt)\./,''); }catch(e){}
@@ -2450,7 +2455,7 @@ function fairOf(st){
    their listings are pooled, each keeps its own site name, and a car listed on two sites (same price and year, mileage
    within 1000 km) counts once. Sites that failed stay as their own rows so their errors are shown. Extra links (key x*) stay apart. */
 function mergeByRegion(results){
-  var MERGE={ss:1,a24lv:1,apl:1,agl:1,ape:1,a24ee:1}, byR={}, out=[];
+  var MERGE={ss:1,a24lv:1,apl:1,agl:1,ape:1,a24ee:1,as24de:1}, byR={}, out=[];   // as24de: Germany is pooled with an autouncle.de page the user opened (key imp*, region DE); alone it stays its own row
   results.forEach(function(r){ var j=r.j||{}; if((MERGE[r.key]||/^imp/.test(r.key))&&j.ok&&(j.items||[]).length){ (byR[r.region]=byR[r.region]||[]).push(r); } else out.push(r); });
   Object.keys(byR).forEach(function(reg){
     var g=byR[reg]; if(g.length===1){ out.push(g[0]); return; }
@@ -2807,7 +2812,7 @@ function secSearchLinks(v){
   var c=v.car, q=encodeURIComponent([c.make,c.model,c.year].filter(Boolean).join(' '));
   var mk=function(label,url){return '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a>'};
   return '<section class="sec" id="sec-links"><h3 class="sh">'+esc(L('Открыть поиск на сайтах','Open the searches'))+'</h3><div class="links" style="margin-top:12px">'+
-    mk('ss.com','https://www.google.com/search?q='+q+'+site%3Ass.com')+mk('autoplius.lt','https://www.google.com/search?q='+q+'+site%3Aautoplius.lt')+mk('auto24.ee','https://www.google.com/search?q='+q+'+site%3Aauto24.ee')+mk('visam.lv','https://visam.lv/')+mk('mobile.de','https://www.google.com/search?q='+q+'+site%3Amobile.de')+mk('AutoScout24','https://www.google.com/search?q='+q+'+site%3Aautoscout24.com')+'</div></section>';
+    mk('ss.com','https://www.google.com/search?q='+q+'+site%3Ass.com')+mk('autoplius.lt','https://www.google.com/search?q='+q+'+site%3Aautoplius.lt')+mk('auto24.ee','https://www.google.com/search?q='+q+'+site%3Aauto24.ee')+mk('visam.lv','https://visam.lv/')+mk('mobile.de','https://www.google.com/search?q='+q+'+site%3Amobile.de')+mk('autouncle.de','https://www.google.com/search?q='+q+'+site%3Aautouncle.de')+mk('AutoScout24','https://www.google.com/search?q='+q+'+site%3Aautoscout24.com')+'</div></section>';
 }
 function secNoApi(){
   return '<div class="banner"><b>'+esc(L('Сервер не подключён','Server not connected'))+'</b><span>'+esc(L('Реальные цены с сайтов можно получить только через ваш бесплатный сервер (Cloudflare Worker). Нажмите «Сервер» вверху и вставьте его адрес. Пока доступны разбор скриншота, текста и VIN.','Real prices from the sites need your free server (a Cloudflare Worker). Press “Server” at the top and paste its address. Meanwhile, screenshot, text and VIN reading work.'))+'</span></div>';

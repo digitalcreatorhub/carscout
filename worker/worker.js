@@ -18,7 +18,7 @@ const VERSION = '1.5.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
-  /(^|\.)autoscout24\.[a-z.]+$/, /(^|\.)mobile\.de$/, /(^|\.)otomoto\.pl$/, /(^|\.)autovit\.ro$/, /(^|\.)kleinanzeigen\.de$/, /(^|\.)autoportaal\.ee$/
+  /(^|\.)autoscout24\.[a-z.]+$/, /(^|\.)mobile\.de$/, /(^|\.)otomoto\.pl$/, /(^|\.)autovit\.ro$/, /(^|\.)kleinanzeigen\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autouncle\.de$/
 ];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const MAKES = ['Alfa Romeo', 'Aston Martin', 'Audi', 'Bentley', 'BMW', 'Citroën', 'Citroen', 'Cupra', 'Dacia', 'DS', 'Fiat', 'Ford', 'Honda', 'Hyundai', 'Infiniti',
@@ -744,7 +744,7 @@ function parseGenericListing(html, url) {
 const IMG_HOSTS = [
   /(^|\.)copart\.com$/, /(^|\.)iaai\.com$/, /(^|\.)vincheck\.it\.com$/,
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoscout24\.(net|com|de)$/, /(^|\.)autoplius\.lt$/, /(^|\.)dgn\.lt$/, /(^|\.)auto24\.(ee|lv|lt)$/,
-  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/, /(^|\.)img-bcg\.eu$/, /(^|\.)autogidas\.lt$/
+  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/, /(^|\.)img-bcg\.eu$/, /(^|\.)autogidas\.lt$/, /(^|\.)autouncle\.com$/
 ];
 function imgAllowed(u) {
   try { const x = new URL(u); return x.protocol === 'https:' && IMG_HOSTS.some(function (re) { return re.test(x.hostname); }); } catch (e) { return false; }
@@ -889,12 +889,13 @@ function readAdHtml(text, pageUrl, host, url) {
   } else if (/(^|\.)autoscout24\.[a-z.]+$/.test(host) && (res = parseAs24Listing(text, pageUrl))) { parser = 'as24';
   } else if (/(^|\.)autoportaal\.ee$/.test(host) && (res = parseApListing(text, pageUrl))) { parser = 'autoportaal';
   } else if (/(^|\.)auto24\.(ee|lv|lt)$/.test(host) && (res = parseA24Listing(text, pageUrl))) { parser = 'auto24';
+  } else if (/(^|\.)autouncle\.de$/.test(host) && (res = parseAuListing(text, pageUrl))) { parser = 'autouncle';
   } else { res = parseGenericListing(text, pageUrl); parser = 'generic'; res.hints = {}; }
   return { res: res, parser: parser };
 }
 
 /* ---------------- a page the user opened in their own browser ----------------
-   Sites like autoplius.lt, autogidas.lt and auto24 refuse requests from servers. The user can open such a page in their own browser
+   Sites like autoplius.lt, autogidas.lt, auto24 and autouncle.de refuse requests from servers. The user can open such a page in their own browser
    (answering any "are you human" question themselves) and press the CarScout bookmark: the page they see is sent here only to be read
    with the same readers as above. Nothing is fetched from the site, nothing is stored: the result goes back to the user's browser. */
 const IMPORT_MAX = 6000000;
@@ -912,6 +913,7 @@ async function hImport(env, request) {
   else if (/(^|\.)auto24\.(ee|lv|lt)$/.test(host)) items = parseA24List(html).map(function (i) { return Object.assign({}, i, { url: i.url.replace('https://www.auto24.ee/soidukid/', 'https://' + host + '/' + (/\.lv$/.test(host) ? 'lietoti' : /\.lt$/.test(host) ? 'naudoti' : 'soidukid') + '/') }); });
   else if (/(^|\.)ss\.(com|lv)$/.test(host) && !/\/msg\//.test(url)) items = parseSsList(html, url);
   else if (/(^|\.)autoportaal\.ee$/.test(host)) items = parseApList(html);
+  else if (/(^|\.)autouncle\.de$/.test(host) && !/\/d\/\d+/.test(new URL(url).pathname)) items = parseAuList(html);   // an ad page also shows similar cars: it is one ad, not a list
   if (items.length >= 3) return json(env, { ok: true, kind: 'list', source: label, region: region, url: url, items: items.slice(0, 200) });
   const rd = readAdHtml(html, url, host, url), L = rd.res.listing;
   const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;
@@ -1256,6 +1258,78 @@ function parseAgList(html) {
       img: (r.match(/<img[^>]+src="(https:\/\/img\.autogidas\.lt\/[^"]+)"/) || [])[1] || null });
   }
   return out;
+}
+
+/* autouncle.de (Germany): an aggregator that collects dealer ads from many German sites. It refuses servers, so its pages come
+   only through the CarScout bookmark (/api/import). The class names on the site are hashed and change, so a card is read by what it says, not by class:
+   the link /de/d/<id>-..., the <h3> ("Gebraucht (2022) BMW M3 Competition Edition 510 PS | Superpreis"), the facts list ("Jul 2022", "66.200 km", "3.0L Benzin",
+   "Automatik", "510 PS (375 kW)") and the first price before the labels of AutoUncle's own verdict ("Unter dem Marktpreis", "Preisänderung", "Tage inseriert":
+   the amount after them is a saving, not the price). New cars ("Neu (2026) ...") are left out: the app compares used cars. */
+const AU_BASE = 'https://www.autouncle.de';
+function auFuel(s) {
+  s = String(s || '');
+  if (/elektr\w*\s*[\/+]\s*(benzin|diesel)|(benzin|diesel)\s*[\/+]\s*elektr|plug-?in|mild|hybrid/i.test(s)) return 'hybrid';
+  const f = normFuel(s);
+  return f === 'lpg' ? null : f;
+}
+function auPower(ps, kw) { kw = parseInt(kw, 10); ps = parseInt(ps, 10); return kw > 0 ? kw : ps > 0 ? Math.round(ps * 0.7355) : null; }
+function parseAuList(html) {
+  const out = [], seen = {}, parts = String(html || '').split(/<article\b/i);
+  for (let k = 1; k < parts.length; k++) {
+    let r = parts[k]; const end = r.indexOf('</article>'); if (end > -1) r = r.slice(0, end); r = r.slice(0, 60000);
+    const link = r.match(/<a\b[^>]*href="(\/de\/d\/(\d+)-[^"#?]*)"/i);
+    if (!link || seen[link[2]]) continue;
+    const h3 = r.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/i), head = h3 ? strip(h3[1]) : '';
+    if (!head || /^Neu\b/.test(head)) continue;
+    const lis = []; const lre = /<li\b[^>]*>([\s\S]*?)<\/li>/gi; let m; while ((m = lre.exec(r))) lis.push(strip(m[1]));
+    const cut = r.search(/(?:Unter|Über|Ueber)\s+dem\s+Marktpreis|Preis(?:änderung|entwicklung|verlauf)|Tage\s+inseriert/i), top = cut > 0 ? r.slice(0, cut) : r;
+    const pm = top.match(/(\d{1,3}(?:\.\d{3})+|\d{3,6})(?:&nbsp;|&#160;| |\s)*(?:€|&euro;)/), price = pm ? toNum(pm[1]) : null;
+    if (!(price >= 300 && price <= 500000)) continue;
+    let year = parseInt((head.match(/\((19[5-9]\d|20[0-3]\d)\)/) || [])[1], 10) || null, km = null, fuel = null, gear = null, engine_l = null, kw = null, ps = null;
+    lis.forEach(function (t) {
+      let x;
+      if (!year && (x = t.match(/^[A-Za-zÄäÖöÜü]{3,4}\.?\s+(19[5-9]\d|20[0-3]\d)$/))) year = parseInt(x[1], 10);
+      else if (km == null && (x = t.match(/^(\d[\d.]*)\s*km$/i))) km = toNum(x[1]);
+      else if (/\bkW\b|\bPS\b/.test(t) && !/CO2|L\/100/i.test(t)) { if ((x = t.match(/\((\d{2,4})\s*kW\)/))) kw = x[1]; if ((x = t.match(/(\d{2,4})\s*PS/))) ps = x[1]; }
+      else if (!fuel && (x = t.match(/^(?:(\d[.,]\d)\s*L\s+)?(Benzin|Diesel|Elektro\w*|Hybrid\w*|Plug-?in\S*|Mild\S*|Erdgas|Autogas|LPG|Wasserstoff)\b(.*)$/i))) { if (x[1]) engine_l = parseFloat(x[1].replace(',', '.')); fuel = auFuel(x[2] + x[3]); }
+      else if (!gear && /^(Automatik|Halbautomatik|Schaltgetriebe|Schaltung|Manuell)/i.test(t)) gear = /^(Automatik|Halbautomatik)/i.test(t) ? 'automatic' : 'manual';
+    });
+    seen[link[2]] = 1;
+    out.push({ price: Math.round(price), km: km, year: year, url: AU_BASE + link[1], title: head.replace(/^(?:Gebraucht|Neu)\s*\(\d{4}\)\s*/i, '').replace(/\s*\|\s*[^|]+$/, '').slice(0, 160), fuel: fuel, gear: gear, engine_l: engine_l, power_kw: auPower(ps, kw), drive: null,
+      img: (r.match(/<img[^>]+src="(https:\/\/images\.autouncle\.com\/[^"]+)"/i) || [])[1] || null });
+  }
+  return out;
+}
+/* an autouncle.de ad page: the schema.org Product/Vehicle in its JSON-LD carries make, model, year, mileage, price, fuel, gearbox, power and where the car is */
+function auVehicle(html) {
+  let found = null; const re = /<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi; let m;
+  const walk = function (o) {
+    if (found) return;
+    if (Array.isArray(o)) { o.forEach(walk); return; }
+    if (!o || typeof o !== 'object') return;
+    const t = [].concat(o['@type'] || []); if (t.indexOf('Vehicle') > -1 || t.indexOf('Car') > -1) { found = o; return; }
+    Object.keys(o).forEach(function (k) { const v = o[k]; if (v && typeof v === 'object' && k !== 'offers' && k !== 'brand') walk(v); });
+  };
+  while ((m = re.exec(html)) && !found) { try { walk(JSON.parse(m[1])); } catch (e) { } }
+  return found;
+}
+function parseAuListing(html, url) {
+  const o = auVehicle(html); if (!o) return null;
+  const off = (Array.isArray(o.offers) ? o.offers[0] : o.offers) || {}, eng = o.vehicleEngine || {}, pw = eng.enginePower || {}, disp = eng.engineDisplacement && parseFloat(eng.engineDisplacement.value);
+  const price = toNum(off.price), km = o.mileageFromOdometer && o.mileageFromOdometer.value != null ? Math.round(toNum(o.mileageFromOdometer.value)) : null;
+  const kw = pw.additionalProperty && /kW/i.test(String(pw.additionalProperty.unitText || pw.additionalProperty.name || '')) ? pw.additionalProperty.value : null;
+  const adr = (off.availableAtOrFrom && off.availableAtOrFrom.address) || {};
+  const make = o.brand && o.brand.name || null, name = String(o.name || '');
+  const raw = name.replace(/^(?:Gebraucht|Neu)\s+\d{4}\s+/i, '').replace(make ? new RegExp('^' + make.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i') : /^$/, '').replace(o.color ? new RegExp('\\s+in\\s+' + String(o.color).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') : /^$/, '').trim();
+  const listing = { make: make, model: o.model || null, model_raw: raw || null, year: parseInt(o.vehicleModelDate, 10) || null, mileage_km: km, asking_price: price > 0 ? Math.round(price) : null,
+    fuel: auFuel(o.fuelType), lpg: false, gearbox: normGear(o.vehicleTransmission), engine_l: disp > 0 && disp < 10 ? Math.round(disp * 10) / 10 : null, power_kw: auPower(pw.value, kw), drive: null, body: o.bodyType || null, color: o.color || null,
+    vin: null, description: String(o.description || '').slice(0, 8000), posted: null, updated: null,
+    place: [adr.postalCode, adr.addressLocality].filter(Boolean).join(' ') + (adr.addressCountry ? ', ' + adr.addressCountry : '') || null, address: null, geo: null, country: adr.addressCountry || 'DE',
+    dealer: null, seller_name: null, accident: null, repaired_damage: false, owners: null, warranty: null };
+  listing.src = { make: 'table', model: 'table', year: listing.year ? 'table' : null, mileage_km: listing.mileage_km != null ? 'table' : null, asking_price: listing.asking_price ? 'table' : null, fuel: listing.fuel ? 'table' : null, gearbox: listing.gearbox ? 'table' : null, vin: null };
+  const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model || listing.model;
+  const im = o.image; const images = (Array.isArray(im) ? im : [im]).map(function (x) { return typeof x === 'string' ? x : x && x.url; }).filter(function (u) { return typeof u === 'string' && imgAllowed(u); }).slice(0, 30);
+  return { listing: listing, image: images[0] || null, images: images, title: listing.model_raw || name, hints: {} };
 }
 
 /* ss.lv seller: number of views and every other ad with the same phone number.
