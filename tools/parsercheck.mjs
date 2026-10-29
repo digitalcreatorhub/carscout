@@ -210,6 +210,50 @@ const SSA = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/golf-7/aaaaaa.h
   check(r.j.ok === false && r.j.error === 'blocked' && /ss\.com/.test(r.j.searchUrl), 'similar cars (ss.com): a refusal by the site is reported as "blocked" with the link to open by hand', r.j);
 }
 
+/* ss.com, only the requested years (the car finder asks with yfilter=1): the years are POSTed to <category>/filter/, ss.com answers with a
+   cookie, and the filtered pages are read with that cookie. Every doubt falls back to the plain category pages. The fake site below keeps the
+   filter behind the cookie exactly like the real one (the page addresses carry no parameters). */
+{
+  const BASE = 'https://www.ss.com/ru/transport/cars/audi/a6/';
+  const COOKIE = 'SSID=abc123';
+  const rowsFor = (k, years) => years.map((y, i) => ssRow(56000000 + k * 10 + i, { slug: 'y' + k + i, title: 'Audi A6 ' + y, model: 'A6', year: y, eng: '2.0D', km: '150 тыс.', price: (15000 + k * 1000 + i * 100) + '  €' })).join('\n');
+  const html = (k, years, last) => `<html><table>${rowsFor(k, years)}</table><div><a rel="prev" href="/ru/transport/cars/audi/a6/filter/page${last}.html">prev</a> <a href="/ru/transport/cars/audi/a6/filter/page2.html">2</a></div></html>`;
+  const resp = (status, body, extra = {}) => ({ status, headers: { get: (n) => extra[n.toLowerCase()] ?? null, getSetCookie: () => extra.cookies || [] }, text: async () => body });
+  const seen = [];
+  const S = { applied: true, postStatus: 200, last: 3 };
+  const realFetch = ctx.fetch;
+  ctx.fetch = async (url, init = {}) => {
+    const method = init.method || 'GET', ck = (init.headers || {}).cookie;
+    seen.push(`${method} ${url}${init.body ? ' ' + init.body : ''}${ck ? ' [' + ck + ']' : ''}`);
+    if (url === BASE + 'filter/' && method === 'POST') {
+      if (S.postStatus !== 200) return resp(S.postStatus, 'denied');
+      return resp(200, html(1, S.applied ? [2018, 2019, 2020] : [2004, 2006, 2011], S.last), { cookies: [COOKIE + '; path=/; HttpOnly'] });
+    }
+    const m = url.match(/^https:\/\/www\.ss\.com\/ru\/transport\/cars\/audi\/a6\/filter\/page(\d+)\.html$/);
+    if (m) return resp(200, html(+m[1], ck === COOKIE && S.applied ? [2018, 2019, 2020] : [2003, 2004, 2005], S.last));
+    return realFetch(url, init);
+  };
+  const ask = async (qs) => { seen.length = 0; const j = await api('/api/comps?' + qs); return { j, calls: seen.slice() }; };
+  const years = (j) => [...new Set((j.items || []).map(i => i.year))].sort();
+  pages[BASE] = { status: 200, body: `<html><table>${ssList}</table></html>` };
+
+  let r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
+  check(r.j.ok === true && r.j.yearsOnly === true && r.j.items.length === 9 && years(r.j).join() === '2018,2019,2020', 'ss.com, requested years: the filtered pages come back (3 pages x 3 ads), only the requested years', { ok: r.j.ok, only: r.j.yearsOnly, n: (r.j.items || []).length, years: years(r.j) });
+  check(/^POST .*audi\/a6\/filter\/ topt%5B18%5D%5Bmin%5D=2018&topt%5B18%5D%5Bmax%5D=2021$/.test(r.calls[0]), 'ss.com, requested years: the years are sent as the site\'s own filter fields (topt[18][min] / [max])', r.calls[0]);
+  check(r.calls.length === 3 && r.calls[1] === 'GET ' + BASE + 'filter/page2.html [' + COOKIE + ']' && r.calls[2] === 'GET ' + BASE + 'filter/page3.html [' + COOKIE + ']', 'ss.com, requested years: pages 2 and 3 are read with the cookie from the answer, 3 requests in all, the plain category is not read', r.calls);
+  S.last = 40; r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
+  check(r.j.yearsOnly === true && r.calls.filter(c => /filter\/page\d+\.html/.test(c)).length === 7, 'ss.com, requested years: at most 8 pages (the first plus 7), however long the list is', r.calls.length); S.last = 3;
+  r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021');
+  check(!r.calls.some(c => c.startsWith('POST')) && r.calls[0] === 'GET ' + BASE && r.j.yearsOnly === false, 'ss.com, without yfilter (the check of one ad, alerts): nothing changes, the plain category pages are read', r.calls);
+  S.applied = false; r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
+  check(r.j.ok === true && r.j.yearsOnly === false && r.calls.includes('GET ' + BASE), 'ss.com, requested years: if the answer is not filtered (other years come back), it is not trusted and the plain category pages are read', { only: r.j.yearsOnly, calls: r.calls });
+  S.applied = true; S.postStatus = 403; r = await ask('source=ss&make=Audi&model=A6&yfrom=2018&yto=2021&yfilter=1');
+  check(r.j.ok === true && r.j.yearsOnly === false && r.calls.includes('GET ' + BASE), 'ss.com, requested years: if the filter is refused, the plain category pages are read', { only: r.j.yearsOnly, calls: r.calls });
+  S.postStatus = 200; r = await ask('source=ss&make=Audi&model=A6&yfrom=2021&yto=2018&yfilter=1');
+  check(!r.calls.some(c => c.startsWith('POST')), 'ss.com, requested years: years the wrong way round or missing never reach the filter', r.calls);
+  ctx.fetch = realFetch;
+}
+
 /* =====================================================================================================================
    5. AutoScout24: list (cards and the JSON fallback) and ad page
    ===================================================================================================================== */
