@@ -49,6 +49,13 @@ table('make and model from a title (guessMakeModel)', 'guessMakeModel', [['Volks
   check(JSON.stringify([f("modelFamilyOk('bmw', '5series', '520d')"), f("modelFamilyOk('bmw', '5series', '320d')"), f("modelFamilyOk('bmw', '5series', 'm5')"), f("modelFamilyOk('mercedes-benz', 'eclass', 'e220')"), f("modelFamilyOk('mercedes-benz', 'eclass', 'c220')"), f("modelFamilyOk('mazda', 'mazda6', '6')"), f("modelFamilyOk('audi', 'a6', 'a4')")]) === JSON.stringify([true, false, true, true, false, true, false]), 'model line against an exact model (modelFamilyOk): 5 Series has 520d, not 320d; E-Class has E 220, not C 220');
 }
 {
+  /* "no accidents" is not "damaged": phone-alert filter must keep such cars and still drop real damaged ones */
+  const good = ['Bez avārijām, pirmais īpašnieks', 'Nav bojāts, bez bojājumiem', 'Без аварий, один владелец', 'Unfallfrei, Scheckheft', 'Accident free, 1 owner', 'Ohne Unfall'];
+  const bad = ['Pēc avārijas, jāremontē', 'Bojāts priekšgals', 'Битая, на запчасти', 'Damaged front end', 'Unfall, Motorschaden', 'Bez avārijām, bet uz daļām'];
+  const wrongKept = bad.filter(t => !P(`pzIsBad(${JSON.stringify(t)})`)), wrongDropped = good.filter(t => P(`pzIsBad(${JSON.stringify(t)})`));
+  check(!wrongKept.length && !wrongDropped.length, 'damaged-car filter (pzIsBad): "bez avārijām", "без аварий", "unfallfrei" are NOT damaged; real damage words still are', { wrongKept, wrongDropped });
+}
+{
   const ok = (u) => P(`allowed(${JSON.stringify(u)})`);
   const yes = ['https://www.ss.com/msg/ru/x.html', 'https://ss.lv/', 'https://www.autoscout24.de/angebote/x', 'https://en.autoplius.lt/ads/x.html', 'https://autoportaal.ee/et/x', 'https://www.auto24.lv/lietoti/1'];
   const no = ['https://evil.com/?u=ss.com', 'https://ss.com.evil.com/', 'https://notss.com/', 'http://localhost/', 'ftp://ss.com/', 'javascript:alert(1)', 'not a url', 'https://169.254.169.254/'];
