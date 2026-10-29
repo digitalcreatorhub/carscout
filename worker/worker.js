@@ -18,7 +18,7 @@ const VERSION = '1.5.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
-  /(^|\.)autoscout24\.[a-z.]+$/, /(^|\.)mobile\.de$/, /(^|\.)otomoto\.pl$/, /(^|\.)autovit\.ro$/, /(^|\.)kleinanzeigen\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autouncle\.de$/
+  /(^|\.)autoscout24\.[a-z.]+$/, /(^|\.)mobile\.de$/, /(^|\.)otomoto\.pl$/, /(^|\.)autovit\.ro$/, /(^|\.)kleinanzeigen\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autouncle\.de$/, /(^|\.)pkw\.de$/
 ];
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const MAKES = ['Alfa Romeo', 'Aston Martin', 'Audi', 'Bentley', 'BMW', 'Citroën', 'Citroen', 'Cupra', 'Dacia', 'DS', 'Fiat', 'Ford', 'Honda', 'Hyundai', 'Infiniti',
@@ -744,7 +744,7 @@ function parseGenericListing(html, url) {
 const IMG_HOSTS = [
   /(^|\.)copart\.com$/, /(^|\.)iaai\.com$/, /(^|\.)vincheck\.it\.com$/,
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoscout24\.(net|com|de)$/, /(^|\.)autoplius\.lt$/, /(^|\.)dgn\.lt$/, /(^|\.)auto24\.(ee|lv|lt)$/,
-  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/, /(^|\.)img-bcg\.eu$/, /(^|\.)autogidas\.lt$/, /(^|\.)autouncle\.com$/
+  /(^|\.)olxcdn\.com$/, /(^|\.)classistatic\.de$/, /(^|\.)autoportaal\.ee$/, /(^|\.)autovit\.ro$/, /(^|\.)img-bcg\.eu$/, /(^|\.)autogidas\.lt$/, /(^|\.)autouncle\.com$/, /(^|\.)pkw\.net$/, /(^|\.)kleinanzeigen\.de$/
 ];
 function imgAllowed(u) {
   try { const x = new URL(u); return x.protocol === 'https:' && IMG_HOSTS.some(function (re) { return re.test(x.hostname); }); } catch (e) { return false; }
@@ -890,12 +890,14 @@ function readAdHtml(text, pageUrl, host, url) {
   } else if (/(^|\.)autoportaal\.ee$/.test(host) && (res = parseApListing(text, pageUrl))) { parser = 'autoportaal';
   } else if (/(^|\.)auto24\.(ee|lv|lt)$/.test(host) && (res = parseA24Listing(text, pageUrl))) { parser = 'auto24';
   } else if (/(^|\.)autouncle\.de$/.test(host) && (res = parseAuListing(text, pageUrl))) { parser = 'autouncle';
+  } else if (/(^|\.)kleinanzeigen\.de$/.test(host) && (res = parseKaListing(text, pageUrl))) { parser = 'kleinanzeigen';
+  } else if (/(^|\.)pkw\.de$/.test(host) && (res = parsePkwListing(text, pageUrl))) { parser = 'pkw';
   } else { res = parseGenericListing(text, pageUrl); parser = 'generic'; res.hints = {}; }
   return { res: res, parser: parser };
 }
 
 /* ---------------- a page the user opened in their own browser ----------------
-   Sites like autoplius.lt, autogidas.lt, auto24 and autouncle.de refuse requests from servers. The user can open such a page in their own browser
+   Sites like autoplius.lt, autogidas.lt, auto24, autouncle.de, kleinanzeigen.de and pkw.de refuse requests from servers. The user can open such a page in their own browser
    (answering any "are you human" question themselves) and press the CarScout bookmark: the page they see is sent here only to be read
    with the same readers as above. Nothing is fetched from the site, nothing is stored: the result goes back to the user's browser. */
 const IMPORT_MAX = 6000000;
@@ -1330,6 +1332,74 @@ function parseAuListing(html, url) {
   const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model || listing.model;
   const im = o.image; const images = (Array.isArray(im) ? im : [im]).map(function (x) { return typeof x === 'string' ? x : x && x.url; }).filter(function (u) { return typeof u === 'string' && imgAllowed(u); }).slice(0, 30);
   return { listing: listing, image: images[0] || null, images: images, title: listing.model_raw || name, hints: {} };
+}
+
+/* kleinanzeigen.de (Germany, private and dealer ads; AutoUncle sends people there): refuses servers, so only through the bookmark (/api/import), ad pages only.
+   An ad page keeps its facts in #viewad-details as pairs "label <span>value</span>" (Marke, Modell, Kilometerstand, Erstzulassung, Kraftstoffart, Getriebe,
+   Leistung, Fahrzeugtyp, Außenfarbe, Fahrzeugzustand), the price in #viewad-price ("19.000 € VB", VB = negotiable), the place in #viewad-locality and
+   "Gewerblicher Nutzer" / "Privater Nutzer" for the seller. A page that is not a car ad (no Marke / Kilometerstand) gives null and the generic reader takes over. */
+function kaPairs(html) {
+  /* the site serves two markups for the same block (seen on 29 Oct 2026, one ad, two loads): the older <li class="addetailslist--detail">Label<span class="...value">Value</span></li>
+     and the newer Tailwind one <li><span>Label</span><span>Value</span></li>. Both are read from the block #viewad-details: with two spans the first is the label and
+     the last the value; with one span the label is the text before it. */
+  const out = {}, at = html.search(/id="viewad-details"/i); if (at < 0) return out;
+  const blk = html.slice(at, at + 14000), re = /<li\b[^>]*>([\s\S]*?)<\/li>/gi; let m;
+  while ((m = re.exec(blk))) {
+    const sp = Array.from(m[1].matchAll(/<span\b[^>]*>([\s\S]*?)<\/span>/gi)); if (!sp.length) continue;
+    const label = sp.length > 1 ? strip(sp[0][1]) : strip(m[1].slice(0, sp[0].index)), value = strip(sp[sp.length - 1][1]);
+    if (label && value && !(label in out)) out[label] = value;
+  }
+  return out;
+}
+function parseKaListing(html, url) {
+  const det = kaPairs(html); if (!det.Marke && !det.Kilometerstand) return null;
+  const pr = html.match(/id="viewad-price"[^>]*>([\s\S]*?)<\/(?:h\d|div|span|p)>/i), price = pr ? toNum(strip(pr[1]).replace(/VB|€/gi, '')) : null;
+  const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i), title = h1 ? strip(h1[1]).replace(/^(?:(?:Reserviert|Gelöscht|Verkauft)\s*•\s*)+/i, '').trim() : '';
+  const loc = html.match(/id="viewad-locality"[^>]*>([\s\S]*?)<\/(?:span|div|p)>/i), desc = html.match(/id="viewad-description-text"[^>]*>([\s\S]*?)<\/(?:p|div)>/i), text = strip(html);
+  const ccm = /ccm|cm³/i.test(det.Hubraum || '') ? toNum(det.Hubraum) : null, fuel = auFuel(det.Kraftstoffart), owners = parseInt(det['Anzahl der Fahrzeughalter'] || det['Fahrzeughalter'], 10) || null;
+  const ps = (String(det.Leistung || '').match(/(\d{2,4})\s*PS/) || [])[1], kw = (String(det.Leistung || '').match(/(\d{2,4})\s*kW/) || [])[1];
+  const listing = { make: det.Marke || null, model: det.Modell || null, model_raw: title || null, year: parseYear(det.Erstzulassung), mileage_km: det.Kilometerstand ? parseKm(det.Kilometerstand) : null, asking_price: price > 0 ? Math.round(price) : null,
+    fuel: fuel, lpg: /gas|lpg/i.test(det.Kraftstoffart || ''), gearbox: normGear(det.Getriebe), engine_l: ccm > 400 ? Math.round(ccm / 100) / 10 : null, power_kw: auPower(ps, kw), drive: null, body: det.Fahrzeugtyp || null, color: det['Außenfarbe'] || null,
+    vin: null, description: desc ? strip(desc[1]).slice(0, 8000) : '', posted: null, updated: null, place: loc ? strip(loc[1]) : null, address: null, geo: null, country: 'DE',
+    dealer: /Gewerblicher Nutzer/.test(text) ? true : /Privater Nutzer/.test(text) ? false : null, seller_name: null,
+    accident: /^Unbeschädigt/i.test(det.Fahrzeugzustand || '') ? false : /^Beschädigt/i.test(det.Fahrzeugzustand || '') ? true : null, repaired_damage: false, owners: owners, warranty: null };
+  listing.src = { make: 'table', model: 'table', year: listing.year ? 'table' : null, mileage_km: listing.mileage_km != null ? 'table' : null, asking_price: listing.asking_price ? 'table' : null, fuel: listing.fuel ? 'table' : null, gearbox: listing.gearbox ? 'table' : null, vin: null };
+  const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model || listing.model;
+  /* the photos: the large size ($_59) of every gallery picture of the ad (<img src>, or "contentUrl" in the older markup); og:image is the site logo in the newer markup */
+  const images = []; const add = function (u) { u = String(u || '').replace(/&amp;/g, '&'); if (u && !/logo|static\.kleinanzeigen/i.test(u) && imgAllowed(u) && images.indexOf(u) < 0) images.push(u); };
+  let m; const re = /(?:src="|"contentUrl"\s*:\s*")(https:\/\/img\.kleinanzeigen\.de\/api\/v1\/prod-ads\/images\/[^"\s]+?\?rule=\$_59\.[A-Za-z]+)"/g; while ((m = re.exec(html)) && images.length < 30) add(m[1]);
+  if (!images.length) add(meta(html, 'og:image'));
+  return { listing: listing, image: images[0] || null, images: images, title: title || null, hints: {} };
+}
+
+/* pkw.de (suche.pkw.de, Germany, dealer ads; AutoUncle sends people there): only through the bookmark too. An ad page has the facts as pairs
+   <div class="specs-details__content-item"><div class="label">..</div><div class="value">..</div></div>, the price in <div class="full-price">€ 19.990,-</div>
+   and in the meta tags ("... in Bergisch Gladbach: € 19990 ,- | 165700 km | 2019-05-01 | Diesel – Bei PKW.de"), which also work when only the first HTML of the
+   page is there. Result pages are drawn by script and are not read. */
+function pkwSpecs(html) {
+  const out = {}, re = /<div\b[^>]*specs-details__content-item[^>]*>\s*<div\b[^>]*class="label"[^>]*>([\s\S]*?)<\/div>\s*<div\b[^>]*class="value"[^>]*>([\s\S]*?)<\/div>/gi; let m;
+  while ((m = re.exec(html))) { const k = strip(m[1]); if (k && !(k in out)) out[k] = strip(m[2]); }
+  return out;
+}
+function parsePkwListing(html, url) {
+  const sp = pkwSpecs(html), desc = meta(html, 'og:description') || meta(html, 'description') || '', ogt = meta(html, 'og:title') || '';
+  const dm = desc.match(/€\s*([\d.]+)\s*,-\s*\|\s*(\d[\d.]*)\s*km\s*\|\s*(\d{4})-\d{2}-\d{2}\s*\|\s*([^|–]+?)\s*(?:–|$)/);
+  const fp = html.match(/class="[^"]*full-price[^"]*"[^>]*>([\s\S]*?)<\/div>/i), fpm = fp ? strip(fp[1]).match(/€\s*([\d.]+)/) : null;
+  const price = toNum(fpm ? fpm[1] : dm ? dm[1] : null);
+  const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i), tm = ogt.match(/^(.+?)\s+als\s+(.+?)\s+in\s+(.+?)\s+für\s/);
+  const name = (h1 ? strip(h1[1]) : '') || (tm ? tm[1] : '');
+  const km = sp.Kilometerstand ? parseKm(sp.Kilometerstand) : dm ? parseKm(dm[2]) : null, year = parseYear(sp.Erstzulassung) || (dm ? parseInt(dm[3], 10) : null);
+  if (!name || !(price > 0) || (km == null && !year)) return null;
+  const fuelTxt = sp.Kraftstoffart || (dm ? dm[4] : ''), ccm = /ccm|cm³/i.test(sp.Hubraum || '') ? toNum(sp.Hubraum) : null, kw = (String(sp.Leistung || '').match(/(\d{2,4})\s*kW/) || [])[1], ps = (String(sp.Leistung || '').match(/(\d{2,4})\s*PS/) || [])[1];
+  const mm = guessMakeModel(name), fuel = auFuel(fuelTxt);
+  const listing = { make: mm.make, model: mm.model, model_raw: name, year: year, mileage_km: km, asking_price: Math.round(price), fuel: fuel, lpg: /gas|lpg/i.test(fuelTxt), gearbox: normGear(sp.Getriebe), engine_l: ccm > 400 ? Math.round(ccm / 100) / 10 : null,
+    power_kw: auPower(ps, kw), drive: null, body: tm ? tm[2] : null, color: sp.Farbe || null, vin: null, description: '', posted: null, updated: null, place: tm ? tm[3] + ', DE' : null, address: null, geo: null, country: 'DE',
+    dealer: /Händler/.test(html) ? true : null, seller_name: null, accident: null, repaired_damage: false, owners: parseInt(sp['Anzahl der Fahrzeughalter'], 10) || null, warranty: null };
+  listing.src = { make: 'table', model: 'table', year: listing.year ? 'table' : null, mileage_km: listing.mileage_km != null ? 'table' : null, asking_price: 'table', fuel: listing.fuel ? 'table' : null, gearbox: listing.gearbox ? 'table' : null, vin: null };
+  const nm = cleanMakeModel(listing.make, listing.model); listing.make = nm.make; listing.model = nm.model || listing.model;
+  const images = []; const add = function (u) { u = String(u || '').replace(/&amp;/g, '&'); if (u && imgAllowed(u) && images.indexOf(u) < 0) images.push(u); };
+  add(meta(html, 'og:image')); let m; const re = /https:\/\/images\.pkw\.net\/[^"'\s<>)]+?-640x480_[a-f0-9]+\.(?:jpe?g|png|webp)/g; while ((m = re.exec(html)) && images.length < 30) add(m[0]);
+  return { listing: listing, image: images[0] || null, images: images, title: name, hints: {} };
 }
 
 /* ss.lv seller: number of views and every other ad with the same phone number.

@@ -15,7 +15,7 @@
 - Offline checks (.github/workflows/lifecheck.yml, Node 22, no network, on every push and pull request): lifecheck
   (time on sale), ratecheck (request limits of the worker), dbcheck (daily database clean-up), photocheck (the
   /api/photogen endpoint: a vision model picks the generation from two photos, with a fake AI), accountcheck (accounts: sign in with Google, synced lists), parsercheck (readers of
-  ss.com, AutoScout24, autoplius, autoportaal, autouncle.de, the generic reader, and the small helper functions). Run all six
+  ss.com, AutoScout24, autoplius, autoportaal, autouncle.de, kleinanzeigen.de, pkw.de, the generic reader, and the small helper functions). Run all six
   before changing worker/worker.js. The pages in parsercheck are built from what each reader looks for, not saved
   copies of live pages: when a site changes its markup and the daily selfcheck reports a reader failing, put the
   smallest piece of the failing page into a builder in tools/parsercheck.mjs and add the expected values.
@@ -25,7 +25,7 @@
 - The worker limits requests per address (RL_LIMIT in worker.js, best effort, per server instance) and cleans old rows
   out of the database once a day from the cron (ss.com and VIN ads are kept a year, other ads 120 days). Change those
   numbers only together with ratecheck / dbcheck: the free D1 plan allows 100 000 rows written a day.
-- Sites that refuse servers (autoplius, autogidas, auto24, autouncle.de) are added only through the CarScout bookmark: the user opens the page in
+- Sites that refuse servers (autoplius, autogidas, auto24, autouncle.de, kleinanzeigen.de, pkw.de) are added only through the CarScout bookmark: the user opens the page in
   their own browser and presses it; POST /api/import reads that HTML with the same readers and stores nothing (no D1 write, no fetch
   from the site); the ads are kept only in the user's browser (localStorage, 3 days). Covered by parsercheck (import) and logiccheck
   (import-* scenarios and the bookmark end-to-end block).
