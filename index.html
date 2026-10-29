@@ -4157,6 +4157,7 @@ function findOutHtml(){
   h+=good.length?'<div class="scroll"><table class="tbl">'+head+'<tbody>'+good.slice(0,15).map(tr).join('')+'</tbody></table></div>':'<p class="anote">'+esc(L('Машин заметно дешевле рынка по этим условиям не найдено. Попробуйте расширить годы, бюджет или рынки.','No cars clearly below the market for these filters. Try wider years, budget or markets.','Auto, kas būtu manāmi lētāki par tirgu, ar šiem nosacījumiem nav atrasti. Mēģiniet paplašināt gadus, budžetu vai tirgus.'))+'</p>';
   if(rest.length) h+='<div class="shh" style="margin-top:14px"><i style="background:var(--dim)"></i>'+esc(L('Остальные подходящие машины (по рынку или дороже)','Other cars matching your filters (at or above the market)','Citi auto, kas atbilst nosacījumiem (tirgus cenā vai dārgāk)'))+'</div><div class="scroll"><table class="tbl">'+head+'<tbody>'+rest.slice(0,15).map(tr).join('')+'</tbody></table></div>';
   if(sus.length) h+='<div class="shh" style="margin-top:14px"><i style="background:var(--bad)"></i>'+esc(L('Подозрительно дёшево (более 35% ниже рынка): часто битые, без документов или мошенничество','Suspiciously cheap (more than 35% below the market): often damaged, without papers or a scam','Aizdomīgi lēti (vairāk nekā par 35% zem tirgus): bieži bojāti, bez dokumentiem vai krāpšana'))+'</div><div class="scroll"><table class="tbl">'+head+'<tbody>'+sus.slice(0,5).map(tr).join('')+'</tbody></table></div>';
+  h+=pushOfferHtml();
   if(S.findParams) h+='<div class="btns" style="margin-top:12px"><button class="btn sm" type="button" data-act="hunt-add">'+esc(L('Следить за этим поиском','Watch this search','Sekot šai meklēšanai'))+'</button></div>';
   if(notes.length) h+='<p class="mini" style="margin-top:8px">'+esc(notes.map(function(n){return typeof n==='function'?n():n}).join(' · '))+'</p>';
   h+='<p class="hint" style="margin-top:8px">'+esc(L('«Рынок» — ожидаемая цена такой машины на её же сайте по году и пробегу. Комплектацию и состояние список не видит: нажмите «Проверить» для полного разбора. Просматриваются только первые страницы выдачи каждого сайта (самые свежие объявления), поэтому на самом сайте может быть больше.','“Market” is the expected price of such a car on its own site for its year and mileage. The list cannot see trim or condition: press “Check” for the full analysis. Only the first pages of each site are scanned (the newest ads), so the site itself may have more.','«Tirgus» — gaidāmā šāda auto cena tajā pašā vietnē pēc gada un nobraukuma. Komplektāciju un stāvokli saraksts neredz: nospiediet «Pārbaudīt» pilnai analīzei. Tiek skatītas tikai katras vietnes pirmās lapas (jaunākie sludinājumi), tāpēc pašā vietnē var būt vairāk.'))+'</p>';
@@ -4456,6 +4457,37 @@ function huntAdd(){
   huntSave(a); renderFinder();
   showStatus('ok',function(){return L('Поиск сохранён. При каждом открытии приложения (не чаще раза в 6 часов) он проверяется заново, а новые машины ниже рынка появятся здесь и на значке «Выгодные».','Search saved. Each time the app opens (at most every 6 hours) it is re-run, and new cars below the market show up here and on the “Deals” badge.','Meklēšana saglabāta. Katru reizi, kad atverat lietotni (ne biežāk kā reizi 6 stundās), tā tiek palaista no jauna, un jauni auto zem tirgus parādīsies šeit un uz «Izdevīgie» nozīmītes.')});
 }
+/* A soft offer after a search: phone notifications for this very search. Shown only where the browser can do it, never if they are
+   already on or blocked, and after "Not now" not again for 30 days. "Yes" saves the search as a "Find me a car" request (new cars
+   below the market only) and runs the usual switch-on, which asks the browser's permission. */
+var KEY_PUSHOFFER='carscout_pushoffer', PUSHOFFER_DAYS=30;
+function pushOfferShow(){
+  try{
+    if(!S.findParams||!S.findData||!S.api||!pushCan()||pushOn()) return false;
+    if(Notification.permission==='denied') return false;
+    var t=parseInt(LS.get(KEY_PUSHOFFER)||'0',10); if(t&&Date.now()-t<PUSHOFFER_DAYS*86400000) return false;
+    var mk=S.findParams.mk||{}; return ['LV','LT','EE','DE'].some(function(k){ return mk[k]; });   /* the phone agent reads only these markets */
+  }catch(e){ return false; }
+}
+function pushOfferHtml(){
+  if(!pushOfferShow()) return '';
+  return '<div class="fz-notify" id="push-offer" style="margin-top:12px"><span class="hint">🔔 '+esc(L('Сообщить на телефон, когда по этому поиску появится новая машина ниже рынка? Сообщение придёт, даже если приложение закрыто. Отключить можно в любой момент.','Tell your phone when a new car below the market appears for this search? The message arrives even when the app is closed. You can turn it off at any time.','Paziņot tālrunī, kad pēc šīs meklēšanas parādīsies jauns auto zem tirgus? Ziņa pienāks arī tad, ja lietotne ir aizvērta. Jebkurā brīdī var izslēgt.'))+'</span>'+
+    '<span class="fz-act"><button class="btn sm pri" type="button" data-act="push-offer-yes">'+esc(L('Да, сообщать','Yes, tell me','Jā, paziņot'))+'</button><button class="btn sm" type="button" data-act="push-offer-no">'+esc(L('Не сейчас','Not now','Ne tagad'))+'</button></span></div>';
+}
+function pushOfferNo(){ LS.set(KEY_PUSHOFFER,String(Date.now())); var e=document.getElementById('push-offer'); if(e) e.remove(); }
+async function pushOfferYes(){
+  var p=S.findParams, D=S.findData; if(!p||!D) return;
+  LS.set(KEY_PUSHOFFER,String(Date.now())); var box=document.getElementById('push-offer'); if(box) box.remove();
+  try{
+    var mk={}; ['LV','LT','EE','DE'].forEach(function(k){ mk[k]=p.mk&&p.mk[k]?1:0; });
+    var q={make:p.make,models:[p.model],fam:[p.model],vs:{},yf:p.yf,yt:p.yt,kmax:p.kmax,pmax:p.pmax,fuel:p.fuel,gear:p.gear,drive:'',body:'',engf:null,engt:null,mk:mk,cheap:true,nobad:true};
+    var a=findsLoad(), key=JSON.stringify([q.make,q.models,q.yf,q.yt,q.kmax,q.pmax,q.fuel,q.gear,q.drive,q.body,q.mk,q.cheap,q.nobad]).toLowerCase(), f=a.filter(function(x){return x.key===key})[0];
+    if(!f){ if(a.length>=5) a.pop(); f={key:key,id:tgCode().slice(0,12),p:q,created:Date.now(),fresh:[]}; a.unshift(f); }
+    var cheap=D.rows.filter(function(x){ return x.d<-3; });
+    f.seen=cheap.map(rowId).slice(0,1500); f.now=cheap.length; f.at=Date.now(); findsSave(a);
+  }catch(e){}
+  await findPushOn();
+}
 function huntBadge(){ railBadge('nav-find',huntLoad().reduce(function(a,h){return a+((h.fresh||[]).filter(function(x){return !x.seen}).length)},0)); }
 async function huntCheck(force,only){
   if(huntBusy||!S.api) return; var a=huntLoad(); if(!a.length) return;
@@ -4506,6 +4538,8 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]'); if(!b) return; var a=b.getAttribute('data-act');
   if(a==='share-link') shareLink();
   else if(a==='hunt-add') huntAdd();
+  else if(a==='push-offer-yes') pushOfferYes();
+  else if(a==='push-offer-no') pushOfferNo();
   else if(a==='hunt-run') huntCheck(true,+b.getAttribute('data-i'));
   else if(a==='hunt-rm'){ var h=huntLoad(); h.splice(+b.getAttribute('data-i'),1); huntSave(h); huntBadge(); renderFinder(); }
   else if(a==='hunt-seen'){ var hs=huntLoad(), s=hs[+b.getAttribute('data-i')]; if(s){ (s.fresh||[]).forEach(function(x){x.seen=true}); huntSave(hs); huntBadge(); renderFinder(); } }
@@ -4532,7 +4566,7 @@ function gcBoot(){
 }
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]'); if(!b) return; var a=b.getAttribute('data-act');
-  var M={'share-link':'Отправлена ссылка на анализ','fav-toggle':'Избранное','hunt-add':'Сохранён поиск','find-run':'Поиск выгодных','nav-insp':'Чек-лист осмотра','copy-msg':'Скопировано сообщение продавцу','print':'Печать / PDF'};
+  var M={'share-link':'Отправлена ссылка на анализ','fav-toggle':'Избранное','hunt-add':'Сохранён поиск','push-offer-yes':'Предложение уведомлений: да','push-offer-no':'Предложение уведомлений: не сейчас','find-run':'Поиск выгодных','nav-insp':'Чек-лист осмотра','copy-msg':'Скопировано сообщение продавцу','print':'Печать / PDF'};
   if(M[a]) gcCount(a,M[a],true);
 });
 
@@ -5392,7 +5426,7 @@ async function findPushOn(){
     showStatus('ok',function(){return L('Уведомления включены. Как только появится новая подходящая машина, на телефон придёт сообщение — даже если приложение закрыто.','Notifications are on. As soon as a new matching car appears, your phone gets a message — even when the app is closed.','Paziņojumi ieslēgti. Tiklīdz parādīsies jauns piemērots auto, tālrunī pienāks ziņa — arī tad, ja lietotne ir aizvērta.')});
     try{ gcCount('find-push','Включены уведомления «Найти мне авто»',true); }catch(e){}
   }catch(e){ showStatus('err',function(){return L('Не удалось включить уведомления. Проверьте интернет и попробуйте ещё раз.','Could not turn notifications on. Check the connection and try again.','Neizdevās ieslēgt paziņojumus. Pārbaudiet savienojumu un mēģiniet vēlreiz.')}); }
-  render();
+  if(S.mode==='find') render();   /* the agent's own page shows the state; elsewhere (the offer after a search) the page stays as it is */
 }
 async function findPushOff(){
   var st=pushLoad(); if(!st) return; st.on=false; LS.set(KEY_PUSH,JSON.stringify(st));
