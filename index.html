@@ -4168,7 +4168,8 @@ async function finderCore(p){
   var yf=p.yf||(p.yt?p.yt-3:null), yt=p.yt||(p.yf?p.yf+3:null), ymid=yf&&yt?Math.round((yf+yt)/2):(yf||yt||null);
   var base={make:cm.make,model:cm.model,year:ymid||'',yfrom:yf||'',yto:yt||'',fuel:p.fuel||''};
   var jobs=[], AS={DE:'D',BE:'B',NL:'NL',FR:'F'};
-  if(mk.LV) jobs.push(api('/api/comps',Object.assign({source:'ss'},base),55000).then(function(j){return {region:'LV',label:'ss.lv',j:j}}));
+  /* ss.lv: with both years known, the server reads only those years (yfilter), not the newest ads of every year */
+  if(mk.LV) jobs.push(api('/api/comps',Object.assign({source:'ss'},base,(yf&&yt)?{yfilter:'1'}:{}),55000).then(function(j){return {region:'LV',label:'ss.lv',j:j}}));
   if(mk.LT) jobs.push(api('/api/comps',Object.assign({source:'autoplius'},base),55000).then(function(j){return {region:'LT',label:'autoplius.lt',j:j}}));
   if(mk.EE) jobs.push(api('/api/comps',Object.assign({source:'autoportaal'},base),55000).then(function(j){return {region:'EE',label:'autoportaal.ee',j:j}}));
   Object.keys(AS).forEach(function(r){ if(mk[r]) jobs.push(api('/api/comps',Object.assign({source:'as24',cy:AS[r]},base),55000).then(function(j){return {region:r,label:'AutoScout24 '+r,j:j}})); });
