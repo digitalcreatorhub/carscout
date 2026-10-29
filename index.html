@@ -1378,7 +1378,7 @@ function decodeVin(raw){
 function plain(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 
 var SITES=[['ss.lv','SS.lv','LV'],['ss.com','SS.com','LV'],['auto24.lv','Auto24','LV'],['auto24.ee','Auto24','EE'],['autoportaal.ee','Autoportaal','EE'],
-  ['autoplius.lt','Autoplius','LT'],['autogidas.lt','Autogidas','LT'],['mobile.de','mobile.de','DE'],['autouncle.de','AutoUncle','DE'],
+  ['autoplius.lt','Autoplius','LT'],['autogidas.lt','Autogidas','LT'],['mobile.de','mobile.de','DE'],['autouncle.de','AutoUncle','DE'],['pkw.de','PKW.de','DE'],
   ['kleinanzeigen.de','Kleinanzeigen','DE'],['otomoto.pl','Otomoto','PL'],['marktplaats.nl','Marktplaats','NL'],
   ['leboncoin.fr','Leboncoin','FR'],['subito.it','Subito','IT'],['coches.net','Coches.net','ES'],
   ['standvirtual.com','Standvirtual','PT'],['sauto.cz','Sauto','CZ'],['avto.net','Avto.net','SI'],
@@ -2123,12 +2123,12 @@ function addImages(files){
 }
 
 /* ---------- pages the user opens in their own browser (the CarScout bookmark) ----------
-   autoplius.lt, autogidas.lt, auto24 and autouncle.de refuse requests from servers. The user opens the page in their own browser (answering any "are you human"
+   autoplius.lt, autogidas.lt, auto24, autouncle.de, kleinanzeigen.de and pkw.de refuse requests from servers. The user opens the page in their own browser (answering any "are you human"
    question themselves) and presses the CarScout bookmark: the page they see is passed to a new CarScout tab, read by the server's readers
    (/api/import, nothing fetched, nothing stored) and used here. A search results page adds that country's market to the comparison of the car
    being checked; one ad is checked like a link. The ads are kept only in this browser, for 3 days. */
 var KEY_IMP='carscout_imports', KEY_IMPCTX='carscout_imp_ctx', IMP_DAYS=3;
-var IMP_HOST=/(^|\.)(autoplius\.lt|autogidas\.lt|auto24\.(ee|lv|lt)|autouncle\.de)$/;
+var IMP_HOST=/(^|\.)(autoplius\.lt|autogidas\.lt|auto24\.(ee|lv|lt)|autouncle\.de|kleinanzeigen\.de|pkw\.de)$/;
 function impOriginOk(o){ try{ var u=new URL(o); return u.protocol==='https:'&&IMP_HOST.test(u.hostname); }catch(e){ return false; } }
 function impNorm(x){ return String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,''); }
 function impLoad(){ try{ var a=JSON.parse(LS.get(KEY_IMP)||'[]'), lim=Date.now()-IMP_DAYS*864e5; return Array.isArray(a)?a.filter(function(x){return x&&x.at>lim&&Array.isArray(x.items)}):[]; }catch(e){ return []; } }
