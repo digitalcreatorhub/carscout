@@ -6,6 +6,9 @@ compatibility_date = "2025-01-01"
 [vars]
 # Only your own page may call this server from a browser.
 ALLOW_ORIGIN = "https://digitalcreatorhub.github.io"
+# Sign in with Google (accounts, lists synced between devices). Not a secret: the OAuth client id of the web app, it is public on the sign-in page.
+# Empty = accounts are off and the app shows no sign-in button.
+GOOGLE_CLIENT_ID = ""
 
 # CarScout memory: listings seen before (price and mileage over time). Created in Cloudflare > Storage & Databases > D1.
 [[d1_databases]]

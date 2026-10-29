@@ -1190,6 +1190,7 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
     </div>
     <div class="btns" style="flex-wrap:nowrap;align-items:center">
       <button class="btn sm pri" type="button" id="btn-install" hidden data-ru="Установить" data-en="Install"></button>
+      <button class="btn sm" type="button" id="btn-acct" hidden aria-expanded="false" aria-controls="acct" aria-label="Account" title="Account"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><i id="acct-dot" hidden style="font-style:normal;color:var(--good);margin-left:4px">●</i></button>
       <button class="btn sm" type="button" id="btn-cfg" aria-expanded="false" aria-controls="cfg" aria-label="Server settings" title="Server"><span id="cfg-dot">●</span></button>
       <div class="seg" role="group" aria-label="Language">
         <button type="button" id="lang-ru" aria-pressed="true">RU</button>
@@ -1201,6 +1202,7 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 </header>
 
 <main class="wrap">
+  <section class="sheet intake cfg" id="acct" hidden style="margin-top:16px"></section>
   <section class="sheet intake cfg" id="cfg" hidden style="margin-top:16px">
     <div class="fld">
       <label for="f-api" data-ru="Адрес вашего сервера (Cloudflare Worker)" data-en="Your server address (Cloudflare Worker)"></label>
@@ -1610,7 +1612,7 @@ function fmt(n){return n==null||!isFinite(n)?'–':Math.round(n).toString().repl
 function eur(n){return n==null||!isFinite(n)?'–':fmt(n)+' €'}
 function pct(d){return d==null||!isFinite(d)?'–':(d>0?'+':d<0?'−':'')+Math.abs(d).toFixed(1).replace('.',',')+'%'}
 function safeUrl(u){try{var x=new URL(u);return /^https?:$/.test(x.protocol)?x.href:null}catch(e){return null}}
-var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{localStorage.setItem(k,v)}catch(e){} try{ if(typeof acctOnSet==='function') acctOnSet(k); }catch(e){}}};
 
 var LV_TERM={good:'Zem tirgus',fair:'Tirgus cena',high:'Virs tirgus',overpriced:'Ievērojami virs tirgus',too_cheap:'Aizdomīgi lēti',unsure:'Neprecīzs vērtējums',rare:'Neparasti mazs nobraukums',unknown:'Nav datu'};
 var VNAME={good:['Ниже рынка','Below market'],fair:['Рыночная цена','Fair price'],high:['Выше рынка','Above market'],overpriced:['Сильно выше рынка','Well above market'],too_cheap:['Подозрительно дёшево','Suspiciously cheap'],rare:['Редкий пробег: стоит посмотреть','Rare low mileage: worth a look'],unsure:['Оценка неточная','Inexact estimate'],unknown:['Нет данных','No data']};
@@ -3083,7 +3085,7 @@ function favRefreshFromView(v){
 function favToggle(){
   var v=S.view; if(!v||!v.car) return; var a=favLoad(), id=favId(v.car), i=a.findIndex(function(x){return x.id===id});
   if(i>-1){ a.splice(i,1); favSave(a); showStatus('info',function(){return L('Убрано из избранного.','Removed from favourites.')}); }
-  else { a.unshift(favFromView(v)); favSave(a); showStatus('ok',function(){return L('Сохранено в избранное (только в этом браузере).','Saved to favourites (in this browser only).')}); }
+  else { a.unshift(favFromView(v)); favSave(a); showStatus('ok',function(){return acctLoad()?L('Сохранено в избранное.','Saved to favourites.'):L('Сохранено в избранное (только в этом браузере).','Saved to favourites (in this browser only).')}); }
   render();
 }
 function favTitle(f){ return [f.make,f.model,f.year].filter(Boolean).join(' ')||L('Автомобиль','Car'); }
@@ -5654,6 +5656,133 @@ $('#lang-en').addEventListener('click',function(){S.lang='en';LS.set(KEY_LANG,'e
 (function(){ var b=$('#btn-cfg'); b.removeAttribute('aria-expanded'); b.removeAttribute('aria-controls'); b.style.cursor='default'; b.tabIndex=-1; })();
 $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api').value); $('#f-api').value=S.api; LS.set(KEY_API,S.api); if(!S.api){ $('#cfg-msg').textContent=L('Адрес очищен.','Address cleared.'); apiDot('none'); return; } testApi();});
 
+
+/* ---------- account: sign in with Google; favourites, saved searches and the rest of the lists are the same on every device ----------
+   The server checks Google's token and keeps one copy of the lists in SYNC_KEYS with the time of the last change of each; here the
+   newer change of a list wins. The first time a device signs in, the two copies are merged (nothing is lost). Phone-alert and Telegram
+   settings stay on the device. Everything here is silent when the server has no Google client id (the account button stays hidden). */
+var KEY_ACCT='carscout_acct', KEY_SYNCT='carscout_sync_t', SYNC_KEYS=['carscout_favs','carscout_finds','carscout_hunt','carscout_insp','carscout_hist'];
+var SYNC_CAP={carscout_favs:30,carscout_finds:5,carscout_hunt:5,carscout_hist:15};
+var acctCfg=null, acctBusy=false, acctTimer=null, acctLast=0, acctApplying=false, acctMsg='';
+function acctLoad(){ try{ var a=JSON.parse(LS.get(KEY_ACCT)||'null'); return a&&a.token?a:null; }catch(e){ return null; } }
+function acctSaveState(a){ LS.set(KEY_ACCT,a?JSON.stringify(a):''); }
+function acctTs(){ try{ var t=JSON.parse(LS.get(KEY_SYNCT)||'{}'); return t&&typeof t==='object'?t:{}; }catch(e){ return {}; } }
+/* a list was saved on this device: remember when, and sync soon */
+function acctOnSet(k){
+  if(acctApplying||SYNC_KEYS.indexOf(k)<0||!acctLoad()) return;
+  var t=acctTs(); t[k]=Date.now(); LS.set(KEY_SYNCT,JSON.stringify(t));
+  clearTimeout(acctTimer); acctTimer=setTimeout(function(){ acctSync(); },2500);
+}
+/* the two copies of one list, merged (used the first time a device signs in) */
+function acctUnion(k,sv,lv){
+  if(sv==null) return lv; if(lv==null||lv===sv) return sv;
+  var a,b; try{ a=JSON.parse(sv); b=JSON.parse(lv); }catch(e){ return sv; }
+  if(Array.isArray(a)&&Array.isArray(b)){
+    var id=function(x){ return x&&(x.id||x.key)||JSON.stringify(x); }, have={}; a.forEach(function(x){ have[id(x)]=1; });
+    var m=b.filter(function(x){ return !have[id(x)]; }).concat(a); return JSON.stringify(m.slice(0,SYNC_CAP[k]||30));
+  }
+  if(a&&b&&typeof a==='object'&&typeof b==='object'){
+    var o={}; Object.keys(a).concat(Object.keys(b)).forEach(function(q){ var x=a[q], y=b[q]; o[q]=!x?y:!y?x:((y.t||0)>(x.t||0)?y:x); }); return JSON.stringify(o);
+  }
+  return sv;
+}
+async function acctCall(method,path,body){
+  var a=acctLoad(); if(!a||!S.api) return null;
+  var ctl=new AbortController(), to=setTimeout(function(){ ctl.abort(); },20000);
+  try{
+    var r=await fetch(S.api+path,{method:method,signal:ctl.signal,headers:Object.assign({authorization:'Bearer '+a.token},body?{'content-type':'text/plain'}:{}),body:body?JSON.stringify(body):undefined});
+    var j=await r.json();
+    if(r.status===401){ acctSaveState(null); LS.set(KEY_SYNCT,'{}'); acctMsg=L('Сессия закончилась, войдите снова.','Session expired, please sign in again.','Sesija beigusies, piesakieties vēlreiz.'); acctUi(); return null; }
+    return j;
+  }catch(e){ return null; } finally{ clearTimeout(to); }
+}
+function acctApply(list){
+  if(!list.length) return;
+  acctApplying=true; try{ list.forEach(function(p){ LS.set(p[0],p[1]); }); }finally{ acctApplying=false; }
+  try{ favBadge(); huntBadge(); }catch(e){}
+  try{ if(list.some(function(p){ return p[0]==='carscout_finds'; })) findPushSync(); }catch(e){}
+  try{ render(); }catch(e){}
+}
+async function acctSync(manual){
+  var a=acctLoad(); if(!a||acctBusy||!S.api) return; acctBusy=true; acctLast=Date.now();
+  try{
+    var r=await acctCall('GET','/api/sync'); if(!r||!r.ok){ if(manual){ acctMsg=L('Не удалось связаться с сервером.','Could not reach the server.','Neizdevās sazināties ar serveri.'); acctUi(); } return; }
+    var srv=r.data||{}, ts=acctTs(), push={}, apply=[], first=!a.synced, now=Date.now();
+    SYNC_KEYS.forEach(function(k){
+      var s=srv[k], lv=LS.get(k), lt=ts[k]||0;
+      if(first){
+        var m=acctUnion(k,s?s.v:null,lv); if(m==null) return;
+        if(!s||m!==s.v){ push[k]={v:m,t:now}; ts[k]=now; } else ts[k]=s.t;
+        if(m!==lv) apply.push([k,m]);
+      }else if(s&&s.t>lt){ apply.push([k,s.v]); ts[k]=s.t; }
+      else if(lv!=null&&lt>(s?s.t:0)) push[k]={v:lv,t:lt};
+    });
+    if(Object.keys(push).length){
+      var w=await acctCall('POST','/api/sync',{data:push});
+      if(!w||!w.ok){ if(manual){ acctMsg=L('Не удалось сохранить на сервере.','Could not save to the server.','Neizdevās saglabāt serverī.'); acctUi(); } return; }
+      Object.keys(push).forEach(function(k){ var x=(w.data||{})[k]; if(x&&x.t>push[k].t){ apply=apply.filter(function(p){ return p[0]!==k; }); apply.push([k,x.v]); ts[k]=x.t; } });   /* another device wrote at the same moment and won */
+    }
+    acctApplying=true; try{ LS.set(KEY_SYNCT,JSON.stringify(ts)); }finally{ acctApplying=false; }
+    a=acctLoad(); if(!a) return; a.synced=true; a.at=Date.now(); acctSaveState(a);
+    acctMsg=''; acctApply(apply); acctUi();
+  }finally{ acctBusy=false; }
+}
+function acctUi(){
+  var box=document.getElementById('acct'), btn=document.getElementById('btn-acct'), dot=document.getElementById('acct-dot'); if(!box||!btn) return;
+  var on=!!(acctCfg&&acctCfg.clientId); btn.hidden=!on; if(!on){ box.hidden=true; return; }
+  var a=acctLoad(); if(dot) dot.hidden=!a;
+  var t=function(x){ return esc(x); };
+  if(a){
+    var when=a.at?new Date(a.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'';
+    box.innerHTML='<div class="fld"><label>'+t(L('Аккаунт','Account','Konts'))+'</label><p style="margin:4px 0"><b>'+t(a.email||a.name||'Google')+'</b></p>'+
+      '<p class="hint">'+t(L('Избранное и «Мои заявки» одинаковы на всех устройствах, где вы вошли.','Favourites and “My searches” are the same on every device where you are signed in.','Izlase un «Mani pieprasījumi» ir vienādi visās ierīcēs, kur esat pierakstījies.'))+(when?' '+t(L('Синхронизировано в ','Synced at ','Sinhronizēts '))+when+'.':'')+'</p>'+(acctMsg?'<p class="hint" style="color:var(--bad)">'+t(acctMsg)+'</p>':'')+'</div>'+
+      '<div class="btns"><button class="btn sm pri" type="button" data-act="acct-sync">'+t(L('Синхронизировать','Sync now','Sinhronizēt'))+'</button><button class="btn sm" type="button" data-act="acct-out">'+t(L('Выйти','Sign out','Iziet'))+'</button><button class="btn sm" type="button" data-act="acct-del">'+t(L('Удалить аккаунт и данные','Delete account and data','Dzēst kontu un datus'))+'</button></div>';
+  }else{
+    box.innerHTML='<div class="fld"><label>'+t(L('Вход и синхронизация','Sign in and sync','Pieteikšanās un sinhronizācija'))+'</label><p class="hint">'+t(L('Войдите через Google, и избранное с «Моими заявками» будет одинаковым на телефоне и на компьютере. Пароли мы не храним, берётся только почта.','Sign in with Google and your favourites and “My searches” are the same on your phone and computer. We store no passwords, only your email.','Piesakieties ar Google, un izlase ar «Maniem pieprasījumiem» būs vienāda tālrunī un datorā. Paroles neglabājam, tiek ņemts tikai e-pasts.'))+'</p>'+(acctMsg?'<p class="hint" style="color:var(--bad)">'+t(acctMsg)+'</p>':'')+'<div id="g-btn" style="margin-top:10px"></div></div>';
+    acctGoogle();
+  }
+}
+function acctGoogle(){
+  if(!acctCfg||!acctCfg.clientId) return;
+  var go=function(){
+    try{
+      google.accounts.id.initialize({client_id:acctCfg.clientId,callback:acctOnCred,auto_select:false});
+      var el=document.getElementById('g-btn'); if(el){ el.innerHTML=''; google.accounts.id.renderButton(el,{theme:'filled_black',size:'large',text:'signin_with',shape:'pill',width:260}); }
+    }catch(e){}
+  };
+  if(window.google&&google.accounts&&google.accounts.id) return go();
+  if(document.getElementById('gsi-js')){ setTimeout(go,800); return; }
+  var sc=document.createElement('script'); sc.id='gsi-js'; sc.src='https://accounts.google.com/gsi/client'; sc.async=true; sc.onload=go; document.head.appendChild(sc);
+}
+async function acctOnCred(resp){
+  if(!resp||!resp.credential||!S.api) return;
+  acctMsg=''; var j; try{ var r=await fetch(S.api+'/api/auth/google',{method:'POST',headers:{'content-type':'text/plain'},body:JSON.stringify({credential:resp.credential})}); j=await r.json(); }catch(e){ j=null; }
+  if(!j||!j.ok){ acctMsg=L('Не удалось войти. Попробуйте ещё раз.','Sign-in failed. Please try again.','Pieteikšanās neizdevās. Mēģiniet vēlreiz.'); acctUi(); return; }
+  acctSaveState({token:j.token,email:j.email,name:j.name,synced:false});
+  acctUi(); await acctSync(true); showStatus('ok',function(){ return L('Вы вошли. Избранное и заявки синхронизируются.','Signed in. Favourites and searches are syncing.','Pierakstīts. Izlase un pieprasījumi sinhronizējas.'); });
+}
+async function acctBoot(){
+  try{
+    if(S.connP) await S.connP;
+    if(!S.api) return;
+    var r=await api('/api/auth/config',{},9000); if(!r||!r.ok||!r.clientId) return;
+    acctCfg={clientId:r.clientId}; acctUi();
+    if(acctLoad()) acctSync();
+    document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'&&acctLoad()&&Date.now()-acctLast>20000) acctSync(); });
+  }catch(e){}
+}
+(function(){
+  var b=document.getElementById('btn-acct'); if(b) b.addEventListener('click',function(){ var box=document.getElementById('acct'); box.hidden=!box.hidden; b.setAttribute('aria-expanded',String(!box.hidden)); if(!box.hidden) acctUi(); });
+  var box=document.getElementById('acct'); if(box) box.addEventListener('click',async function(e){
+    var el=e.target.closest&&e.target.closest('[data-act]'); if(!el) return; var act=el.getAttribute('data-act');
+    if(act==='acct-sync'){ el.disabled=true; await acctSync(true); el.disabled=false; }
+    else if(act==='acct-out'){ await acctCall('POST','/api/auth/logout',{}); acctSaveState(null); LS.set(KEY_SYNCT,'{}'); acctMsg=''; acctUi(); }
+    else if(act==='acct-del'){
+      if(!window.confirm(L('Удалить аккаунт и все данные на сервере? Избранное и заявки останутся на этом устройстве.','Delete the account and all data on the server? Favourites and searches stay on this device.','Dzēst kontu un visus datus serverī? Izlase un pieprasījumi paliks šajā ierīcē.'))) return;
+      var r=await acctCall('POST','/api/auth/delete',{}); if(r&&r.ok){ acctSaveState(null); LS.set(KEY_SYNCT,'{}'); acctMsg=''; acctUi(); showStatus('info',function(){ return L('Аккаунт удалён.','Account deleted.','Konts dzēsts.'); }); }
+    }
+  });
+})();
 /* ---------- boot ---------- */
 (function init(){
   var l=LS.get(KEY_LANG); var nl=(navigator.language||'').toLowerCase(); S.lang=(l==='en'||l==='ru'||l==='lv')?l:(nl.indexOf('ru')===0?'ru':nl.indexOf('lv')===0?'lv':'en');
@@ -5663,6 +5792,7 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
   S.connP=(S.api||API_DEFAULT)?connect().then(function(ok){ if(ok){ favAutoCheck(); huntAutoCheck(); } return ok; }):Promise.resolve(false);
   try{ gcBoot(); }catch(e){}
   try{ favBadge(); huntBadge(); bootLink(); }catch(e){}
+  try{ acctBoot(); }catch(e){}
   var impMode=false; try{ impMode=impBoot(); }catch(e){}
   try{ if(!impMode) autoUpdate(false); }catch(e){}
   /* ---------- install as an app (PWA) ---------- */
@@ -5682,7 +5812,7 @@ $('#btn-api-save').addEventListener('click',function(){S.api=normApi($('#f-api')
 })();
 window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:pickRelevant,UPD:UPD,autoUpdate:autoUpdate,bmkCode:bmkCode};
 /* used by the daily logic check (tools/logiccheck.mjs) to test the "Find me a car" filters directly */
-window.fzFilter=fzFilter; window.pickList=pickList; window.varFamily=varFamily; window.varOk=varOk;
+window.acctUnion=acctUnion; window.acctSync=acctSync; window.favSave=favSave; window.favLoad=favLoad; window.fzFilter=fzFilter; window.pickList=pickList; window.varFamily=varFamily; window.varOk=varOk;
 })();
 })();
 </script>
