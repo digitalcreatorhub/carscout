@@ -1270,7 +1270,7 @@ function parseAgList(html) {
 const AU_BASE = 'https://www.autouncle.de';
 function auFuel(s) {
   s = String(s || '');
-  if (/elektr\w*\s*[\/+]\s*(benzin|diesel)|(benzin|diesel)\s*[\/+]\s*elektr|plug-?in|mild|hybrid/i.test(s)) return 'hybrid';
+  if (/(?:elektr|electr)\w*\s*[\/+]\s*(benzin|diesel|petrol)|(benzin|diesel|petrol)\s*[\/+]\s*(?:elektr|electr)|plug-?in|mild|hybrid/i.test(s)) return 'hybrid';
   const f = normFuel(s);
   return f === 'lpg' ? null : f;
 }
@@ -1279,12 +1279,12 @@ function parseAuList(html) {
   const out = [], seen = {}, parts = String(html || '').split(/<article\b/i);
   for (let k = 1; k < parts.length; k++) {
     let r = parts[k]; const end = r.indexOf('</article>'); if (end > -1) r = r.slice(0, end); r = r.slice(0, 60000);
-    const link = r.match(/<a\b[^>]*href="(\/de\/d\/(\d+)-[^"#?]*)"/i);
+    const link = r.match(/<a\b[^>]*href="(\/(?:de|en)\/d\/(\d+)-[^"#?]*)"/i);
     if (!link || seen[link[2]]) continue;
     const h3 = r.match(/<h3\b[^>]*>([\s\S]*?)<\/h3>/i), head = h3 ? strip(h3[1]) : '';
-    if (!head || /^Neu\b/.test(head)) continue;
+    if (!head || /^(?:Neu|New)\b/.test(head)) continue;
     const lis = []; const lre = /<li\b[^>]*>([\s\S]*?)<\/li>/gi; let m; while ((m = lre.exec(r))) lis.push(strip(m[1]));
-    const cut = r.search(/(?:Unter|Über|Ueber)\s+dem\s+Marktpreis|Preis(?:änderung|entwicklung|verlauf)|Tage\s+inseriert/i), top = cut > 0 ? r.slice(0, cut) : r;
+    const cut = r.search(/(?:Unter|Über|Ueber)\s+dem\s+Marktpreis|Preis(?:änderung|entwicklung|verlauf)|Tage\s+inseriert|(?:Below|Above)\s+market|Price\s+(?:change|history)|Days\s+listed/i), top = cut > 0 ? r.slice(0, cut) : r;
     const pm = top.match(/(\d{1,3}(?:\.\d{3})+|\d{3,6})(?:&nbsp;|&#160;| |\s)*(?:€|&euro;)/), price = pm ? toNum(pm[1]) : null;
     if (!(price >= 300 && price <= 500000)) continue;
     let year = parseInt((head.match(/\((19[5-9]\d|20[0-3]\d)\)/) || [])[1], 10) || null, km = null, fuel = null, gear = null, engine_l = null, kw = null, ps = null;
@@ -1292,12 +1292,12 @@ function parseAuList(html) {
       let x;
       if (!year && (x = t.match(/^[A-Za-zÄäÖöÜü]{3,4}\.?\s+(19[5-9]\d|20[0-3]\d)$/))) year = parseInt(x[1], 10);
       else if (km == null && (x = t.match(/^(\d[\d.]*)\s*km$/i))) km = toNum(x[1]);
-      else if (/\bkW\b|\bPS\b/.test(t) && !/CO2|L\/100/i.test(t)) { if ((x = t.match(/\((\d{2,4})\s*kW\)/))) kw = x[1]; if ((x = t.match(/(\d{2,4})\s*PS/))) ps = x[1]; }
-      else if (!fuel && (x = t.match(/^(?:(\d[.,]\d)\s*L\s+)?(Benzin|Diesel|Elektro\w*|Hybrid\w*|Plug-?in\S*|Mild\S*|Erdgas|Autogas|LPG|Wasserstoff)\b(.*)$/i))) { if (x[1]) engine_l = parseFloat(x[1].replace(',', '.')); fuel = auFuel(x[2] + x[3]); }
-      else if (!gear && /^(Automatik|Halbautomatik|Schaltgetriebe|Schaltung|Manuell)/i.test(t)) gear = /^(Automatik|Halbautomatik)/i.test(t) ? 'automatic' : 'manual';
+      else if (/\bkW\b|\bPS\b|\bHP\b/.test(t) && !/CO2|L\/100/i.test(t)) { if ((x = t.match(/\((\d{2,4})\s*kW\)/))) kw = x[1]; if ((x = t.match(/(\d{2,4})\s*(?:PS|HP)\b/))) ps = x[1]; }
+      else if (!fuel && (x = t.match(/^(?:(\d[.,]\d)\s*L\s+)?(Benzin|Diesel|Elektro\w*|Hybrid\w*|Plug-?in\S*|Mild\S*|Erdgas|Autogas|LPG|Wasserstoff|Petrol|Electric|Hydrogen|CNG)\b(.*)$/i))) { if (x[1]) engine_l = parseFloat(x[1].replace(',', '.')); fuel = auFuel(x[2] + x[3]); }
+      else if (!gear && /^(Automatik|Halbautomatik|Schaltgetriebe|Schaltung|Manuell|Automatic|Semi-automatic|Manual)/i.test(t)) gear = /^(Automatik|Halbautomatik|Automatic|Semi-automatic)/i.test(t) ? 'automatic' : 'manual';
     });
     seen[link[2]] = 1;
-    out.push({ price: Math.round(price), km: km, year: year, url: AU_BASE + link[1], title: head.replace(/^(?:Gebraucht|Neu)\s*\(\d{4}\)\s*/i, '').replace(/\s*\|\s*[^|]+$/, '').slice(0, 160), fuel: fuel, gear: gear, engine_l: engine_l, power_kw: auPower(ps, kw), drive: null,
+    out.push({ price: Math.round(price), km: km, year: year, url: AU_BASE + link[1], title: head.replace(/^(?:Gebraucht|Neu|Used|New)\s*\(\d{4}\)\s*/i, '').replace(/\s*\|\s*[^|]+$/, '').slice(0, 160), fuel: fuel, gear: gear, engine_l: engine_l, power_kw: auPower(ps, kw), drive: null,
       img: (r.match(/<img[^>]+src="(https:\/\/images\.autouncle\.com\/[^"]+)"/i) || [])[1] || null });
   }
   return out;
@@ -1322,7 +1322,7 @@ function parseAuListing(html, url) {
   const kw = pw.additionalProperty && /kW/i.test(String(pw.additionalProperty.unitText || pw.additionalProperty.name || '')) ? pw.additionalProperty.value : null;
   const adr = (off.availableAtOrFrom && off.availableAtOrFrom.address) || {};
   const make = o.brand && o.brand.name || null, name = String(o.name || '');
-  const raw = name.replace(/^(?:Gebraucht|Neu)\s+\d{4}\s+/i, '').replace(make ? new RegExp('^' + make.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i') : /^$/, '').replace(o.color ? new RegExp('\\s+in\\s+' + String(o.color).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') : /^$/, '').trim();
+  const raw = name.replace(/^(?:Gebraucht|Neu|Used|New)\s+\d{4}\s+/i, '').replace(make ? new RegExp('^' + make.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+', 'i') : /^$/, '').replace(o.color ? new RegExp('\\s+in\\s+' + String(o.color).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') : /^$/, '').trim();
   const listing = { make: make, model: o.model || null, model_raw: raw || null, year: parseInt(o.vehicleModelDate, 10) || null, mileage_km: km, asking_price: price > 0 ? Math.round(price) : null,
     fuel: auFuel(o.fuelType), lpg: false, gearbox: normGear(o.vehicleTransmission), engine_l: disp > 0 && disp < 10 ? Math.round(disp * 10) / 10 : null, power_kw: auPower(pw.value, kw), drive: null, body: o.bodyType || null, color: o.color || null,
     vin: null, description: String(o.description || '').slice(0, 8000), posted: null, updated: null,

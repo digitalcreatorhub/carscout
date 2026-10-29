@@ -2155,10 +2155,11 @@ function impCtxOf(url){
   try{ var c=JSON.parse(LS.get(KEY_IMPCTX)||'null'); if(c&&c.at>Date.now()-6*36e5&&c.host&&new URL(url).hostname.replace(/^(www|en|ru|lt)\./,'')===c.host) return c; }catch(e){}
   var m=String(url).match(/autoplius\.lt\/(?:[a-z]{2}\/)?(?:ads|skelbimai)\/(?:used-cars|naudoti-automobiliai)\/([a-z0-9-]+)\/([a-z0-9-]+)/i)||String(url).match(/autogidas\.lt\/(?:[a-z]{2}\/)?skelbimai\/automobiliai\/([a-z0-9-]+)\/([a-z0-9-]+)/i);
   if(m) return {make:m[1],model:m[2]};
-  /* autouncle.de/de/gebrauchtwagen/<Make>/<Model>[/y-2023|/b-limousine|/t-...]: the second part is a model unless it is "in" (a place) or a filter such as y-2023 */
-  var au=String(url).match(/autouncle\.de\/de\/gebrauchtwagen\/([^\/?#]+)\/([^\/?#]+)/i);
+  /* autouncle.de/de/gebrauchtwagen/<Make>/<Model> or /en/cars_search/<Make>/<Model>, then maybe /y-2023|/b-limousine|/t-...: the second part is a model unless it is "in" (a place)
+     or a filter such as y-2023 (a lower-case letter and a dash, so a model like "C-Class" stays a model) */
+  var au=String(url).match(/autouncle\.de\/(?:de\/gebrauchtwagen|en\/cars_search)\/([^\/?#]+)\/([^\/?#]+)/i);
   if(au){ var a1,a2; try{ a1=decodeURIComponent(au[1]); a2=decodeURIComponent(au[2]); }catch(e){ a1=au[1]; a2=au[2]; }
-    if(!/^[a-z]-/i.test(a1)&&!/^(in|[a-z]-.*)$/i.test(a2)) return {make:a1,model:a2}; }
+    if(!/^(?:[a-z]|dlp)-/.test(a1)&&!/^(?:in|(?:[a-z]|dlp)-.*)$/.test(a2)) return {make:a1,model:a2}; }
   return {};
 }
 async function impHandle(d){
