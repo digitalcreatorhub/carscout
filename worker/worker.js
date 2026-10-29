@@ -1698,6 +1698,9 @@ const PUSH_HOSTS = [/(^|\.)fcm\.googleapis\.com$/, /(^|\.)googleapis\.com$/, /(^
 const PZ_EVERY = 15 * 60000, PZ_FRESH_DAYS = 7;
 const PZ_SRC = { LV: ['ss', null, 'ss.lv'], LT: ['autoplius', null, 'autoplius.lt'], EE: ['autoportaal', null, 'autoportaal.ee'], DE: ['as24', 'D', 'AutoScout24 DE'] };
 const PZ_BAD = /bojāt|avārij|rezerves daļ|uz daļām|на запчаст|битая|битый|после дтп|после аварии|damaged|for parts|unfall|salvage|не на ходу|nav uz ceļa/i;
+/* phrases that say the car is NOT damaged ("bez avārijām", "без аварий", "unfallfrei"): cut out before looking for damage words */
+const PZ_OKPH = /bez\s+(?:avārij|bojājum|bojā[jļ])\w*|nav\s+(?:bojāt|avārij|bijis\s+avārij)\w*|nebija?\s+avārij\w*|без\s+(?:дтп|аварий|аварии|повреждений|ударов)\w*|не\s+(?:битая|битый|бит)\b|unfallfrei|ohne\s+unfall\w*|(?:no|without)\s+(?:damage|accident)s?\w*|accident[\s-]?free|undamaged/gi;
+const pzIsBad = function (t) { return PZ_BAD.test(String(t || '').replace(PZ_OKPH, ' ')); };
 const PZT = {
   ru: { one: 'Новая машина по вашей заявке', many: function (n) { return n + ' новых машины по вашей заявке'; }, from: 'от', cheaper: function (d) { return 'на ' + d + '% дешевле рынка'; }, km: 'км' },
   lv: { one: 'Jauns auto pēc jūsu pieprasījuma', many: function (n) { return n + ' jauni auto pēc jūsu pieprasījuma'; }, from: 'no', cheaper: function (d) { return 'par ' + d + '% lētāk nekā tirgū'; }, km: 'km' },
@@ -1782,7 +1785,7 @@ function pzMatches(items, p, model) {
     if (p.pmax && i.price > p.pmax) return; if (p.kmax && i.km != null && i.km > p.kmax) return;
     if (p.fuel && i.fuel && (i.fuel === 'lpg' ? 'petrol' : i.fuel) !== p.fuel) return; if (p.gear && i.gear && i.gear !== p.gear) return;
     const t = (i.title || '') + ' ' + (i.model_raw || '');
-    if (p.nobad && PZ_BAD.test(t)) return;
+    if (p.nobad && pzIsBad(t)) return;
     const vl = p.vs && model ? p.vs[model] : null; if (vl && vl.length && !pzVarOk(pzVarText(i), vl)) return;
     if (p.drive) { const dv = pzDrive(i); if (p.drive === 'awd' ? dv !== 'awd' : dv === 'awd') return; }
     if (p.body) { const b = pzBody(t); if (b && b !== p.body) return; }
