@@ -148,6 +148,13 @@ const SCEN = [
     expect: v => [[/Литва[^€]*9 объявл/.test(v.markets) && !/30 000 €/.test(v.markets), 'the 9 Audi A6 ads the user brought from autoplius are the Lithuanian market (the BMW search is not used for an Audi)', v.markets.slice(0, 400)],
       [v.region === 'Латвия' && /Рыночная цена/.test(v.verdict), 'the verdict is still based on Latvia (the car is on ss.lv)', v.region + ' | ' + v.verdict],
       [v.srcs.length > 0, 'the sources list says these ads were opened by the user', v.srcs]] },
+  /* Germany: AutoScout24 DE (10 ads) + an autouncle.de search page the user opened (12 ads, 3 of them the same cars as on AutoScout24) are ONE German market: 10 + 12 - 3 = 19 */
+  { id: 'import-autouncle-pooled-de', url: asUrl(97), cc: 'DE', price: 11000, comps: { ss: items(20, 15500, 'ss'), D: items(10, 11400, 'as') },
+    imports: [{ source: 'autouncle.de', region: 'DE', url: 'https://www.autouncle.de/de/gebrauchtwagen/Audi/A6', mk: 'audi', md: 'a6',
+      items: [...items(10, 11400, 'as').slice(0, 3).map((i, k) => ({ ...i, url: 'https://www.autouncle.de/de/d/' + (228000 + k) + '-gebraucht-audi-a6' })), ...items(9, 11450, 'as').map((i, k) => ({ ...i, url: 'https://www.autouncle.de/de/d/' + (229000 + k) + '-gebraucht-audi-a6' }))] }],
+    expect: v => [[v.region === 'Германия', 'a German ad is still compared with Germany', v.region],
+      [/19 похожих/.test(v.basis), 'AutoScout24 DE and the autouncle.de page are one market, the 3 cars on both counted once (10 + 12 - 3 = 19)', v.basis],
+      [!/Подозрительно/.test(v.verdict) && !v.fraud, 'a normal German price is not suspicious', v.verdict]] },
   { id: 'import-offers-bookmark', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzimp2.html', price: 15200, comps: { ss: items(20, 15500, 'ss') }, blockedSearch: true,
     expect: v => [[/не пускают сервер/.test(v.markets) && /CarScout/.test(v.markets), 'the markets panel shows how to add the sites that refused the server, with the bookmark button', v.markets.slice(0, 300)]] },
   /* the real market of the user's A6 C8 2018, 140 000 km, 22 200 €: Latvia has one C8 diesel (2019), Estonia several (45/50 TDI, some listed as "hybrid" = mild hybrid).
@@ -367,6 +374,42 @@ for (const sc of SCEN) {
   check(okV && /Литва[^€]*8 объявл/.test(mk), 'bookmark: the CarScout tab checks the same car again, now with the 8 Lithuanian ads', mk.slice(0, 300));
   const fake = await cs.evaluate(() => new Promise(res => { window.postMessage({ type: 'carscout-page', url: 'https://evil.example/x', html: '<html>' + 'x'.repeat(300) + '</html>' }, '*'); setTimeout(() => res(true), 800); }));
   check(fake && posted.length === 1, 'bookmark: a page from any other site (or the app itself) is ignored', posted.length);
+  await ctx.close();
+}
+
+/* the same bookmark on an AD page of the sites AutoUncle links to (pkw.de, kleinanzeigen.de, an autouncle.de ad in English): the page is sent for reading and the car is checked
+   like a pasted link, against the German market */
+for (const site of [{ name: 'pkw.de', url: 'https://suche.pkw.de/fahrzeuge/details/221549664545189598?au_advert_id=420885525&utm_medium=referral' },
+  { name: 'kleinanzeigen.de', url: 'https://www.kleinanzeigen.de/s-anzeige/audi-a6-c8-avant/3521863432-216-6266?au_advert_id=422984715' },
+  { name: 'autouncle.de (English page)', url: 'https://www.autouncle.de/en/d/228940901-used-2019-audi-a6-s-line-272-bhp' }]) {
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+  const posted = [], u0 = new URL(site.url);
+  const car = { make: 'Audi', model: 'A6', year: 2019, mileage_km: 165700, asking_price: 19990, fuel: 'diesel', gearbox: 'automatic', engine_l: 3.0, power_kw: 200, country: 'DE', place: 'Bergisch Gladbach, DE', description: 'Audi A6 Avant 3.0 TDI', src: {} };
+  await ctx.route('**/*', async r => {
+    const u = r.request().url();
+    if (u.startsWith(u0.origin + '/')) return r.fulfill({ status: 200, headers: { 'content-type': 'text/html' }, body: '<html><head><title>Audi A6 Avant</title></head><body><h1>Audi A6 Avant</h1>' + 'ad '.repeat(100) + '</body></html>' });
+    if (u.startsWith(API)) {
+      const x = new URL(u); let body = { ok: true, version: 'test' };
+      if (x.pathname === '/api/import') { posted.push(JSON.parse(r.request().postData() || '{}')); body = { ok: true, kind: 'ad', source: u0.hostname, region: 'DE', parser: 'test', title: 'Audi A6 Avant', listing: car, image: null, images: [], hints: {} }; }
+      else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'); body = s === 'ss' ? { ok: true, items: items(20, 25500, 'ss') } : s === 'as24' ? { ok: true, items: items(20, 21000, 'as') } : { ok: false, error: 'blocked' }; }
+      else if (x.pathname !== '/') body = { ok: false, error: 'test' };
+      return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    if (/goatcounter|gc\.zgo\.at|fonts\.g/.test(u)) return r.abort();
+    return r.continue();
+  });
+  await ctx.addInitScript(() => { try { localStorage.setItem('carscout_lang', 'ru'); localStorage.setItem('carscout_api', 'https://carscout.pmax70095.workers.dev'); } catch (e) { } });
+  const pg = await ctx.newPage(); pg.on('pageerror', e => errs.push('bookmark ad ' + site.name + ': ' + e.message));
+  await pg.goto(SITE + (SITE.startsWith('file:') ? '' : '?r=' + Date.now())); await pg.waitForTimeout(800);
+  const code = await pg.evaluate(() => decodeURIComponent(window.__carscout.bmkCode().slice(11)));
+  const ap = await ctx.newPage(); await ap.goto(site.url);
+  const [cs] = await Promise.all([ctx.waitForEvent('page'), ap.evaluate(code)]);
+  cs.on('pageerror', e => errs.push('bookmark ad tab ' + site.name + ': ' + e.message));
+  const okV = await cs.waitForSelector('#a-verdict', { timeout: 40000 }).then(() => true, () => false); await cs.waitForTimeout(500);
+  const reg = await cs.$eval('#a-verdict .am', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
+  const bas = await cs.$eval('#a-verdict .vbase', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
+  check(posted.length === 1 && posted[0].url === site.url && /<h1>Audi A6 Avant<\/h1>/.test(posted[0].html || ''), `bookmark on a ${site.name} ad: the page the user sees (address and HTML) is sent for reading`, posted.map(p => p.url));
+  check(okV && /^Германия/.test(reg) && /похожих объявл\. в Германии/.test(bas) && /В Латвии похожие стоят около/.test(bas), `bookmark on a ${site.name} ad: the car is checked like a pasted link, against the German market`, reg + ' | ' + bas.slice(0, 200));
   await ctx.close();
 }
 
