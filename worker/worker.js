@@ -897,7 +897,7 @@ function readAdHtml(text, pageUrl, host, url) {
 }
 
 /* ---------------- a page the user opened in their own browser ----------------
-   Sites like autoplius.lt, autogidas.lt, auto24, autouncle.de, kleinanzeigen.de and pkw.de refuse requests from servers. The user can open such a page in their own browser
+   Sites like autoplius.lt, autogidas.lt, auto24, autouncle.de, kleinanzeigen.de and pkw.de refuse requests from servers (kleinanzeigen.de also forbids them in its terms: see NO_SERVER_FETCH). The user can open such a page in their own browser
    (answering any "are you human" question themselves) and press the CarScout bookmark: the page they see is sent here only to be read
    with the same readers as above. Nothing is fetched from the site, nothing is stored: the result goes back to the user's browser. */
 const IMPORT_MAX = 6000000;
@@ -928,10 +928,19 @@ async function hImport(env, request) {
   return json(env, { ok: true, kind: 'ad', source: host, region: region, parser: rd.parser, url: url, listing: L, image: rd.res.image || null, images: rd.res.images || collectImages(html, url), title: rd.res.title || null, hints: rd.res.hints || {} });
 }
 
+/* Sites whose terms forbid automated access: the server never opens their pages itself, whoever pastes the link. The user opens the page in their own browser and presses the
+   CarScout bookmark (POST /api/import reads the HTML they send). kleinanzeigen.de: Nutzungsbedingungen section 5 no. 1 (read 30 Oct 2026). */
+const NO_SERVER_FETCH = [/(^|\.)kleinanzeigen\.de$/];
+function bookmarkOnly(u) { try { const h = new URL(u).hostname; return NO_SERVER_FETCH.some(function (re) { return re.test(h); }); } catch (e) { return false; } }
+function bookmarkOnlyReply(env, u) {
+  return json(env, { ok: false, error: 'bookmark_only', source: new URL(u).hostname, message: new URL(u).hostname + ' does not allow automated reading, so the server does not open it. Open the page in your browser and press the CarScout bookmark.' });
+}
+
 /* ---------------- handlers ---------------- */
 async function hListing(env, q, ctx) {
   const url = q.get('url');
   if (!url || !allowed(url)) return json(env, { ok: false, error: 'bad_url', message: 'Link missing or site not supported.' }, 400);
+  if (bookmarkOnly(url)) return bookmarkOnlyReply(env, url);
   const host = new URL(url).hostname;
   /* an ss.com ad is kept only 2 minutes: dealers edit the price and lift the ad often, and a 10-minute copy showed the old price (daily check, 20 Oct) */
   const p = await getPage(url, /(^|\.)ss\.(com|lv)$/.test(host) ? 120 : 600);
@@ -1482,6 +1491,7 @@ async function hVinHistory(env, q) {
 async function hSearch(env, q) {
   const url = q.get('url');
   if (!url || !allowed(url)) return json(env, { ok: false, error: 'bad_url', message: 'Link missing or site not supported.' }, 400);
+  if (bookmarkOnly(url)) return bookmarkOnlyReply(env, url);
   const p = await getPage(url, 900);
   const b = blockedBy(p);
   const host = new URL(url).hostname;
@@ -1496,6 +1506,7 @@ async function hSearch(env, q) {
 async function hDebug(env, q) {
   const url = q.get('url');
   if (!url || !allowed(url)) return json(env, { ok: false, error: 'bad_url' }, 400);
+  if (bookmarkOnly(url)) return bookmarkOnlyReply(env, url);
   const p = await getPage(url, 60);
   return json(env, {
     ok: true, status: p.status, finalUrl: p.url, bytes: p.text.length, blocked: blockedBy(p),

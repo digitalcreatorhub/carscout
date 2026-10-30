@@ -542,6 +542,13 @@ const as24Page = (v = {}) => '<html><script id="__NEXT_DATA__" type="application
   x = await post({ url: pkwUrl + '?au_advert_id=420885525&au_car_id=228940901&utm_medium=referral', html: `<html><head>${pkwHead}</head><body>${pkwBody}${pad}</body></html>` });
   check(x.ok && x.kind === 'ad' && x.parser === 'pkw' && x.region === 'DE' && x.listing.asking_price === 19990 && x.listing.model === 'A6', 'import: a pkw.de ad opened from AutoUncle (au_advert_id, utm_medium in the address) is read like a link', x.ok ? x.listing : x);
   check(calls.length === n0, 'import: nothing is fetched from kleinanzeigen.de or pkw.de (the page came from the user)', calls.length - n0);
+  /* kleinanzeigen.de forbids automated access in its terms (section 5 no. 1): a pasted link is never opened by the server, it is answered with "use the bookmark" */
+  const get = async (path) => JSON.parse(await W(`__worker.fetch(new Request('https://carscout.test${path}'), env, { waitUntil() {} }).then(function (r) { return r.text(); })`));
+  const n1 = calls.length;
+  const g1 = await get('/api/listing?url=' + encodeURIComponent(kaUrl)), g2 = await get('/api/search?url=' + encodeURIComponent('https://www.kleinanzeigen.de/s-autos/audi/k0c216')), g3 = await get('/api/debug?url=' + encodeURIComponent(kaUrl));
+  check([g1, g2, g3].every(g => g.ok === false && g.error === 'bookmark_only' && /kleinanzeigen\.de/.test(g.message)) && calls.length === n1, 'kleinanzeigen.de: /api/listing, /api/search and /api/debug do not open the site from the server, they answer "bookmark_only"', { g1, g2, g3, fetched: calls.length - n1 });
+  const x2 = await post({ url: kaUrl, html: htmlNew });
+  check(x2.ok && x2.parser === 'kleinanzeigen', 'kleinanzeigen.de: the bookmark path (/api/import) still reads the page the user sends', x2.ok ? x2.parser : x2);
   const ok = (u) => P(`allowed(${JSON.stringify(u)})`), img = (u) => P(`imgAllowed(${JSON.stringify(u)})`);
   check(ok('https://suche.pkw.de/fahrzeuge/details/1') && ok('https://www.pkw.de/') && !ok('https://pkw.de.evil.com/') && !ok('https://notpkw.de/') && ok('https://www.kleinanzeigen.de/s-anzeige/x/1-216-1'), 'pkw.de and kleinanzeigen.de are supported sites; look-alike hosts are not', ['https://pkw.de.evil.com/', 'https://notpkw.de/'].map(ok));
   check(img('https://images.pkw.net/audi-a6-1-640x480_ab.jpg') && img('https://img.kleinanzeigen.de/api/v1/prod-ads/images/a3/x?rule=$_59.AUTO') && !img('https://images.pkw.net.evil.com/a.jpg') && !img('https://img.kleinanzeigen.de.evil.com/a.jpg'), 'pkw.net and img.kleinanzeigen.de photos may be shown through the photo proxy; look-alikes may not');
