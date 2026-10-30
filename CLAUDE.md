@@ -29,3 +29,6 @@
   their own browser and presses it; POST /api/import reads that HTML with the same readers and stores nothing (no D1 write, no fetch
   from the site); the ads are kept only in the user's browser (localStorage, 3 days). Covered by parsercheck (import) and logiccheck
   (import-* scenarios and the bookmark end-to-end block).
+- Only what is legal to get for free: the server never opens a site whose terms forbid automated access (NO_SERVER_FETCH in
+  worker/worker.js; kleinanzeigen.de, terms section 5 no. 1). Such a site works only through the CarScout bookmark. Before adding a
+  site, read its terms of use and robots.txt; if they forbid automated reading, add it to NO_SERVER_FETCH (or do not add it).

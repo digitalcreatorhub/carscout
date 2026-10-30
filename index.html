@@ -2045,6 +2045,7 @@ function normApi(u){u=String(u||'').trim().replace(/\/+$/,''); if(!u) return '';
 function errText(j){
   var e=j&&j.error;
   if(e==='blocked') return L('сайт сейчас закрыт для серверов (проверка «не робот»): откройте поиск по ссылке','the site is closed to servers right now (bot check): open the search via the link','vietne pašlaik ir slēgta serveriem (pārbaude «neesmu robots»): atveriet meklēšanu pēc saites');
+  if(e==='bookmark_only') return L('этот сайт не разрешает автоматическое чтение, сервер его не открывает: откройте объявление в своём браузере и нажмите закладку CarScout','this site does not allow automated reading, so the server does not open it: open the ad in your own browser and press the CarScout bookmark');
   if(e==='filters_ignored') return L('сайт проигнорировал фильтры модели и года, результаты не годятся','the site ignored the model and year filters, the results are not usable');
   if(e==='not_found') return L('не найдено','not found');
   if(e==='parse_failed') return L('страница загрузилась, но объявления не распознаны','page loaded but ads were not recognised');
