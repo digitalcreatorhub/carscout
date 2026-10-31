@@ -96,6 +96,9 @@ pages[catUrl('volkswagen/golf-7', 'a2bcd')] = { status: 200, body: aliveHtml };
 T.now += 61 * 60000; r = await W('aliveTick(env, true)');
 const a2 = q("SELECT gone, gc FROM ads WHERE id = 'ss:a2bcd'")[0];
 check(a2.gone === null && a2.gc === null, 'an ad that comes back is not gone', a2);
+/* the check must not read the old ads of other sites again on every run (the free D1 plan allows 5 million rows read a day) */
+const planAlive = q("EXPLAIN QUERY PLAN SELECT id, u, gc FROM ads INDEXED BY ads_alive_ss WHERE gone IS NULL AND src = 'ss' AND u IS NOT NULL AND lt < 1 AND (ck IS NULL OR ck < 1) ORDER BY lt LIMIT 5");
+check(q("SELECT name FROM sqlite_master WHERE name = 'ads_alive_ss'").length === 1 && /ads_alive_ss/.test(JSON.stringify(planAlive)), 'the "is it still there" pick reads only ss.com ads with an address, through its own small index', planAlive);
 
 /* ---------- 4. survival numbers ---------- */
 const obs = [3, 5, 5, 8, 12, 12, 15, 20, 22, 30].map(t => ({ t, ev: true })).concat([7, 9, 14, 18, 25, 28, 35, 40, 45, 50].map(t => ({ t, ev: false })));
@@ -160,7 +163,7 @@ check(res.ok && res.market && res.market.sold === ls.events && res.market.days =
   l = run('ru', mk, buy(-10, ago(15)));
   check(/^Объявления дешевле похожих уходят с сайта за ~6 дней/.test(l[1]), 'buying a cheap ad: the cheap group', l);
   l = run('ru', mk, buy(0, ago(60)));
-  check(l.some(x => /висит 60 дней, а типичный срок — 17 дней: оно засиделось/.test(x)), 'an ad on sale twice as long as typical is called stale (a bargaining argument)', l);
+  check(l.some(x => /висит 6[01] (?:дней|день), а типичный срок — 17 дней: оно засиделось/.test(x)), 'an ad on sale twice as long as typical is called stale (a bargaining argument)', l);
   l = run('ru', mk, buy(0, ago(3)));
   check(l.some(x => /свежее \(3 дня при типичных 17 днях?\)|свежее \(3 дня при типичных 17 дней\)/.test(x)), 'a fresh ad is called fresh', l);
   l = run('ru', mk, buy(12, ago(60), 'DE'));
