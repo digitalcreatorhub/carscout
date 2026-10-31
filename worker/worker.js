@@ -1551,6 +1551,7 @@ async function memInit(env) {
     try { await env.DB.prepare('ALTER TABLE ads ADD COLUMN ' + c[0] + ' ' + c[1]).run(); } catch (e) { }
   }
   try { await env.DB.prepare('CREATE INDEX IF NOT EXISTS ads_alive ON ads(gone, lt)').run(); } catch (e) { }
+   try { await env.DB.prepare("CREATE INDEX IF NOT EXISTS ads_alive_ss ON ads(lt) WHERE gone IS NULL AND src = 'ss' AND u IS NOT NULL").run(); } catch (e) { }
   MEM_READY = true; return true;
 }
 function adKey(url) {
@@ -1611,7 +1612,10 @@ async function aliveTick(env, force) {
   const now = Date.now();
   if (!force) { const last = +(await kvGet(env, 'alive_at') || 0); if (now - last < 60000) return { ok: true, skipped: true }; }
   await kvSet(env, 'alive_at', now);
-  const r = await env.DB.prepare("SELECT id, u, gc FROM ads WHERE gone IS NULL AND src = 'ss' AND u IS NOT NULL AND lt < ?1 AND (ck IS NULL OR ck < ?2) ORDER BY lt LIMIT ?3").bind(now - ALIVE_STALE, now - ALIVE_RETRY, ALIVE_BATCH).all();
+  const   const pickSql = "SELECT id, u, gc FROM ads%IDX% WHERE gone IS NULL AND src = 'ss' AND u IS NOT NULL AND lt < ?1 AND (ck IS NULL OR ck < ?2) ORDER BY lt LIMIT ?3";
+  let r;
+  try { r = await env.DB.prepare(pickSql.replace('%IDX%', ' INDEXED BY ads_alive_ss')).bind(now - ALIVE_STALE, now - ALIVE_RETRY, ALIVE_BATCH).all(); }
+  catch (e) { r = await env.DB.prepare(pickSql.replace('%IDX%', '')).bind(now - ALIVE_STALE, now - ALIVE_RETRY, ALIVE_BATCH).all(); }
   const rows = r.results || []; if (!rows.length) return { ok: true, idle: true };
   const res = await Promise.all(rows.map(async function (x) {
     if (!allowed(x.u)) return { x: x, s: 'unknown' };
