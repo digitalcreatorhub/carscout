@@ -612,7 +612,7 @@ body.has-view .lead{display:none}
 .pill.k{color:var(--accent);border-color:rgba(198,242,78,.4);background:transparent}
 /* car card */
 .hero{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;align-items:center}
-.ph{height:186px;border-radius:12px;background:linear-gradient(160deg,#1a2029,#0e1217);border:1px solid var(--line2);display:grid;place-items:center;position:relative;overflow:hidden}
+.ph{height:auto;aspect-ratio:4/3;border-radius:12px;background:linear-gradient(160deg,#1a2029,#0e1217);border:1px solid var(--line2);display:grid;place-items:center;position:relative;overflow:hidden}
 .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .ph .src,.ph .cnt{position:absolute;z-index:1;font-size:11px;color:var(--ink);background:rgba(0,0,0,.55);border:1px solid var(--line2);padding:3px 8px;border-radius:20px}
 .ph .src{left:10px;top:10px}.ph .cnt{right:10px;bottom:10px;color:var(--muted)}
@@ -620,7 +620,22 @@ body.has-view .lead{display:none}
 .ph .gal{position:absolute;inset:0;z-index:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
 .ph .gal::-webkit-scrollbar{display:none}
 .ph .gal:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.ph .gal img{position:static;flex:0 0 100%;width:100%;height:100%;object-fit:cover;scroll-snap-align:center;scroll-snap-stop:always;user-select:none;-webkit-user-drag:none}
+.ph .gal img{position:static;flex:0 0 100%;width:100%;height:100%;object-fit:contain;scroll-snap-align:center;scroll-snap-stop:always;user-select:none;-webkit-user-drag:none;cursor:zoom-in}
+/* full-screen viewer: tap a photo of the card to see it whole; swipe or arrows to move, ✕ or Esc to close */
+html.lbx-on,html.lbx-on body{overflow:hidden}
+#lbx{position:fixed;inset:0;z-index:2147483000;background:rgba(5,8,12,.97);display:flex;flex-direction:column;color:#fff}
+#lbx .lbx-st{flex:1;min-height:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#lbx .lbx-st::-webkit-scrollbar{display:none}
+#lbx .lbx-st img{flex:0 0 100%;width:100%;height:100%;object-fit:contain;scroll-snap-align:center;scroll-snap-stop:always;user-select:none;-webkit-user-drag:none}
+#lbx .lbx-bar{position:absolute;top:0;left:0;right:0;z-index:2;display:flex;justify-content:space-between;align-items:center;padding:max(10px,env(safe-area-inset-top)) 12px 10px;pointer-events:none}
+#lbx .lbx-cnt{font-size:13px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);padding:4px 10px;border-radius:20px}
+#lbx button{pointer-events:auto;width:40px;height:40px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.6);color:#fff;font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer}
+#lbx button:focus-visible{outline:2px solid #c6f24e;outline-offset:2px}
+#lbx .lbx-nav{position:absolute;z-index:2;top:50%;transform:translateY(-50%)}
+#lbx .lbx-nav.prev{left:12px}#lbx .lbx-nav.next{right:12px}
+#lbx .lbx-nav:disabled{opacity:.3;cursor:default}
+#lbx [hidden]{display:none}
+@media (hover:none){#lbx .lbx-nav{display:none}}
 .ph .gnav{position:absolute;z-index:3;top:50%;transform:translateY(-50%);width:34px;height:34px;padding:0;border-radius:50%;border:1px solid var(--line2);background:rgba(0,0,0,.55);color:var(--ink);font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer}
 .ph .gnav[hidden]{display:none}
 .ph .gnav.prev{left:8px}.ph .gnav.next{right:8px}
@@ -700,7 +715,7 @@ a.nl{color:var(--ink);text-decoration:none}a.nl:hover{text-decoration:underline}
   .wrap{padding-inline:12px}
   .ap,.sec.ap{padding:16px;border-radius:16px}
   .hero{grid-template-columns:minmax(0,1fr);gap:14px}
-  .ph{height:160px}
+  .ph{height:auto;aspect-ratio:4/3}
   .title{font-size:24px}
   .ask b{font-size:30px}
   .verd{grid-template-columns:110px minmax(0,1fr);gap:14px}
@@ -3315,6 +3330,56 @@ function galErr(im){
 }
 document.addEventListener('error',function(e){ var t=e.target; if(t&&t.tagName==='IMG'&&t.closest&&t.closest('.gal')) galErr(t); },true);
 document.addEventListener('scroll',function(e){ var g=e.target; if(g&&g.classList&&g.classList.contains('gal')) galSync(g); },true);
+
+/* ---- full-screen photo viewer: a tap on a photo of the card opens every photo whole (object-fit:contain), on the whole screen ---- */
+var LBX={prev:null};
+function lbxSmooth(){ return (window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)?'auto':'smooth'; }
+function lbxSync(){
+  var el=document.getElementById('lbx'); if(!el) return;
+  var st=el.querySelector('.lbx-st'), n=st.querySelectorAll('img').length;
+  if(!n){ lbxClose(); return; }
+  var i=Math.min(n,Math.max(1,Math.round(st.scrollLeft/(st.clientWidth||1))+1));
+  var cnt=el.querySelector('.lbx-cnt'), pv=el.querySelector('.lbx-nav.prev'), nx=el.querySelector('.lbx-nav.next');
+  cnt.textContent=i+' / '+n; cnt.hidden=n<2;
+  pv.hidden=n<2; pv.disabled=i<=1; nx.hidden=n<2; nx.disabled=i>=n;
+}
+function lbxGo(d){ var st=document.querySelector('#lbx .lbx-st'); if(st) st.scrollBy({left:d*st.clientWidth,behavior:lbxSmooth()}); }
+function lbxKey(e){
+  if(!document.getElementById('lbx')) return;
+  if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); lbxClose(); }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); lbxGo(1); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); lbxGo(-1); }
+  else if(e.key==='Tab'){ e.preventDefault(); var cb=document.querySelector('#lbx .lbx-x'); if(cb) cb.focus(); }
+}
+function lbxClose(){
+  var el=document.getElementById('lbx'); if(!el) return;
+  el.remove(); document.documentElement.classList.remove('lbx-on'); document.removeEventListener('keydown',lbxKey,true);
+  var f=LBX.prev; LBX.prev=null; if(f&&f.focus&&document.contains(f)){ try{ f.focus({preventScroll:true}); }catch(e){} }
+}
+function lbxOpen(g,from){
+  var imgs=[].slice.call(g.querySelectorAll('img')); if(!imgs.length) return;
+  var idx=Math.max(0,imgs.indexOf(from));
+  lbxClose(); LBX.prev=document.activeElement;
+  var el=document.createElement('div'); el.id='lbx'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.setAttribute('aria-label',L('Просмотр фото','Photo viewer','Foto skatītājs'));
+  el.innerHTML='<div class="lbx-bar"><span class="lbx-cnt"></span><button type="button" class="lbx-x" aria-label="'+esc(L('Закрыть','Close','Aizvērt'))+'">✕</button></div>'+
+    '<div class="lbx-st" tabindex="0">'+imgs.map(function(im,i){ return '<img src="'+esc(im.getAttribute('src')||'')+'" data-o="'+esc(im.getAttribute('data-o')||'')+'" alt="'+esc(im.getAttribute('alt')||'')+'" referrerpolicy="no-referrer" decoding="async" draggable="false"'+(i===idx?'':' loading="lazy"')+'>'; }).join('')+'</div>'+
+    '<button type="button" class="lbx-nav prev" aria-label="'+esc(L('Предыдущее фото','Previous photo','Iepriekšējais foto'))+'">‹</button><button type="button" class="lbx-nav next" aria-label="'+esc(L('Следующее фото','Next photo','Nākamais foto'))+'">›</button>';
+  document.body.appendChild(el); document.documentElement.classList.add('lbx-on'); document.addEventListener('keydown',lbxKey,true);
+  var st=el.querySelector('.lbx-st');
+  st.addEventListener('scroll',lbxSync,{passive:true});
+  el.querySelector('.lbx-x').addEventListener('click',lbxClose);
+  el.querySelector('.lbx-nav.prev').addEventListener('click',function(){ lbxGo(-1); });
+  el.querySelector('.lbx-nav.next').addEventListener('click',function(){ lbxGo(1); });
+  st.scrollLeft=idx*st.clientWidth; lbxSync(); el.querySelector('.lbx-x').focus({preventScroll:true});
+}
+/* a photo the site will not give to another page: once through the worker, then dropped (same rule as the card) */
+document.addEventListener('error',function(e){ var t=e.target;
+  if(!t||t.tagName!=='IMG'||!t.closest||!t.closest('#lbx')) return;
+  var o=t.getAttribute('data-o');
+  if(o&&S.api&&!t.getAttribute('data-px')){ t.setAttribute('data-px','1'); t.src=aImg(o); return; }
+  t.remove(); lbxSync(); },true);
+document.addEventListener('click',function(e){ var t=e.target;
+  if(t&&t.tagName==='IMG'&&t.closest){ var g=t.closest('.ph .gal'); if(g){ lbxOpen(g,t); } } });
 
 /* ---- car card ---- */
 function pCar(v){
