@@ -616,6 +616,17 @@ body.has-view .lead{display:none}
 .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .ph .src,.ph .cnt{position:absolute;z-index:1;font-size:11px;color:var(--ink);background:rgba(0,0,0,.55);border:1px solid var(--line2);padding:3px 8px;border-radius:20px}
 .ph .src{left:10px;top:10px}.ph .cnt{right:10px;bottom:10px;color:var(--muted)}
+/* photo gallery of the ad: swipe or arrows; a photo is loaded only when it comes into view (loading="lazy") */
+.ph .gal{position:absolute;inset:0;z-index:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.ph .gal::-webkit-scrollbar{display:none}
+.ph .gal:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.ph .gal img{position:static;flex:0 0 100%;width:100%;height:100%;object-fit:cover;scroll-snap-align:center;scroll-snap-stop:always;user-select:none;-webkit-user-drag:none}
+.ph .gnav{position:absolute;z-index:3;top:50%;transform:translateY(-50%);width:34px;height:34px;padding:0;border-radius:50%;border:1px solid var(--line2);background:rgba(0,0,0,.55);color:var(--ink);font-size:22px;line-height:1;display:grid;place-items:center;cursor:pointer}
+.ph .gnav[hidden]{display:none}
+.ph .gnav.prev{left:8px}.ph .gnav.next{right:8px}
+.ph .gnav:disabled{opacity:.3;cursor:default}
+.ph .cnt{pointer-events:none}
+@media (hover:none){.ph .gnav{display:none}}
 .hmain{min-width:0;display:flex;flex-direction:column;gap:12px}
 .title{font:600 30px/1.1 var(--f-serif);letter-spacing:-.015em}
 .hmain .sub{color:var(--muted);font-size:14px;margin-top:-6px}
@@ -3275,6 +3286,36 @@ function aPanel(id,cls,head,body){ return '<section class="ap '+cls+'" id="'+id+
 function aGear(g){ return g==='automatic'?L('Автомат','Automatic'):g==='manual'?L('Механика','Manual'):g; }
 function aKmTxt(n){ return fmt(n)+L(' км',' km'); }
 
+/* ---- photo gallery of the ad ----
+   The worker only passes the photo addresses (it already has them from the page it reads); the browser loads the photos itself, straight from the site
+   of the ad, and only the ones that come into view (loading="lazy"): a check costs the worker no photo requests. A photo the site refuses to give to
+   another page is fetched once through the worker (/api/img); when a site refuses twice, the rest of its photos go through the worker at once. */
+function galKey(u){ return String(u).split('?')[0].replace(/\.(?:th2|th|t|\d{2,4})\.(jpe?g|png|webp)$/i,'.$1'); }
+function galList(c){
+  var out=[], seen={}, add=function(u){ u=typeof u==='string'&&/^https:\/\//.test(u)?safeUrl(u):null; if(!u||/logo|icon|\/img\/m\/|-\d{2,3}x\d{2,3}\.png$/i.test(u)) return; var k=galKey(u); if(seen[k]) return; seen[k]=1; out.push(u); };
+  add(c.image); (c.images||[]).forEach(add);
+  return out.slice(0,24);
+}
+function galHost(u){ try{ return new URL(u).hostname; }catch(e){ return ''; } }
+function galSrc(u){ return S.api&&S.imgPx&&S.imgPx[galHost(u)]?aImg(u):u; }
+function galSync(g){
+  var ph=g.closest&&g.closest('.ph'); if(!ph) return;
+  var n=g.querySelectorAll('img').length, i=Math.min(n,Math.max(1,Math.round(g.scrollLeft/(g.clientWidth||1))+1));
+  var cnt=ph.querySelector('.cnt'), pv=ph.querySelector('.gnav.prev'), nx=ph.querySelector('.gnav.next');
+  if(cnt){ cnt.textContent=i+' / '+n; cnt.hidden=n<2; }
+  if(pv){ pv.hidden=n<2; pv.disabled=i<=1; } if(nx){ nx.hidden=n<2; nx.disabled=i>=n; }
+}
+function galErr(im){
+  var o=im.getAttribute('data-o'), h=galHost(o||'');
+  if(o&&S.api&&!im.getAttribute('data-px')){
+    im.setAttribute('data-px','1'); S.imgFail=S.imgFail||{}; S.imgPx=S.imgPx||{}; S.imgFail[h]=(S.imgFail[h]||0)+1; if(S.imgFail[h]>=2) S.imgPx[h]=1;
+    im.src=aImg(o); return;
+  }
+  var g=im.parentNode; im.remove(); if(g) galSync(g);
+}
+document.addEventListener('error',function(e){ var t=e.target; if(t&&t.tagName==='IMG'&&t.closest&&t.closest('.gal')) galErr(t); },true);
+document.addEventListener('scroll',function(e){ var g=e.target; if(g&&g.classList&&g.classList.contains('gal')) galSync(g); },true);
+
 /* ---- car card ---- */
 function pCar(v){
   var c=v.car, dl=dealerOf(c), chips=[];
@@ -3288,16 +3329,17 @@ function pCar(v){
   var eL=engineOf(c), fl=fuelLabel(c);
   var hp=c.powerKw?Math.round(c.powerKw*1.36):null;
   var sub=[c.year,c.km!=null?aKmTxt(c.km):null,(eL&&!isEvCar(c)?eL.toFixed(1)+L(' л ',' l ',' l ')+(fl||''):fl),hp?hp+L(' л.с.',' hp',' ZS'):null,c.gear?aGear(c.gear):null].filter(Boolean).join(' · ');
-  var goodImgs=(c.images||[]).filter(function(u){return !/\/img\/m\/|-\d{2,3}x\d{2,3}\.png$|logo|icon/i.test(u)});
-  var mainImg=(c.image&&!/logo|icon|\/img\/m\//i.test(c.image)?c.image:'')||goodImgs[0]||'', isrc=mainImg?aImg(mainImg):'';
-  var img=aCarSvg()+(isrc?'<img src="'+esc(isrc)+'" alt="'+esc(L('Фото из объявления','Listing photo'))+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.remove()">':'');
+  var gl=galList(c), gn=gl.length;
+  var img=aCarSvg()+(gn?'<div class="gal" tabindex="0" role="group" aria-label="'+esc(L('Фото из объявления','Listing photos'))+'">'+gl.map(function(u,i){
+      return '<img src="'+esc(galSrc(u))+'" data-o="'+esc(u)+'" alt="'+esc(L('Фото ','Photo ')+(i+1)+' / '+gn)+'" referrerpolicy="no-referrer" decoding="async" draggable="false"'+(i?' loading="lazy"':'')+'>'; }).join('')+'</div>'+
+    (gn>1?'<button type="button" class="gnav prev" data-act="gal-prev" aria-label="'+esc(L('Предыдущее фото','Previous photo'))+'" disabled>‹</button><button type="button" class="gnav next" data-act="gal-next" aria-label="'+esc(L('Следующее фото','Next photo'))+'">›</button>':''):'');
   var src=c.site||(c.url?(function(){try{return new URL(c.url).hostname.replace(/^www\./,'')}catch(e){return ''}})():'');
   var noTrim=(!c.trims||!c.trims.length)&&c.year;
   var btns='<div class="abtns">'+(c.url&&safeUrl(c.url)?'<a class="btn sm" href="'+esc(safeUrl(c.url))+'" target="_blank" rel="noopener noreferrer">'+esc(L('Открыть объявление ↗','Open the listing ↗'))+'</a>':'')+
     '<button class="btn sm" type="button" data-act="fav-toggle">'+esc(favHas(c)?L('★ В избранном','★ Saved'):L('☆ В избранное','☆ Save'))+'</button>'+
     (noTrim?'<button class="btn sm" type="button" data-act="set-trim">'+esc(L('Указать комплектацию','Set the trim'))+'</button>':'')+'</div>';
   var notes=v.notes&&v.notes.length?'<ul class="anotes">'+v.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join('')+'</ul>':'';
-  return aPanel('a-car','c7'+(accInfo(v)?' acc':''),'', accBanner(v)+'<div class="hero"><div class="ph">'+(src?'<span class="src">'+esc(src)+'</span>':'')+img+(goodImgs.length?'<span class="cnt">'+goodImgs.length+L(' фото',' photos')+'</span>':'')+'</div>'+
+  return aPanel('a-car','c7'+(accInfo(v)?' acc':''),'', accBanner(v)+'<div class="hero"><div class="ph">'+(src?'<span class="src">'+esc(src)+'</span>':'')+img+(gn>1?'<span class="cnt">1 / '+gn+'</span>':'')+'</div>'+
     '<div class="hmain"><div class="title">'+esc(title)+'</div><div class="sub">'+esc(sub)+'</div>'+
     (chips.length?'<div class="chips">'+chips.map(function(x){return '<span class="chip '+x[0]+'"><i></i>'+esc(x[1])+'</span>'}).join('')+'</div>':'')+
     '<div class="ask">'+(c.price>0?'<b>'+esc(eur(c.price))+'</b><span>'+esc(L('цена в объявлении','asking price'))+'</span>':'<span>'+esc(L('Цена не найдена: введите её вручную (кнопка «Скриншот, текст, вручную»).','No price found: enter it manually.'))+'</span>')+'</div>'+btns+'</div></div>'+notes);
@@ -5613,6 +5655,7 @@ document.addEventListener('click',function(e){
   if(a==='stop') stopRun();
   else if(a==='set-trim'){ $('#intake').classList.add('open'); var m=$('#manual'); m.open=true; var t=$('#f-trim'); t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(function(){t.focus()},350); showStatus('info',function(){return L('Впишите комплектацию (например R-Line) и нажмите «Проверить автомобиль».','Type the trim (for example R-Line) and press “Check this car”.')}); }
   else if(a==='fav-toggle') favToggle();
+  else if(a==='gal-prev'||a==='gal-next'){ var gp=b.closest('.ph'), gg=gp&&gp.querySelector('.gal'); if(gg) gg.scrollBy({left:(a==='gal-next'?1:-1)*gg.clientWidth,behavior:(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)?'auto':'smooth'}); }
   else if(a==='recheck') applyCheck();
   else if(a==='more'){ var fm=$('#intake'); fm.classList.toggle('open'); b.setAttribute('aria-expanded',fm.classList.contains('open')?'true':'false'); }
   else if(a==='go-comps'){ var gc=document.getElementById('a-near')||document.getElementById('a-scatter'); if(gc){ var yg=gc.getBoundingClientRect().top+window.scrollY-80; window.scrollTo({top:yg,behavior:'smooth'}); } }
