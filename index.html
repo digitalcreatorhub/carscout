@@ -1203,6 +1203,16 @@ svg line.fx-grow{transform-box:fill-box;transform-origin:center;animation:fxgrow
 .mode-back svg{width:18px;height:18px;fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .mode-back:hover{border-color:var(--accent)}
 .rlogo{cursor:pointer}
+/* ---------- night highway: a WebGL road behind the page (script at the end of the file). Everything here applies only
+   when the scene really runs (body.road-on); without WebGL the page keeps the grid background above. ---------- */
+#fxroad{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity 1.4s ease}
+body.road-on{background:#05070A}
+body.road-on #fxroad{opacity:1}
+body.road-on #fxbg .g,body.road-on #fxbg .a1,body.road-on #fxbg .a2{display:none}
+body.road-on .sheet{background:rgba(13,17,22,.70);-webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3);border-color:rgba(255,255,255,.12)}
+body.road-on .ap,body.road-on .sec.ap,body.road-on .kpis,body.road-on .rep{background:rgba(13,17,22,.88)}
+body.road-on .lead h1,body.road-on .lead p{text-shadow:0 1px 18px rgba(5,7,10,.9)}
+@media print{body.road-on{background:#fff}}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -3038,7 +3048,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-10-20.3', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-11-09.1', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -5929,6 +5939,144 @@ window.__carscout={S:S,run:run,compute:compute,parseText:parseText,pickRelevant:
 /* used by the daily logic check (tools/logiccheck.mjs) to test the "Find me a car" filters directly */
 window.acctUnion=acctUnion; window.acctSync=acctSync; window.favSave=favSave; window.favLoad=favLoad; window.fzFilter=fzFilter; window.pickList=pickList; window.varFamily=varFamily; window.varOk=varOk;
 })();
+})();
+</script>
+<script>/* CarScout: night highway. A WebGL scene behind the page: a road running to the horizon, light trails, street lamps.
+   It speeds up while a check is running (body.fx-busy) and slows down and dims when a report is on screen (#out has content).
+   Nothing here touches the app logic. No WebGL: the old background stays. Reduced motion, data saver or a weak device: one still frame. */
+(function(){
+  'use strict';
+  var bg=document.getElementById('fxbg'), out=document.getElementById('out');
+  if(!bg||!window.requestAnimationFrame) return;
+  var cv=document.createElement('canvas'); cv.id='fxroad'; cv.setAttribute('aria-hidden','true');
+  var gl=null;
+  try{ var o={antialias:false,alpha:false,depth:false,stencil:false,powerPreference:'low-power'}; gl=cv.getContext('webgl',o)||cv.getContext('experimental-webgl',o); }catch(e){ gl=null; }
+  if(!gl) return;
+  var VS='attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}';
+  var FS=[
+  '#ifdef GL_FRAGMENT_PRECISION_HIGH','precision highp float;','#else','precision mediump float;','#endif',
+  'uniform vec2 uRes;uniform float uT;uniform float uDist;uniform float uWarp;uniform float uDim;uniform float uHy;',
+  'const vec3 ACC=vec3(0.776,0.949,0.306);',
+  'const float F=0.9;const float CAM=1.25;const float A=3.0;const float K=0.03;',
+  'float hash(float n){return fract(sin(n)*43758.5453);}',
+  'float noise(float x){float i=floor(x);float f=fract(x);f=f*f*(3.0-2.0*f);return mix(hash(i),hash(i+1.0),f);}',
+  /* sideways shift of the road at distance z: it bends ahead but always starts straight under the camera */
+  'float off(float z){return A*(sin((uDist+z)*K)-sin(uDist*K))-z*A*K*cos(uDist*K);}',
+  'void main(){',
+  'vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;',
+  'float vpx=-F*A*K*cos(uDist*K);',
+  'float dy=p.y-uHy;',
+  'vec3 fogc=vec3(0.035,0.055,0.095);',
+  'vec3 col;',
+  'if(dy>0.0){',
+    'col=mix(fogc,vec3(0.006,0.008,0.014),smoothstep(0.0,0.5,dy));',
+    'vec2 sc=gl_FragCoord.xy/(uRes.y/140.0);vec2 g=floor(sc);vec2 gf=fract(sc)-0.5;float st=hash(g.x*12.9898+g.y*78.233);',
+    'col+=vec3(0.7,0.8,1.0)*step(0.992,st)*smoothstep(0.3,0.0,length(gf))*smoothstep(0.06,0.3,dy)*(0.2+0.45*noise(uT*1.5+st*90.0));',
+  '}else{',
+    'float d=max(-dy,0.0006);float z=CAM*F/d;float xw=p.x*z/F-off(z);',
+    'float px=z/(F*uRes.y);float ax=abs(xw);',
+    'vec3 road=vec3(0.018,0.022,0.03);vec3 land=vec3(0.008,0.011,0.016);',
+    'float onroad=1.0-smoothstep(3.6,3.6+2.0*px,ax);',
+    'col=mix(land,road,onroad);',
+    'col+=road*0.6*onroad*exp(-xw*xw*0.15)*(0.5+0.5*noise(z*0.8+uDist*0.8));',
+    'float edge=1.0-smoothstep(0.05,0.05+1.5*px,abs(ax-3.35));',
+    'col+=vec3(0.55,0.6,0.68)*edge*0.7*smoothstep(1.5,6.0,z);',
+    'float dash=step(fract((z+uDist)/7.0),0.42);',
+    'float cl=(1.0-smoothstep(0.06,0.06+1.5*px,ax))*dash*smoothstep(2.0,7.0,z);',
+    'col+=vec3(0.75,0.78,0.82)*cl*0.8;',
+    /* light trails: oncoming lane (white), own lane (CarScout green) */
+    'float l1=xw+1.75;float s1=pow(noise((z+uDist*2.2)*0.11+3.7),3.0);',
+    'col+=vec3(0.75,0.88,1.0)*(exp(-l1*l1/0.02)*1.6+exp(-l1*l1/0.5)*0.35)*s1*1.4;',
+    'float l2=xw-1.75;float s2=pow(noise((z+uDist*0.45)*0.09+11.3),3.0);',
+    'col+=ACC*(exp(-l2*l2/0.02)*1.6+exp(-l2*l2/0.5)*0.35)*s2*1.5;',
+    'float fade=exp(-z*0.03);col=mix(fogc,col,fade);',
+  '}',
+  /* street lamps on both sides and their reflection on the road */
+  'for(int i=0;i<10;i++){',
+    'float zi=mod(float(i)*16.0-uDist,160.0)+1.5;',
+    'float o=off(zi);float fd=exp(-zi*0.028);float r=0.3*F/zi;',
+    'for(int s=0;s<2;s++){',
+      'float sx=(s==0)?-5.2:5.2;',
+      'vec2 c=vec2(F*(sx+o)/zi,uHy-(CAM-4.2)*F/zi);',
+      'vec2 q=p-c;float dd=dot(q,q);',
+      'col+=vec3(1.0,0.82,0.6)*(exp(-dd/(r*r))*0.8+exp(-dd/(r*r*30.0))*0.07)*fd*smoothstep(1.5,9.0,zi);',
+      'vec2 q2=vec2(p.x-c.x,(p.y-(uHy-(CAM+4.2)*F/zi))*0.22);float d2=dot(q2,q2);',
+      'col+=vec3(1.0,0.82,0.6)*exp(-d2/(r*r*2.0))*0.22*fd*step(dy,0.0);',
+    '}',
+  '}',
+  'float hx=p.x-vpx;',
+  'col+=ACC*exp(-dy*dy/0.0016)*exp(-hx*hx/0.05)*0.22+vec3(0.5,0.65,1.0)*exp(-dy*dy/0.012)*0.05;',
+  /* speed streaks from the vanishing point while a check is running */
+  'vec2 v=vec2(hx,dy);float ang=atan(v.y,v.x);float rr=length(v);',
+  'float stw=pow(noise(ang*38.0+50.0),10.0)*noise(ang*9.0+uT*7.0);',
+  'col+=vec3(0.7,0.85,1.0)*stw*smoothstep(0.06,0.55,rr)*uWarp*0.9;',
+  'col*=max(0.0,1.0-0.5*dot(p,p));',
+  'col=1.0-exp(-max(col,vec3(0.0))*1.5);',
+  'col=pow(col,vec3(0.8))*uDim;',
+  'col+=(hash(gl_FragCoord.x*0.37+gl_FragCoord.y*113.1+uT)-0.5)*0.012;',
+  'gl_FragColor=vec4(col,1.0);',
+  '}'].join('\n');
+  var U=null;
+  function build(){
+    function sh(t,src){ var s=gl.createShader(t); gl.shaderSource(s,src); gl.compileShader(s); return gl.getShaderParameter(s,gl.COMPILE_STATUS)?s:null; }
+    var vs=sh(gl.VERTEX_SHADER,VS), fs=sh(gl.FRAGMENT_SHADER,FS); if(!vs||!fs) return false;
+    var pr=gl.createProgram(); gl.attachShader(pr,vs); gl.attachShader(pr,fs); gl.linkProgram(pr);
+    if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) return false;
+    gl.useProgram(pr);
+    var b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+    var loc=gl.getAttribLocation(pr,'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    U={}; ['uRes','uT','uDist','uWarp','uDim','uHy'].forEach(function(n){ U[n]=gl.getUniformLocation(pr,n); });
+    return true;
+  }
+  if(!build()) return;
+  bg.insertBefore(cv,bg.firstChild);
+
+  var mq=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null;
+  var conn=navigator.connection||{};
+  /* one still frame instead of motion: the user asked for less motion, data saver is on, or the device is weak */
+  function wantStill(){ return !!((mq&&mq.matches)||conn.saveData||(navigator.deviceMemory&&navigator.deviceMemory<=2)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=2)); }
+  var still=wantStill(), scale=0.75, raf=0, last=0, t0=0, dist=40, vel=9, dim=1, lost=false, slowN=0, frames=0, acc=0, lastDraw=0;
+  function size(){
+    var w=bg.clientWidth||window.innerWidth, h=bg.clientHeight||window.innerHeight, dpr=Math.min(window.devicePixelRatio||1,1.5)*scale;
+    var W=Math.max(2,Math.round(w*dpr)), H=Math.max(2,Math.round(h*dpr));
+    if(cv.width!==W||cv.height!==H){ cv.width=W; cv.height=H; gl.viewport(0,0,W,H); }
+    gl.uniform2f(U.uRes,W,H);
+    /* horizon a little below the middle, so the lead text stays on the dark sky */
+    gl.uniform1f(U.uHy,w<h?-0.08:-0.06);
+  }
+  function mode(){ return document.body.classList.contains('fx-busy')?'busy':(out&&out.firstElementChild?'report':'idle'); }
+  function draw(t){
+    gl.uniform1f(U.uT,t); gl.uniform1f(U.uDist,dist);
+    gl.uniform1f(U.uWarp,Math.max(0,Math.min(1,(vel-14)/28))); gl.uniform1f(U.uDim,dim);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+  }
+  function frame(now){
+    raf=0; if(lost||document.hidden) return;
+    if(!t0){ t0=now; last=now; }
+    var m=mode();
+    /* a report is for reading: half the frame rate there */
+    if(m==='report'&&now-lastDraw<30){ raf=requestAnimationFrame(frame); return; }
+    var dt=Math.min(0.05,(now-last)/1000); last=now; lastDraw=now;
+    var target=m==='busy'?46:m==='report'?2.5:9, dimTo=m==='report'?0.55:1;
+    vel+=(target-vel)*(1-Math.exp(-dt*1.6)); dim+=(dimTo-dim)*(1-Math.exp(-dt*2.0)); dist+=vel*dt;
+    var c0=performance.now(); draw((now-t0)/1000);
+    /* too slow for this device: lower the resolution once, then give up on motion and keep a still frame */
+    acc+=performance.now()-c0+ (dt>0.034?12:0); frames++;
+    if(frames>=90){ if(acc/frames>9){ slowN++; if(slowN===1){ scale=0.5; size(); } else { still=true; } } frames=0; acc=0; }
+    if(still){ draw((now-t0)/1000); return; }
+    raf=requestAnimationFrame(frame);
+  }
+  function start(){ if(lost) return; size(); if(still){ dim=mode()==='report'?0.55:1; draw(0); return; } if(!raf){ last=0; t0=0; raf=requestAnimationFrame(frame); } }
+  cv.addEventListener('webglcontextlost',function(e){ e.preventDefault(); lost=true; if(raf){ cancelAnimationFrame(raf); raf=0; } document.body.classList.remove('road-on'); });
+  cv.addEventListener('webglcontextrestored',function(){ lost=false; if(build()){ document.body.classList.add('road-on'); start(); } });
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) start(); });
+  var rz=0; window.addEventListener('resize',function(){ clearTimeout(rz); rz=setTimeout(function(){ if(lost) return; size(); if(still) draw(0); },150); });
+  if(mq){ var onMq=function(){ still=wantStill(); start(); }; if(mq.addEventListener) mq.addEventListener('change',onMq); else if(mq.addListener) mq.addListener(onMq); }
+  /* a still frame follows the page too: dim it when a report appears */
+  if(out&&window.MutationObserver) new MutationObserver(function(){ if(still&&!lost){ dim=mode()==='report'?0.55:1; draw(0); } }).observe(out,{childList:true});
+  document.body.classList.add('road-on');
+  bg.setAttribute('data-road',still?'still':'on');
+  start();
 })();
 </script>
 </body>
