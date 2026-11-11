@@ -52,6 +52,25 @@ for (const cat of CATS) {
 }
 good(`ss: ${adsChecked} ad pages read (LV/RU/EN)`);
 
+// 1b. ss.lv motorcycles and quad bikes: the make list is read through /api/comps (moto columns: model, year, cm3, price), then one fresh ad
+for (const [vtype, sub, mk, model] of [['moto', 'motorcycles', 'Honda', ''], ['moto', 'motorcycles', 'Yamaha', ''], ['quad', 'quadrocycles', 'CFMOTO', '']]) {
+  const j = await get('/api/comps', { source: 'ss', make: mk, model, vtype });
+  const its = (j.items || []);
+  if (!j.ok || its.length < 5) { bad(`ss.lv ${sub} ${mk}`, j.error || `only ${its.length} ads read`); continue; }
+  const noCc = its.filter(i => !i.cc).length, noYear = its.filter(i => !i.year).length;
+  if (noCc > its.length * 0.3 || noYear) bad(`ss.lv ${sub} ${mk}`, `${its.length} ads, engine size missing in ${noCc}, year missing in ${noYear}`);
+  else good(`ss.lv ${sub} ${mk}: ${its.length} ads with year and cm3`);
+  const it = its.find(i => i.url && /\/msg\//.test(i.url));
+  if (!it) continue;
+  const a = await get('/api/listing', { url: it.url }), l = a.listing || {};
+  const miss = ['make', 'model', 'year', 'asking_price', 'cc'].filter(k => l[k] == null || l[k] === '');
+  if (l.vtype !== vtype) miss.push('vtype ' + l.vtype);
+  if (!(a.hints && a.hints.ss_path === `/ru/transport/moto-transport/${sub}/${String(it.url).split('/')[8]}/`)) miss.push('ss_path ' + (a.hints && a.hints.ss_path));
+  if (miss.length) bad(`ss.lv ${sub} ad ${it.url}`, 'not read: ' + miss.join(', '));
+  else if (it.cc && l.cc !== it.cc) bad(`ss.lv ${sub} ad ${it.url}`, `cm3 ${l.cc}, list says ${it.cc}`);
+  else good(`ss.lv ${sub} ad read: ${l.make} ${l.model} ${l.year}, ${l.cc} cm3`);
+}
+
 // 2. seller data (views + other ads by phone)
 {
   const list = await get('/api/search', { url: 'https://www.ss.com/ru/transport/cars/volkswagen/' });

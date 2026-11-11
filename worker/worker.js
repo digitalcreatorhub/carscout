@@ -14,7 +14,7 @@
  * Settings (Workers > your worker > Settings > Variables):
  *   ALLOW_ORIGIN  optional, e.g. https://yourname.github.io  (default: any origin)
  */
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 
 const HOSTS = [
   /(^|\.)ss\.(com|lv)$/, /(^|\.)autoplius\.lt$/, /(^|\.)autogidas\.lt$/, /(^|\.)auto24\.(ee|lv|lt|fi|ru)$/,
@@ -378,7 +378,9 @@ const SS_LABELS = [
   ['make', /^(marka|марка|make|brand)$/], ['model', /^(modelis|модель|model)$/], ['year', /^(izlaiduma gads|год выпуска|year|year of issue|year of manufacture)$/],
   ['engine', /^(dzin[eē]js|dzin[eē]ja tips|motors|двигатель|мотор|тип двигателя|engine|engine type|type of engine|motor)$/], ['gearbox', /^([aā]trumk[aā]rba|коробка передач|коробка|transmission|gearbox|gear box)$/],
   ['mileage', /^(nobraukums|пробег|mileage|run|odometer)$/], ['color', /^(kr[aā]sa|цвет|colou?r)$/], ['body', /^(virsb[uū]ves tips|тип кузова|body type)$/],
-  ['vin', /^(vin|vin kods|vin код|vin code)$/]
+  ['vin', /^(vin|vin kods|vin код|vin code)$/],
+  /* motorcycles and quad bikes: engine size in cm3 ("Объём двигателя, cm3" / "Motora tilpums, cm3" / "Engine volume, cm3") */
+  ['cc', /^(объ[её]м двигателя|motora tilpums|dzin[eē]ja tilpums|engine volume)$/]
 ];
 /* The ad text sits in #msg_div_msg together with the photo gallery (nested divs), so we cannot stop at the first </div>.
    Take everything up to the options table (or the footer markers) instead. */
@@ -433,6 +435,15 @@ function parseSsListing(html, url) {
   const loc = ssLocation(html); listing.place = loc.place; listing.address = loc.address; listing.geo = loc.geo;
   listing.removed = !price && !L.year && !L.mileage;
   const m3 = url.match(/\/msg\/[a-z]{2}\/transport\/cars\/others\/[^/]+\.html/i);
+  /* motorcycles and quad bikes (ss.lv "Мото транспорт"): the make is the last level of the category, there is no model level */
+  const mv = ssMotoOf(url);
+  if (mv) {
+    listing.vtype = mv.vtype;
+    const cc = parseInt(String(L.cc || '').replace(/\D/g, ''), 10); listing.cc = cc >= 30 && cc <= 3000 ? cc : null;
+    listing.engine_l = null; listing.fuel = /elektr|electr|электр/i.test(L.cc || '') ? 'electric' : null; listing.lpg = false; listing.src.fuel = null;
+    if (listing.mileage_km == null) { listing.mileage_km = motoKm(desc); if (listing.mileage_km != null) listing.src.mileage_km = 'text'; }
+    return { listing: listing, hints: { ss_others: mv.make === 'other', ss_path: '/ru/transport/moto-transport/' + mv.sub + '/' + mv.make + '/', ss_vtype: mv.vtype, ss_make: mv.make, ss_model: null } };
+  }
   return { listing: listing, hints: { ss_others: !!m3, ss_path: m3 ? '/ru/transport/cars/others/' : m2 ? '/ru/transport/cars/' + m2[1] + '/' + m2[2] + '/' : null, ss_make: m2 ? m2[1] : null, ss_model: m2 ? m2[2] : null } };
 }
 /* ss.lv contacts block: 'Place' (city or region) and, for some sellers, 'Address' with map coordinates */
@@ -456,6 +467,81 @@ function ssDates(html) {
   const u = html.match(/(?:Datums|Date|Дата):\s*(\d{2})\.(\d{2})\.(20\d{2})\s+(\d{2}:\d{2})/);
   const id = html.match(/value=['"](\d{6,})_\d+/);
   return { posted: p ? p[1] : null, updated: u ? u[3] + '-' + u[2] + '-' + u[1] + 'T' + u[4] : null, id: id ? id[1] : null };
+}
+/* ss.lv motorcycles and quad bikes: /msg/ru/transport/moto-transport/motorcycles/honda/xxxx.html, .../quadrocycles/cfmoto/xxxx.html */
+function ssMotoOf(url) {
+  const m = String(url || '').match(/ss\.(?:com|lv)\/(?:msg\/)?[a-z]{2}\/transport\/moto-transport\/(motorcycles|quadrocycles)\/([a-z0-9\-]+)\//i);
+  return m ? { sub: m[1].toLowerCase(), make: m[2].toLowerCase(), vtype: /^quad/i.test(m[1]) ? 'quad' : 'moto' } : null;
+}
+/* mileage of a motorcycle from the ad text ("Nobraukums 23000", "19 000 km", "пробег 12 тыс."); null when not said */
+function motoKm(text) {
+  const t = String(text || '').slice(0, 3000).replace(/\u00a0/g, ' ');
+  let m = t.match(/(?:nobraukum\w*|пробег\w*|mileage|odometer)\s*[:\-–]?\s*(?:ir\s*|~\s*)?(\d{1,3}(?:[ .]\d{3})+|\d{1,6})\s*(тыс\.?|t[uū]kst\.?|k\b)?/i);
+  if (m) { let n = parseInt(m[1].replace(/\D/g, ''), 10); if (m[2]) n *= 1000; if (n >= 10 && n < 400000) return n; }
+  m = t.match(/(\d{1,3}(?:[ .]\d{3})+|\d{3,6})\s*(?:km|км)\b/i);
+  if (m) { const n = parseInt(m[1].replace(/\D/g, ''), 10); if (n >= 100 && n < 400000) return n; }
+  return null;
+}
+/* ss.lv list of motorcycles or quad bikes: columns model, year, cm3, price (no mileage column) */
+function parseSsMotoList(html, base) {
+  const items = [];
+  const rows = html.match(/<tr[^>]+id="tr_\d+"[\s\S]*?<\/tr>/gi) || [];
+  rows.forEach(function (row) {
+    const link = row.match(/<a[^>]+href="(\/(?:msg|[a-z]{2}\/msg)\/[^"]+)"/i);
+    const cells = (row.match(/<td[^>]*class="msga2-o[^"]*"[^>]*>[\s\S]*?<\/td>/gi) || []).map(strip);
+    if (cells.length < 3) return;
+    const price = toNum(String(cells[cells.length - 1]).replace(/\/.*$/, ''));
+    const year = parseYear(cells[1]);
+    const cc = parseInt(String(cells[2] || '').replace(/\D/g, ''), 10);
+    if (!(price >= 300 && price <= 200000) || !year) return;
+    const dm = row.match(/<div class=["']?d1["']?>([\s\S]*?)<\/div>/i), desc = dm ? strip(dm[1]) : '';
+    let img = null; const im = row.match(/<img[^>]+(?:data-src|src)=["']([^"']+\.(?:jpe?g|png|webp)(?:\?[^"']*)?)["']/i);
+    if (im) { const u = absUrl(im[1].replace(/&amp;/g, '&'), base); if (u && imgAllowed(u) && !/(logo|icon|noimage|placeholder|sprite)/i.test(u)) img = u; }
+    items.push({ price: Math.round(price), km: motoKm(desc), year: year, cc: cc >= 30 && cc <= 3000 ? cc : null, model_raw: cells[0] || null, url: link ? absUrl(link[1], base) : null, title: ((cells[0] || '') + (desc ? ' · ' + desc : '')).slice(0, 160), fuel: null, engine_l: null, img: img });
+  });
+  return items;
+}
+/* which motorcycles of the make are this model: words of the model name (Z800, CRF, Hornet, 1250), then engine size within 15%.
+   Too few: the same engine size in the whole make; still too few: the whole make, and the answer says so (matchBy). */
+const MOTO_NOISE = { atv: 1, quad: 1, moto: 1, motorcycle: 1, motocikls: 1, kvadracikls: 1, kvadricikls: 1, utv: 1, eps: 1, abs: 1, new: 1 };
+function motoPick(items, model, cc) {
+  const c = function (x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ''); };
+  const toks = String(model || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(function (t) { return t && !MOTO_NOISE[t] && (t.length >= 3 || (/\d/.test(t) && /[a-z]/.test(t))); });
+  const whole = c(model);
+  const ccOk = function (i, tol) { return !cc || !i.cc || Math.abs(i.cc - cc) <= cc * tol; };
+  const byModel = items.filter(function (i) { const t = c(i.model_raw) || c(String(i.title).split(' · ')[0]); if (!t) return false; if (whole.length >= 2 && (t === whole || t.indexOf(whole) === 0 || (whole.indexOf(t) === 0 && t.length >= 3))) return true; return toks.some(function (k) { return t.indexOf(k) > -1; }); });
+  const m1 = byModel.filter(function (i) { return ccOk(i, 0.15); });
+  if (m1.length >= 3) return { items: m1, matchBy: 'model' };
+  if (cc) { const m2 = items.filter(function (i) { return i.cc && Math.abs(i.cc - cc) <= cc * 0.1; }); if (m2.length >= 3) return { items: m2, matchBy: 'cc' }; }
+  if (m1.length) return { items: m1, matchBy: 'model' };
+  return { items: items, matchBy: 'make' };
+}
+const SS_MOTO_ALIAS = { motorcycles: { 'cfmoto': 'cf-moto', 'moto-guzzi': 'motto-guzzi', 'harley': 'harley-davidson' }, quadrocycles: { 'cf-moto': 'cfmoto', 'brp': 'can-am', 'can-am-brp': 'can-am' } };
+async function hMotoComps(env, q, make, model) {
+  let path = q.get('ssPath') || '';
+  let mv = /^\/[a-z]{2}\/transport\/moto-transport\/(motorcycles|quadrocycles)\/([a-z0-9\-]+)\/$/i.exec(path);
+  if (!mv) {
+    const sub = q.get('vtype') === 'quad' ? 'quadrocycles' : 'motorcycles';
+    let mk = slugify(make); mk = (SS_MOTO_ALIAS[sub] || {})[mk] || mk;
+    if (!mk) return json(env, { ok: false, error: 'need_model', message: 'Make is required.' });
+    path = '/ru/transport/moto-transport/' + sub + '/' + mk + '/'; mv = /^\/[a-z]{2}\/transport\/moto-transport\/(motorcycles|quadrocycles)\/([a-z0-9\-]+)\/$/i.exec(path);
+  }
+  const vtype = /^quad/i.test(mv[1]) ? 'quad' : 'moto';
+  let base = 'https://www.ss.com' + path, others = mv[2] === 'other';
+  const fetchAll = function (b, n) { const us = [b]; for (let k = 2; k <= n; k++) us.push(b + 'page' + k + '.html'); return Promise.all(us.map(function (u) { return getPage(u, 900).catch(function (e) { return { status: 0, text: '', url: u }; }); })); };
+  let pages = await fetchAll(base, 8);
+  /* a make without its own category on ss.lv is under "Другие" */
+  if (!others && pages[0].status === 404) { others = true; base = 'https://www.ss.com/ru/transport/moto-transport/' + mv[1] + '/other/'; pages = await fetchAll(base, 8); }
+  const first = pages[0], b = blockedBy(first);
+  if (b) return json(env, { ok: false, source: 'ss', error: 'blocked', message: 'ss.com refused the server request (' + b + ').', searchUrl: base });
+  if (first.status === 404 || !/id="tr_/.test(first.text)) return json(env, { ok: false, source: 'ss', error: first.status === 404 ? 'not_found' : 'parse_failed', message: first.status === 404 ? 'Category not found for this make.' : 'No ads found on the page.', searchUrl: base, vtype: vtype });
+  let all = [];
+  pages.forEach(function (p) { if (p.status === 200) all = all.concat(parseSsMotoList(p.text, p.url)); });
+  all = dedupe(all);
+  if (others && make) all = filterOthers(all, make, model);
+  const cc = parseInt(q.get('ccm') || '', 10) || null;
+  const pk = motoPick(all, model, cc);
+  return json(env, { ok: pk.items.length > 0, source: 'ss', region: 'LV', label: 'ss.com', vtype: vtype, matchBy: pk.matchBy, makeTotal: all.length, searchUrl: base, items: pk.items, pages: pages.filter(function (p) { return p.status === 200; }).length, error: pk.items.length ? null : 'parse_failed', message: pk.items.length ? null : 'Page loaded but no ads were recognised.' });
 }
 function parseSsList(html, base) {
   const items = [];
@@ -952,7 +1038,8 @@ async function hListing(env, q, ctx) {
   if (parser === 'ss' && L.removed) { later(ctx, memGone(env, url)); } 
   if (parser === 'ss' && L.removed) return json(env, { ok: false, error: 'not_found', removed: true, message: 'The listing was removed or has expired.', source: host, parser: parser, listing: L });
   const filled = ['make', 'model', 'year', 'mileage_km', 'asking_price'].filter(function (k) { return L[k] != null; }).length;
-  if (filled >= 3 && L.asking_price > 0 && adKey(url)) later(ctx, memSave(env, [{ id: adKey(url), src: parser, mk: memNorm(L.make), md: memNorm(L.model), yr: L.year || null, vin: L.vin || null, title: String(res.title || '').slice(0, 90), p: Math.round(L.asking_price), km: L.mileage_km != null ? Math.round(L.mileage_km) : null, posted: L.posted || null, u: parser === 'ss' ? String(url).slice(0, 220) : null, cat: parser === 'ss' ? ssCat(url) : null }]));
+  /* motorcycles and quad bikes are not kept in the car memory (price history, time on sale are for cars) */
+  if (filled >= 3 && L.asking_price > 0 && adKey(url) && !L.vtype) later(ctx, memSave(env, [{ id: adKey(url), src: parser, mk: memNorm(L.make), md: memNorm(L.model), yr: L.year || null, vin: L.vin || null, title: String(res.title || '').slice(0, 90), p: Math.round(L.asking_price), km: L.mileage_km != null ? Math.round(L.mileage_km) : null, posted: L.posted || null, u: parser === 'ss' ? String(url).slice(0, 220) : null, cat: parser === 'ss' ? ssCat(url) : null }]));
   return json(env, { ok: filled >= 2, error: filled >= 2 ? null : 'parse_failed', message: filled >= 2 ? null : 'Could not read the main fields from this page.', source: host, parser: parser,
     listing: L, image: res.image || null, images: res.images || collectImages(p.text, p.url), title: res.title || null, hints: res.hints || {}, diag: { status: p.status, bytes: p.text.length, filled: filled } });
 }
@@ -1032,6 +1119,7 @@ async function hComps(env, q, ctx) {
   const make = cm.make || '', model = cm.model || '';
   const year = parseInt(q.get('year') || '', 10) || null;
   const yf = parseInt(q.get('yfrom') || '', 10) || (year ? year - 1 : null), yt = parseInt(q.get('yto') || '', 10) || (year ? year + 1 : null);
+  if (source === 'ss' && (/^(moto|quad)$/.test(q.get('vtype') || '') || /\/transport\/moto-transport\//.test(q.get('ssPath') || ''))) return hMotoComps(env, q, make, model);
   if (source === 'ss') {
     let path = q.get('ssPath');
     let others = !!path && /^\/[a-z]{2}\/transport\/cars\/others\/$/i.test(path);

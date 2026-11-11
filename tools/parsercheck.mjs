@@ -554,4 +554,46 @@ const as24Page = (v = {}) => '<html><script id="__NEXT_DATA__" type="application
   check(img('https://images.pkw.net/audi-a6-1-640x480_ab.jpg') && img('https://img.kleinanzeigen.de/api/v1/prod-ads/images/a3/x?rule=$_59.AUTO') && !img('https://images.pkw.net.evil.com/a.jpg') && !img('https://img.kleinanzeigen.de.evil.com/a.jpg'), 'pkw.net and img.kleinanzeigen.de photos may be shown through the photo proxy; look-alikes may not');
 }
 
+/* =====================================================================================================================
+   ss.lv motorcycles and quad bikes ("Мото транспорт"). Built from the real pages of 11 Nov 2026: the ad table has make, model,
+   year and engine size in cm3 (no mileage row); the list has the columns model, year, cm3, price; the make is the last level
+   of the category (/moto-transport/motorcycles/honda/, /moto-transport/quadrocycles/cfmoto/), there is no model level.
+   ===================================================================================================================== */
+{
+  const mAd = (o = {}) => { const lab = { ru: ['Марка:', 'Модель:', 'Год выпуска:', 'Объём двигателя, cm3:'], lv: ['Marka:', 'Modelis:', 'Izlaiduma gads:', 'Motora tilpums, cm3:'], en: ['Brand:', 'Model:', 'Year of issue:', 'Engine volume, cm3:'] }[o.lang || 'ru'];
+    const v = [o.mk || 'Honda', o.md || 'Crf 1000d', o.y || 2020, o.cc || 998];
+    return `<html><head><title>SS.COM Мотоциклы - Honda, Цена 10 300 €.</title></head><body><div id="msg_div_msg">${o.desc || 'Pārdod Africa Twin. Labā stāvoklī. Nobraukums 23000. Dct automāts'}<table class="options_list">${lab.map((l, k) => `<tr><td class="ads_opt_name">${l}</td><td class="ads_opt">${v[k]}</td></tr>`).join('')}</table></div><span class="ads_price" id="tdo_8">${o.p || '10 300'} €</span></body></html>`; };
+  const MU = 'https://www.ss.com/msg/ru/transport/moto-transport/motorcycles/honda/eefjm.html';
+  let r = run('parseSsListing', mAd(), MU), l = r.listing;
+  check(l.make === 'Honda' && l.model === 'Crf 1000d' && l.year === 2020 && l.cc === 998 && l.asking_price === 10300 && l.vtype === 'moto' && l.engine_l === null && l.fuel === null, 'ss.lv motorcycle ad: make, model, year, engine size in cm3, price; no car engine litres or fuel', l);
+  check(l.mileage_km === 23000 && r.hints.ss_path === '/ru/transport/moto-transport/motorcycles/honda/' && r.hints.ss_vtype === 'moto', 'ss.lv motorcycle ad: mileage from the text, the make category for the comparison', { km: l.mileage_km, hints: r.hints });
+  const lvL = run('parseSsListing', mAd({ lang: 'lv' }), MU.replace('/ru/', '/lv/')).listing, enL = run('parseSsListing', mAd({ lang: 'en', mk: 'Arctic Cat', md: 'Alterra', y: 2018, cc: 450, p: '3 750' }), 'https://www.ss.com/msg/en/transport/moto-transport/quadrocycles/arctic-cat/kjlnx.html').listing;
+  check(lvL.cc === 998 && lvL.year === 2020 && enL.vtype === 'quad' && enL.cc === 450 && enL.make === 'Arctic Cat' && enL.asking_price === 3750, 'ss.lv motorcycle ad in Latvian, quad bike ad in English', { lv: lvL, en: enL });
+  table('motorcycle mileage in a text (motoKm)', 'motoKm', [['Nobraukums 23000', 23000], ['19 000 km nobraukums', 19000], ['пробег 12 тыс.', 12000], ['Mocim ~170mh', null], ['2020 gads, 998 cm3', null], ['', null]]);
+  const row = (id, md, y, cc, p, d) => `<tr id="tr_${id}"><td class="msga2 pp0"><input type=checkbox></td><td class="msga2"><a href="/msg/ru/transport/moto-transport/motorcycles/honda/m${id}.html"><img src="https://i.ss.com/gallery/8/1/2/${id}.th2.jpg" class="isfoto foto_list"></a></td><td class=msg2><div class=d1><a class="am" href="/msg/ru/transport/moto-transport/motorcycles/honda/m${id}.html">${d}</a></div><div class="ads_region">Рига</div></td><td class="msga2-o pp6" nowrap c=1>${md}</td><td class="msga2-o pp6" nowrap c=1>${y}</td><td class="msga2-o pp6" nowrap c=1>${cc}</td><td class="msga2-o pp6" nowrap c=1>${p}  €</td></tr>`;
+  const mList = [row(1, 'Crf 1000d', 2019, 998, '9,800', 'Africa Twin, 19 000 km'), row(2, 'Crf1000l', 2018, 998, '8,900', 'Africa twin dct'), row(3, 'Crf 250', 2020, 250, '4,500', 'krosa'), row(4, 'Hornet', 2024, 750, '6,190', 'CB750 Hornet'), row(5, 'Africa twin', 2017, 998, '8,500', 'Africa twin'), row(6, 'Cbr 600', 2008, 600, '3,100', 'sporta')].join('');
+  const its = run('parseSsMotoList', `<html><table>${mList}</table></html>`, 'https://www.ss.com/ru/transport/moto-transport/motorcycles/honda/');
+  check(its.length === 6 && its[0].price === 9800 && its[0].year === 2019 && its[0].cc === 998 && its[0].km === 19000 && its[0].model_raw === 'Crf 1000d' && /\/honda\/m1\.html$/.test(its[0].url) && its[2].cc === 250 && its[3].km === null, 'ss.lv motorcycle list: price, year, cm3 (not taken for mileage), model, link, mileage from the text', its.slice(0, 4));
+  const pick = (m, cc) => { ctx.__i = its; ctx.__m = m; ctx.__c = cc; return P('motoPick(__i, __m, __c)'); };
+  let pk = pick('Crf 1000d', 998);
+  check(pk.matchBy === 'cc' && pk.items.map(i => i.model_raw).join() === 'Crf 1000d,Crf1000l,Africa twin', 'motorcycle comparison: CRF 1000 is compared with the 998 cm3 Hondas, never with a CRF 250', pk);
+  pk = pick('Hornet', 750);
+  check(pk.matchBy === 'model' && pk.items.length === 1 && pk.items[0].model_raw === 'Hornet', 'motorcycle comparison: the same model name is kept when there is little else', pk);
+  pk = pick('Cbr 600', 600);
+  check(pk.items.every(i => i.cc === 600), 'motorcycle comparison: a CBR 600 is not compared with litre bikes', pk);
+  /* /api/comps for a motorcycle: only the make category of ss.lv motorcycles is read (8 pages), never the car categories */
+  const base = 'https://www.ss.com/ru/transport/moto-transport/motorcycles/honda/';
+  pages[base] = { status: 200, body: `<html><table>${mList}</table></html>` };
+  const n0 = calls.length;
+  let j = await api('/api/comps?source=ss&make=Honda&model=Crf%201000d&year=2019&vtype=moto&ccm=998');
+  const asked = calls.slice(n0);
+  check(j.ok && j.vtype === 'moto' && j.matchBy === 'cc' && j.items.length === 3 && j.searchUrl === base && asked.every(u => u.indexOf(base) === 0) && asked.length === 8, '/api/comps for a motorcycle: reads the ss.lv make category of motorcycles, not cars', { j, asked });
+  j = await api('/api/comps?source=ss&make=Honda&model=Crf%201000d&year=2019&ccm=998&ssPath=' + encodeURIComponent('/ru/transport/moto-transport/motorcycles/honda/'));
+  check(j.ok && j.vtype === 'moto', '/api/comps: the ss.lv path of a motorcycle ad is enough to search motorcycles', j.vtype);
+  const qb = 'https://www.ss.com/ru/transport/moto-transport/quadrocycles/cfmoto/';
+  pages[qb] = { status: 200, body: `<html><table>${mList.replace(/motorcycles\/honda/g, 'quadrocycles/cfmoto')}</table></html>` };
+  j = await api('/api/comps?source=ss&make=CF%20Moto&model=Cfforce&year=2023&vtype=quad');
+  check(j.searchUrl === qb && j.vtype === 'quad', '/api/comps for a quad bike: CF Moto is "cfmoto" in the ss.lv quad bike category', j.searchUrl);
+}
+
 finish();

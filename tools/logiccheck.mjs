@@ -300,12 +300,25 @@ const SCEN = [
     expect: v => [[/ориентировочно/i.test(v.verdict) && /пробег найденных машин/.test(v.basis), 'compared cars with 2.8 times the mileage: the verdict is marked approximate and says why', v.verdict + ' | ' + v.basis]] },
 ];
 
+/* a motorcycle on ss.lv (and the same for quad bikes): compared only with ss.lv motorcycles of the same model and engine size, car-only panels left out */
+const motoItems = (n, mid, off) => Array.from({ length: n }, (_, k) => ({ price: Math.round(mid + (k - (n - 1) / 2) * 150), km: k % 3 ? 15000 + (k % 5) * 3000 : null, year: 2018 + (k % 3), cc: 998, model_raw: 'Crf 1000d', url: `https://www.ss.com/msg/ru/transport/moto-transport/motorcycles/honda/m${off + k}xyz.html`, title: 'Crf 1000d · Africa Twin' }));
+SCEN.push({ id: 'moto-ss', url: 'https://www.ss.com/msg/ru/transport/moto-transport/motorcycles/honda/zzmoto1.html', price: 8700,
+  listing: { make: 'Honda', model: 'Crf 1000d', year: 2019, mileage_km: 21000, asking_price: 8700, cc: 998, vtype: 'moto', fuel: null, description: 'Pārdod Africa Twin, nobraukums 21000', src: {} },
+  comps: { ss: motoItems(14, 9600, 0), D: items(20, 12000, 'as') }, ssExtra: { vtype: 'moto', matchBy: 'model' },
+  expect: v => { const ss = v.compsAsked.filter(q => /source=ss\b/.test(q)); return [
+    [ss.length === 1 && /vtype=moto/.test(ss[0]) && /ccm=998/.test(ss[0]), 'motorcycle: ss.lv is asked for motorcycles with the engine size', JSON.stringify(ss)],
+    [v.compsAsked.length === 1, 'motorcycle: no car sites are asked (AutoScout24, autoplius, ...)', JSON.stringify(v.compsAsked)],
+    [/ниже рынка|выгодн|дешевле/i.test(v.verdict), 'motorcycle 8 700 € against ~9 600 €: below the market', v.verdict],
+    [/мотоциклами той же модели/.test(v.notes) && /998/.test(v.notes) && /похожими мотоциклами/.test(v.msg), 'motorcycle: the notes say it was compared with the same model and engine size, the seller message says motorcycles', v.notes.slice(0, 400) + ' | ' + v.msg],
+    [!v.panels.some(id => /^(a-weak|a-trims|a-flags|a-checks)$/.test(id)) && !/k-lv/.test(v.calc), 'motorcycle: car-only panels (weak points, trims, car checks, import calculator) are not shown', v.panels.join(',') + ' ' + v.calc],
+    [!v.photoAsked.length, 'motorcycle: no car generation photo check', v.photoAsked.join(' ')]]; } });
+
 const b = await chromium.launch(process.env.PW_EXEC ? { executablePath: process.env.PW_EXEC } : {});
 const errs = [];
 for (const sc of SCEN) {
   const ctx = await b.newContext({ viewport: { width: sc.width || 1280, height: 900 }, isMobile: (sc.width || 1280) < 500, hasTouch: (sc.width || 1280) < 500 }); const pg = await ctx.newPage();
   pg.on('pageerror', e => errs.push(sc.id + ': ' + e.message));
-  const photoAsked = [], imgReq = [], pxReq = [];
+  const photoAsked = [], imgReq = [], pxReq = [], compsAsked = [];
   await pg.route('**/*', async r => {
     const u = r.request().url();
     /* the photos of the test ads: a 1x1 picture, counted; "refuse" = the site does not give its photos to another page */
@@ -317,7 +330,7 @@ for (const sc of SCEN) {
       if (x.pathname === '/api/listing') body = { ok: true, images: sc.images, title: 'Audi A6 Avant', source: sc.listing ? new URL(sc.url).hostname : sc.cc ? 'autoscout24' : 'ss', parser: sc.listing ? 'auto24' : undefined, listing: sc.listing || { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
       else if (x.pathname === '/api/import') body = sc.imp || { ok: false, error: 'test' };
       else if (x.pathname === '/api/photogen') { photoAsked.push(x.searchParams.toString()); body = sc.photo || { ok: false, error: 'no_ai' }; }
-      else if (x.pathname === '/api/comps') { const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : s === 'auto24' ? sc.comps['a24' + String(x.searchParams.get('cc')).toLowerCase()] : s === 'autogidas' ? sc.comps.ag : null; body = its ? { ok: true, items: its } : { ok: false, error: 'blocked', searchUrl: sc.blockedSearch && s === 'autoplius' ? 'https://en.autoplius.lt/ads/used-cars/audi/a6' : undefined }; }
+      else if (x.pathname === '/api/comps') { compsAsked.push(x.searchParams.toString()); const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : s === 'auto24' ? sc.comps['a24' + String(x.searchParams.get('cc')).toLowerCase()] : s === 'autogidas' ? sc.comps.ag : null; body = its ? Object.assign({ ok: true, items: its }, s === 'ss' && sc.ssExtra || {}) : { ok: false, error: 'blocked', searchUrl: sc.blockedSearch && s === 'autoplius' ? 'https://en.autoplius.lt/ads/used-cars/audi/a6' : undefined }; }
       else if (x.pathname !== '/') body = { ok: false, error: 'test' };
       return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(body) });
     }
@@ -340,7 +353,8 @@ for (const sc of SCEN) {
   v.life = await t('#a-life', 2000); v.hist = await t('#a-hist', 300); v.body = await pg.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
   /* the photo gallery of the car card: what is in it, what was loaded, and one step of the arrow */
   const galRead = () => pg.evaluate(() => { const ph = document.querySelector('#a-car .ph'), g = ph && ph.querySelector('.gal'); return g ? { n: g.querySelectorAll('img').length, cnt: (ph.querySelector('.cnt') || {}).textContent || '', prevOff: !!(ph.querySelector('.gnav.prev') || {}).disabled, next: !!ph.querySelector('.gnav.next:not([hidden])') } : null; });
-  v.gal = await galRead(); v.imgReq = imgReq.length; v.pxReq = pxReq.length;
+  v.gal = await galRead(); v.imgReq = imgReq.length; v.pxReq = pxReq.length; v.compsAsked = compsAsked;
+  v.panels = await pg.$$eval('#out section[id]', e => e.map(x => x.id)).catch(() => []);
   if (sc.gallery && v.gal && v.gal.next) { await pg.click('#a-car .gnav.next'); await pg.waitForTimeout(1200); v.gal2 = await galRead(); v.pxReq = pxReq.length; }
   /* layout: things that looked broken on a phone (a note squeezed into the icon column, a clipped table column, overlapping labels, the same country twice) */
   v.ui = await pg.evaluate(() => {
