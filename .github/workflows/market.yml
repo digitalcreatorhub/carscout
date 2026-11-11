@@ -1,5 +1,6 @@
 name: Market walk
 on:
+  # schedule re-saved 2026-11-11: GitHub stopped the timers after the account block of 8 Nov
   schedule:
     - cron: '23 3 * * *'
   workflow_dispatch:
