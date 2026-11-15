@@ -37,7 +37,7 @@ const SCEN = [
     expect: v => [[!v.fraud, 'leasing terms (first instalment, advance payment) and "no prepayment" are not a scam signal', v.fraud]] },
   { id: 'lv-prepay-asked', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvprep.html', price: 15200, comps: { ss: items(20, 15500, 'ss'), D: items(20, 12000, 'as') },
     desc: 'Audi A6 Avant 2.0 TDI. Машина в пути, для брони нужна предоплата 500 евро, переведите на карту.',
-    expect: v => [[/предоплат/i.test(v.fraud), 'a real request for a prepayment is still a scam signal', v.fraud || 'no scam block']] },
+    expect: v => [[!!v.fraud, 'a real request for a prepayment is still a scam signal (the price is fair, so nothing else can raise it)', 'no scam block']] },
   { id: 'lv-cheap-few', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvfew.html', price: 10500, comps: { ss: items(6, 15500, 'ss'), D: items(4, 12000, 'as') },
     expect: v => [[!/Подозрительно/.test(v.verdict) && /Ниже рынка/.test(v.verdict), 'with only 6 ads it is "below market", not "suspicious"', v.verdict]] },
   { id: 'de-own-market', url: asUrl(99), cc: 'DE', price: 11000, comps: { ss: items(20, 15500, 'ss'), D: items(24, 11400, 'as') },
