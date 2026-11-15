@@ -3111,7 +3111,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-11-15.1', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-11-15.2', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -4921,12 +4921,31 @@ document.addEventListener('change',function(e){ if(e.target&&e.target.id==='sell
 document.addEventListener('click',function(e){ var b=e.target.closest&&e.target.closest('[data-act="sell-copy"]'); if(!b) return; var t=$('#sell-text'); if(t) copyText(t.value,L('Текст объявления скопирован.','Ad text copied.','Sludinājuma teksts nokopēts.')); });
 
 /* ======================= scam risk: signals put together (shown only when something is found) ======================= */
+/* "The seller asks for money up front". A prepayment word alone is not enough: dealers write about leasing and credit with
+   the same words (first instalment, advance payment of the leasing, monthly payment), and honest sellers write "no prepayment".
+   So a word counts only when it is not next to leasing/credit terms and is not negated. Money-transfer services, crypto and
+   "transfer to a card" always count. */
+function prepayAsk(tx){
+  tx=String(tx||'').replace(/\s+/g,' ');
+  var re=/предоплат|задат(ок|ка|ку)|аванс|депозит|priekšapmaks|avansa maks|rokasnaud|\bdeposit\b|prepay|advance payment|western union|moneygram|перев(ед(и|ите)|ести|од\S*)\s+(деньги\s+|денег\s+|оплат\S*\s+|сумм\S*\s+)?на\s+карт|bitcoin|биткоин|криптовалют|crypto/ig;
+  var always=/western union|moneygram|bitcoin|биткоин|криптовалют|crypto|на\s+карт/i;
+  var fin=/лизинг|кредит|рассроч|финансир|взнос|ежемесячн|в\s+месяц|līzing|kredīt|nomaks|finans|iemaks|mēnesī|ikmēneša|leasing|financ|\bloan\b|instal?lment|monthly|down\s?payment|per\s+month/i;
+  var neg=/(^|[^a-zа-яёā-ž])(без|bez|nav|не\s+нужн\S*|не\s+требу\S*|не\s+прошу|no|without|ohne)\s+(\S{1,14}\s+)?$/i;
+  var m;
+  while((m=re.exec(tx))){
+    if(always.test(m[0])) return true;
+    var before=tx.slice(Math.max(0,m.index-90),m.index), after=tx.slice(m.index+m[0].length,m.index+m[0].length+90);
+    if(neg.test(before)||fin.test(before+' '+after)) continue;
+    return true;
+  }
+  return false;
+}
 function fraudOf(v){
   var c=v.car||{}, tx=String(c.allText||[c.title,c.desc].join(' ')||''), sig=[], add=function(w,ru,en,lv){ sig.push({w:w,t:L(ru,en,lv)}); };
   var d=v.ver&&v.ver.delta!=null&&v.fair&&!v.ver.capped?v.ver.delta:null;
   if(d!=null&&d<=-35) add(4,'Цена на '+Math.round(-d)+'% ниже рынка — так дёшево обычно продают только битые машины без документов или это приманка','The price is '+Math.round(-d)+'% below the market — this cheap is usually a damaged car without papers, or bait','Cena ir par '+Math.round(-d)+'% zem tirgus — tik lēti parasti pārdod tikai bojātus auto bez dokumentiem vai tā ir ēsma');
   else if(d!=null&&d<=-20) add(3,'Цена на '+Math.round(-d)+'% ниже рынка без понятной причины','The price is '+Math.round(-d)+'% below the market for no clear reason','Cena ir par '+Math.round(-d)+'% zem tirgus bez skaidra iemesla');
-  if(/предоплат|задат(ок|ка)|аванс\b|депозит|priekšapmaks|avansa maks|rokasnaud|\bdeposit\b|prepay|advance payment|western union|moneygram|перевед(и|ите) на карт|на карту|bitcoin|крипт|crypto/i.test(tx))
+  if(prepayAsk(tx))
     add(4,'В тексте просят предоплату, задаток или перевод денег — так работает большинство мошенников','The text asks for a prepayment, deposit or money transfer — that is how most scams work','Tekstā prasa priekšapmaksu, rokasnaudu vai naudas pārskaitījumu — tā strādā lielākā daļa krāpnieku');
   var abroad=/(машин[аы]|авто(мобиль)?)\s+(сейчас\s+)?(находится\s+)?(в|во)\s+(германи|норвеги|англи|швеци|финлянди|польш|голланди|нидерланд|бельги|франци|итали|испани|литв|эстони)|auto\s+(šobrīd\s+)?atrodas\s+(vācij|norvēģ|anglij|zviedrij|polij|nīderland|beļģij|francij|itālij|spānij|lietuv|igaunij)|car\s+is\s+(currently\s+)?(located\s+)?in\s+(germany|norway|england|uk|sweden|poland|netherlands|belgium|france|italy|spain)|доставк[аиу]\s+(за\s+мой\s+сч|бесплатн|по\s+всей)|piegāde\s+bez\s+maksas/i.test(tx);
   if(abroad&&!isAbroad(c)) add(d!=null&&d<=-15?3:1,'Машина «находится за границей» и предлагают доставку: не платите ничего, пока не увидите машину и документы','The car is “abroad” and delivery is offered: pay nothing until you have seen the car and papers','Auto «atrodas ārzemēs» un piedāvā piegādi: nemaksājiet neko, kamēr neesat redzējis auto un dokumentus');

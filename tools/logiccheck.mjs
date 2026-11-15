@@ -31,6 +31,13 @@ const SCEN = [
     expect: v => [[v.region === 'Латвия', 'a Latvian ad is compared with Latvia', v.region], [/Рыночная цена/.test(v.verdict), 'a fair price is called fair', v.verdict], [!/ваша на 0%/.test(v.body) && /как у вашей/.test(v.body), 'the same mileage as the compared cars is said plainly, not "yours 0% higher" in red', (v.body.match(/Медиана пробега.{0,60}/) || [''])[0]], [!v.fraud, 'no scam warning', v.fraud]] },
   { id: 'lv-very-cheap', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvcheap.html', price: 9500, comps: { ss: items(20, 15500, 'ss'), D: items(20, 12000, 'as') },
     expect: v => [[/Подозрительно/.test(v.verdict), '39% under the Latvian market with 20 ads is suspicious', v.verdict], [!!v.fraud, 'the scam block shows the price signal', 'no scam block']] },
+  /* the Alfa Romeo case of 15 Nov 2026: a dealer ad about leasing (first instalment, advance payment) was called "asks for a prepayment" */
+  { id: 'lv-leasing-words', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvleas.html', price: 15200, comps: { ss: items(20, 15500, 'ss'), D: items(20, 12000, 'as') },
+    desc: 'Audi A6 Avant 2.0 TDI. Возможен лизинг, первый взнос от 10%, аванс вносится в банк, остальное частями. Iespējams līzings, avansa maksājums no 10%. Продаю без предоплаты.',
+    expect: v => [[!v.fraud, 'leasing terms (first instalment, advance payment) and "no prepayment" are not a scam signal', v.fraud]] },
+  { id: 'lv-prepay-asked', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvprep.html', price: 15200, comps: { ss: items(20, 15500, 'ss'), D: items(20, 12000, 'as') },
+    desc: 'Audi A6 Avant 2.0 TDI. Машина в пути, для брони нужна предоплата 500 евро, переведите на карту.',
+    expect: v => [[!!v.fraud, 'a real request for a prepayment is still a scam signal (the price is fair, so nothing else can raise it)', 'no scam block']] },
   { id: 'lv-cheap-few', url: 'https://www.ss.com/msg/ru/transport/cars/audi/a6/zzlvfew.html', price: 10500, comps: { ss: items(6, 15500, 'ss'), D: items(4, 12000, 'as') },
     expect: v => [[!/Подозрительно/.test(v.verdict) && /Ниже рынка/.test(v.verdict), 'with only 6 ads it is "below market", not "suspicious"', v.verdict]] },
   { id: 'de-own-market', url: asUrl(99), cc: 'DE', price: 11000, comps: { ss: items(20, 15500, 'ss'), D: items(24, 11400, 'as') },
@@ -327,7 +334,7 @@ for (const sc of SCEN) {
     if (u.startsWith(API + '/api/img')) { if (!/\.th2\.jpg/.test(decodeURIComponent(u))) pxReq.push(u); return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'image/png' }, body: PNG1 }); }
     if (u.startsWith(API)) {
       const x = new URL(u); let body = { ok: true, version: 'test' };
-      if (x.pathname === '/api/listing') body = { ok: true, images: sc.images, title: 'Audi A6 Avant', source: sc.listing ? new URL(sc.url).hostname : sc.cc ? 'autoscout24' : 'ss', parser: sc.listing ? 'auto24' : undefined, listing: sc.listing || { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: 'Audi A6 Avant 2.0 TDI', src: {} } };
+      if (x.pathname === '/api/listing') body = { ok: true, images: sc.images, title: 'Audi A6 Avant', source: sc.listing ? new URL(sc.url).hostname : sc.cc ? 'autoscout24' : 'ss', parser: sc.listing ? 'auto24' : undefined, listing: sc.listing || { make: 'Audi', model: 'A6', year: 2018, mileage_km: 150000, asking_price: sc.price, fuel: 'diesel', gearbox: 'automatic', engine_l: 2.0, description: sc.desc || 'Audi A6 Avant 2.0 TDI', src: {} } };
       else if (x.pathname === '/api/import') body = sc.imp || { ok: false, error: 'test' };
       else if (x.pathname === '/api/photogen') { photoAsked.push(x.searchParams.toString()); body = sc.photo || { ok: false, error: 'no_ai' }; }
       else if (x.pathname === '/api/comps') { compsAsked.push(x.searchParams.toString()); const s = x.searchParams.get('source'), cy = x.searchParams.get('cy'); const its = s === 'ss' ? sc.comps.ss : s === 'as24' ? sc.comps[cy] : s === 'autoportaal' ? sc.comps.ee : s === 'auto24' ? sc.comps['a24' + String(x.searchParams.get('cc')).toLowerCase()] : s === 'autogidas' ? sc.comps.ag : null; body = its ? Object.assign({ ok: true, items: its }, s === 'ss' && sc.ssExtra || {}) : { ok: false, error: 'blocked', searchUrl: sc.blockedSearch && s === 'autoplius' ? 'https://en.autoplius.lt/ads/used-cars/audi/a6' : undefined }; }
