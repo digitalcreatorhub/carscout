@@ -1213,6 +1213,29 @@ body.road-on .sheet{background:rgba(13,17,22,.70);-webkit-backdrop-filter:blur(1
 body.road-on .ap,body.road-on .sec.ap,body.road-on .kpis,body.road-on .rep{background:rgba(13,17,22,.88)}
 body.road-on .lead h1,body.road-on .lead p{text-shadow:0 1px 18px rgba(5,7,10,.9)}
 @media print{body.road-on{background:#fff}}
+/* ---------- start screen: the app opens on the night highway itself. The first screen is only the headline and one field
+   for the link; the road arrives fast and settles. It shows only when the road runs (body.road-on) and nothing else is
+   going on (no check, no report, no other mode); the full form is right below and the screen folds away on the first check. ---------- */
+#startcap,.lead-short{display:none}
+#modebar,#intake{scroll-margin-top:76px}
+body.cs-start #start{display:flex;flex-direction:column;min-height:var(--st-h,72vh)}
+body.cs-start .lead{animation:stUp .7s cubic-bezier(.2,.8,.2,1) .15s both}
+body.cs-start .lead p{display:none}
+body.cs-start .lead p.lead-short{display:block;max-width:32ch;color:#C9CFD8}
+body.cs-start #startcap{display:block;margin-top:auto;padding-bottom:14px;animation:stUp .7s cubic-bezier(.2,.8,.2,1) .3s both}
+.scap{display:flex;align-items:center;gap:8px;height:66px;max-width:640px;margin-inline:auto;padding:0 9px 0 22px;border-radius:33px;background:rgba(14,18,24,.62);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);border:1px solid rgba(255,255,255,.16);box-shadow:0 24px 60px -18px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.08)}
+.scap:focus-within{border-color:var(--accent)}
+.scap input{flex:1;min-width:0;height:48px;border:0;background:transparent;color:#F1F3F6;font:400 16px Inter,system-ui,sans-serif}
+.scap input::placeholder{color:#A4ADBA}
+.scap input:focus{outline:none}
+.scap button{flex:none;width:48px;height:48px;border:0;border-radius:50%;background:var(--accent);color:#0B0E12;cursor:pointer;display:grid;place-items:center;box-shadow:0 0 28px -4px var(--accent)}
+.scap button:focus-visible,.smore:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.ssrc{margin:14px 0 0;text-align:center;font:400 12.5px Inter,system-ui,sans-serif;color:#B4BCC8}
+.smore{display:flex;align-items:center;gap:6px;min-height:44px;margin:4px auto 0;padding:0 12px;border:0;border-radius:22px;background:none;color:#C9CFD8;font:500 13px Inter,system-ui,sans-serif;cursor:pointer}
+.smore svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+@keyframes stUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){body.cs-start .lead,body.cs-start #startcap{animation:none}}
+@media print{#startcap{display:none!important}}
 </style>
 <script data-goatcounter="https://digitalcreatorhub.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -1251,10 +1274,22 @@ body.road-on .lead h1,body.road-on .lead p{text-shadow:0 1px 18px rgba(5,7,10,.9
     <p class="hint" id="cfg-msg" role="status" aria-live="polite"></p>
   </section>
 
+  <div id="start">
   <section class="lead" data-over="Рига · Балтия · ЕС">
     <h1 data-ru="Суперинтеллект для поиска авто и анализа рынка" data-en="Super-intelligence for car search and market analysis" data-lv="Superintelekts auto meklēšanai un tirgus analīzei"></h1>
     <p data-ru="Вставьте ссылку на объявление. Сервер откроет её, найдёт настоящие похожие объявления на ss.lv, autoplius.lt, autoportaal.ee и AutoScout24 и покажет, где цена выше или ниже рынка. Если ссылку прочитать нельзя, загрузите скриншот: текст распознаётся прямо в браузере." data-en="Paste a listing link. The server opens it, finds real similar ads on ss.lv, autoplius.lt, autoportaal.ee and AutoScout24, and shows whether the price is above or below the market. If a link cannot be read, upload a screenshot: the text is recognised right in your browser." data-lv="Ielīmējiet sludinājuma saiti. Serveris to atvērs, atradīs īstus līdzīgus sludinājumus ss.lv, autoplius.lt, autoportaal.ee un AutoScout24 un parādīs, vai cena ir virs vai zem tirgus. Ja saiti nevar nolasīt, augšupielādējiet ekrānuzņēmumu: teksts tiek atpazīts tieši pārlūkā."></p>
+      <p class="lead-short" data-ru="Вставьте ссылку на объявление. Сравним с реальным рынком Латвии, Литвы и Европы." data-en="Paste a listing link. We compare it with the real market in Latvia, Lithuania and Europe." data-lv="Ielīmējiet sludinājuma saiti. Salīdzināsim ar reālo tirgu Latvijā, Lietuvā un Eiropā."></p>
   </section>
+  <div id="startcap">
+    <form class="scap" id="startform" novalidate autocomplete="off">
+      <label for="st-url" class="sr" id="st-lbl" data-ru="Ссылка на объявление" data-en="Listing link" data-lv="Sludinājuma saite"></label>
+      <input id="st-url" type="url" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="Ссылка на объявление">
+      <button type="submit" id="st-go"><span class="sr" data-ru="Проверить автомобиль" data-en="Check this car" data-lv="Pārbaudīt auto"></span><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12H19M13 6l6 6-6 6"/></svg></button>
+    </form>
+    <p class="ssrc">ss.lv · autoplius.lt · autoportaal.ee · AutoScout24</p>
+    <button type="button" class="smore" id="st-more"><span data-ru="Продать авто, скриншот и другие способы" data-en="Sell a car, screenshot and other ways" data-lv="Pārdot auto, ekrānuzņēmums un citi veidi"></span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
+  </div>
 
   <div class="grid">
     <form id="intake" class="sheet intake" novalidate autocomplete="off">
@@ -3076,7 +3111,7 @@ function reportText(v){
 }
 
 /* ---------- app version, dealer ads, favourites + price watch, ownership cost, sharing ---------- */
-var APP_VER = '2026-11-11.1', KEY_FAVS='carscout_favs';
+var APP_VER = '2026-11-15.1', KEY_FAVS='carscout_favs';
 /* Auto-update: on every start and every return to the app the published version is compared with the running one,
    and the page reloads into the new one by itself. It never reloads while a check is running or right after a tap;
    then (and after a short switch to another app) it shows a notice with an "Update" button instead. */
@@ -6066,7 +6101,7 @@ window.acctUnion=acctUnion; window.acctSync=acctSync; window.favSave=favSave; wi
   var conn=navigator.connection||{};
   /* one still frame instead of motion: the user asked for less motion, data saver is on, or the device is weak */
   function wantStill(){ return !!((mq&&mq.matches)||conn.saveData||(navigator.deviceMemory&&navigator.deviceMemory<=2)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=2)); }
-  var still=wantStill(), scale=0.75, raf=0, last=0, t0=0, dist=40, vel=9, dim=1, lost=false, slowN=0, frames=0, acc=0, lastDraw=0;
+  var still=wantStill(), scale=0.75, raf=0, last=0, t0=0, dist=40, vel=still?9:62, dim=1, lost=false, slowN=0, frames=0, acc=0, lastDraw=0;
   function size(){
     var w=bg.clientWidth||window.innerWidth, h=bg.clientHeight||window.innerHeight, dpr=Math.min(window.devicePixelRatio||1,1.5)*scale;
     var W=Math.max(2,Math.round(w*dpr)), H=Math.max(2,Math.round(h*dpr));
@@ -6108,6 +6143,39 @@ window.acctUnion=acctUnion; window.acctSync=acctSync; window.favSave=favSave; wi
   document.body.classList.add('road-on');
   bg.setAttribute('data-road',still?'still':'on');
   start();
+})();
+</script>
+<script>/* CarScout: start screen. The app opens on the highway: headline, one field for the link, nothing else in the first
+   screen. Only when the road really runs and nothing else is going on; it folds away for good on the first check, report,
+   other mode or opened list. The field only hands the link to the normal form and presses its button. */
+(function(){
+  'use strict';
+  var body=document.body, st=document.getElementById('start'), form=document.getElementById('startform'), inp=document.getElementById('st-url'),
+      more=document.getElementById('st-more'), out=document.getElementById('out'), fu=document.getElementById('f-url'), rail=document.querySelector('.rail'),
+      mb=document.getElementById('modebar'), lbl=document.getElementById('st-lbl');
+  if(!st||!form||!inp||!fu||!body.classList.contains('road-on')) return;
+  function busy(){ var c=body.classList; return c.contains('fx-busy')||c.contains('has-view')||c.contains('mode-sell')||!!(out&&out.firstElementChild)||!!fu.value||!!(mb&&mb.querySelector('[data-mode].on:not([data-mode="buy"])')); }
+  if(busy()) return;
+  var on=true, mo=null;
+  /* the first screen ends exactly at the bottom of the window (above the phone's bottom menu) */
+  function size(){ var top=st.getBoundingClientRect().top+(window.scrollY||0), rb=0; if(rail){ var r=rail.getBoundingClientRect(); if(r.width>r.height) rb=r.height; } st.style.setProperty('--st-h',Math.max(380,window.innerHeight-top-rb)+'px'); }
+  function end(){ if(!on) return; on=false; body.classList.remove('cs-start'); window.removeEventListener('resize',size); if(mo) mo.disconnect(); }
+  function sync(){ if(on&&busy()) end(); }
+  /* the page logic keeps the hidden label in the chosen language; the hint inside the field follows it */
+  function words(){ var t=lbl&&lbl.textContent; if(t) inp.placeholder=t; }
+  form.addEventListener('submit',function(e){
+    e.preventDefault(); var v=inp.value.trim(); if(!v){ inp.focus(); return; }
+    fu.value=v; try{ fu.dispatchEvent(new Event('input',{bubbles:true})); }catch(x){}
+    end(); window.scrollTo(0,0); var b=document.getElementById('btn-go'); if(b) b.click();
+  });
+  if(more) more.addEventListener('click',function(){ var t=document.getElementById('modebar')||document.getElementById('intake'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); });
+  if(window.MutationObserver){
+    mo=new MutationObserver(sync); mo.observe(body,{attributes:true,attributeFilter:['class']}); if(out) mo.observe(out,{childList:true});
+    if(mb) mo.observe(mb,{attributes:true,attributeFilter:['class'],subtree:true});
+    if(lbl) new MutationObserver(words).observe(lbl,{childList:true,characterData:true,subtree:true});
+  }
+  words(); size(); window.addEventListener('resize',size);
+  body.classList.add('cs-start');
 })();
 </script>
 </body>
