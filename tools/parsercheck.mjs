@@ -611,4 +611,36 @@ const as24Page = (v = {}) => '<html><script id="__NEXT_DATA__" type="application
   check(j.searchUrl === qb && j.vtype === 'quad', '/api/comps for a quad bike: CF Moto is "cfmoto" in the ss.lv quad bike category', j.searchUrl);
 }
 
+/* =====================================================================================================================
+   "Find me a car": damaged cars and engine power
+   ===================================================================================================================== */
+{
+  table('damage words (pzIsBad)', 'pzIsBad', [
+    ['Audi A6 pēc avārijas', true], ['VW Passat avarējis priekšā', true], ['Golf sasists aizmugurē', true], ['Bojājumi labajā pusē', true], ['Битая, на ходу', true], ['после ДТП, требует ремонта', true], ['был в ДТП, восстановлен', true], ['Повреждения кузова', true],
+    ['Unfallwagen', true], ['Frontschaden, beschädigt', true], ['accident damage', true], ['po avarijos', true], ['daužtas', true], ['avariiline', true], ['for parts', true],
+    ['Bez avārijām, servisa grāmata', false], ['nav bijusi avārijā', false], ['nav bojājumu', false], ['neavarēta', false], ['Без ДТП', false], ['ДТП нет, один владелец', false], ['не был в ДТП', false], ['не битая, не крашеная', false], ['повреждений нет', false],
+    ['unfallfrei', false], ['unbeschädigt', false], ['no accidents', false], ['accident-free', false], ['be avarijų', false], ['nedaužtas', false], ['avariivaba', false], ['VW Golf 1.6 TDI', false], ['Аварийка работает', false]]);
+  table('power in a text (powerKwIn, kW)', 'powerKwIn', [['2.0 TDI 110 kW', 110], ['110kW (150 hp)', 110], ['150 hp', 110], ['190 PS', 140], ['150 ZS', 110], ['150 л.с.', 110], ['150 лс', 110], ['2.0 TDI', null], ['1500 km', null], ['15.5 kWh/100 km', null], ['', null]]);
+  const html = '<html><body>' + asCard('22222222-aaaa-bbbb-cccc-000000000001', { price: 25990, km: 90000, reg: '06-2019', fuel: 'd', title: 'Volkswagen Tiguan Allspace 2.0 TDI' }).replace('</article>', '<span>110 kW (150 hp)</span><span>6,1 l/100 km</span></article>') +
+    asCard('22222222-aaaa-bbbb-cccc-000000000002', { price: 21990, km: 120000, reg: '03-2018', fuel: 'b', title: 'Volkswagen Tiguan 1.4 TSI' }) + '</body></html>';
+  const it = run('parseAs24List', html, AS);
+  check(it.length === 2 && it[0].power_kw === 110 && it[1].power_kw === null, 'AutoScout24 list: the power of a card ("110 kW (150 hp)"), none when the card does not say it', it.map(i => i.power_kw));
+  const apc = `<a href="https://en.autoplius.lt/ads/volkswagen-tiguan-123.html" class="announcement-item announcement-item-regular"><div class="announcement-body"><div class="announcement-title">Volkswagen Tiguan</div><div class="announcement-title-parameters"><div><span>2019-03</span></div></div></div><div class="announcement-pricing-info"><strong> 24 500 &euro;</strong></div><div class="announcement-parameters"><div class="announcement-parameters-block"><div><span>120 000 km</span><span>Diesel</span><span>Automatic</span><span>2.0 l.</span><span>140 kW</span></div></div></div></a>`;
+  const ap = run('parseAutopliusList', '<html>' + apc + '</html>', 'https://en.autoplius.lt/ads/used-cars/volkswagen/tiguan');
+  check(ap.length === 1 && ap[0].power_kw === 140, 'autoplius list: the power of a card ("140 kW")', ap[0]);
+  /* the agent on the phone: power range in hp, an ad that does not say its power stays */
+  ctx.__its = [{ url: 'u1', price: 20000, year: 2019, title: 'Tiguan 2.0 TDI', power_kw: 110 }, { url: 'u2', price: 21000, year: 2019, title: 'Tiguan 2.0 TDI 190 ZS' }, { url: 'u3', price: 19000, year: 2019, title: 'Tiguan 1.4 TSI', power_kw: 92 }, { url: 'u4', price: 20500, year: 2019, title: 'Tiguan' }];
+  ctx.__p = W('JSON.stringify(pzClean({ make: "Volkswagen", models: ["Tiguan"], hpf: 140, hpt: 200, mk: { LV: 1 } }))');
+  const got = P('pzMatches(__its, JSON.parse(__p), "Tiguan").map(function (i) { return i.url; })');
+  check(JSON.stringify(got) === '["u1","u2","u4"]', 'agent on the phone, power 140–200 hp: 110 kW (150 hp) and "190 ZS" stay, 92 kW (125 hp) goes, an ad without power stays', got);
+  const sw = P('pzClean({ hpf: 250, hpt: 150 })');
+  check(sw.hpf === 150 && sw.hpt === 250, 'agent on the phone: a power range given the wrong way round is swapped', sw);
+  /* "no damaged cars": a new match is opened and its whole text is read */
+  const U1 = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/bad111.html', U2 = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/okk222.html';
+  pages[U1] = { status: 200, body: ssAd({ desc: 'Продаю Tiguan 2.0 TDI, полный привод, панорама. Машина после ДТП, правое переднее крыло под замену, на ходу.' }) };
+  pages[U2] = { status: 200, body: ssAd({ desc: 'Продаю Tiguan 2.0 TDI. Без ДТП, сервисная книжка, один владелец.' }) };
+  const bad = JSON.parse(await W(`Promise.all([pzAdBad(${JSON.stringify(U1)}), pzAdBad(${JSON.stringify(U2)}), pzAdBad('https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/gone33.html')]).then(JSON.stringify)`));
+  check(JSON.stringify(bad) === '[true,false,null]', 'agent "no damaged cars": the whole ad text is read (accident mentioned further down -> damaged; "без ДТП" -> clean; a page that cannot be read -> unknown, the ad stays)', bad);
+}
+
 finish();

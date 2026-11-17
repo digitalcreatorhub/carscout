@@ -4673,7 +4673,7 @@ async function pushOfferYes(){
   LS.set(KEY_PUSHOFFER,String(Date.now())); var box=document.getElementById('push-offer'); if(box) box.remove();
   try{
     var mk={}; ['LV','LT','EE','DE'].forEach(function(k){ mk[k]=p.mk&&p.mk[k]?1:0; });
-    var q={make:p.make,models:[p.model],fam:[p.model],vs:{},yf:p.yf,yt:p.yt,kmax:p.kmax,pmax:p.pmax,fuel:p.fuel,gear:p.gear,drive:'',body:'',engf:null,engt:null,mk:mk,cheap:true,nobad:true};
+    var q={make:p.make,models:[p.model],fam:[p.model],vs:{},yf:p.yf,yt:p.yt,kmax:p.kmax,pmax:p.pmax,fuel:p.fuel,gear:p.gear,drive:'',body:'',engf:null,engt:null,hpf:null,hpt:null,mk:mk,cheap:true,nobad:true};
     var a=findsLoad(), key=JSON.stringify([q.make,q.models,q.yf,q.yt,q.kmax,q.pmax,q.fuel,q.gear,q.drive,q.body,q.mk,q.cheap,q.nobad]).toLowerCase(), f=a.filter(function(x){return x.key===key})[0];
     if(!f){ if(a.length>=5) a.pop(); f={key:key,id:tgCode().slice(0,12),p:q,created:Date.now(),fresh:[]}; a.unshift(f); }
     var cheap=D.rows.filter(function(x){ return x.d<-3; });
@@ -5426,10 +5426,11 @@ function fzBodyOf(t){ t=String(t||'').toLowerCase();
   if(/sedan|седан|limousine|saloon/.test(t)) return 'sedan';
   if(/kupej|купе|coupe|coupé|cabrio|kabriolet|кабриолет|roadster/.test(t)) return 'coupe';
   return null; }
-var FZ_BAD=/bojāt|avārij|rezerves daļ|uz daļām|на запчаст|битая|битый|после дтп|после аварии|damaged|for parts|unfall|salvage|не на ходу|nav uz ceļa/i;
+var FZ_BAD=/bojāt|bojāj|avārij|avarēj|avarēt|avarij|avarii|sasist|pēc trieciena|rezerves daļ|uz daļām|на запчаст|бит(?:ая|ый|ое|ой|ую)(?![а-яё])|после (?:дтп|аварии|удара)|был[аио]? в (?:дтп|аварии)|аварийн|поврежд|damaged|damage\b|crashed|accident|for parts|unfall|beschädigt|hagelschaden|salvage|daužt|kahjustat|не на ходу|nav uz ceļa/i;
 /* "bez avārijām", "без аварий", "nav bojāts", "unfallfrei", "accident free" say the car is NOT damaged: cut them out before looking for damage words */
-var FZ_OKPH=/bez\s+(?:avārij|bojājum|bojā[jļ])\w*|nav\s+(?:bojāt|avārij|bijis\s+avārij)\w*|nebija?\s+avārij\w*|без\s+(?:дтп|аварий|аварии|повреждений|ударов)\w*|не\s+(?:битая|битый|бит)\b|unfallfrei|ohne\s+unfall\w*|(?:no|without)\s+(?:damage|accident)s?\w*|accident[\s-]?free|undamaged/gi;
+var FZ_OKPH=/bez\s+(?:avārij|bojājum|bojā[jļ])\w*|nav\s+(?:bojāt|bojāj|avārij|avarē|biju(?:si|sī|šas|sas)?\s+avārij|bijis\s+avārij)\w*|nebija?\s+avārij\w*|neavarē\w*|без\s+(?:дтп|аварий|аварии|повреждений|ударов)\w*|(?:повреждений|аварий|дтп)\s+нет|не\s+был[аио]?\s+в\s+(?:дтп|аварии|авариях)|в\s+(?:дтп|авариях?)\s+не\s+был\w*|не\s*(?:битая|битый|битое|бит)(?![а-яё])|unfallfrei|ohne\s+unfall\w*|unbeschädigt|(?:no|without)\s+(?:damage|accident)s?\w*|accident[\s-]?free|undamaged|be\s+avarij\w*|nedaužt\w*|avariivaba|avariideta/gi;
 function fzIsBad(t){ return FZ_BAD.test(String(t||'').replace(FZ_OKPH,' ')); }
+var FZ_HP=[['','','любая','any','jebkura']].concat(['75','90','100','110','120','130','150','170','190','200','220','250','300','350','400','500'].map(function(v){ return [v,v]; }));
 var FZ_ENG=[['','','любой','any','jebkura']].concat(['1.0','1.2','1.4','1.5','1.6','1.8','2.0','2.2','2.5','3.0','3.5','4.0','5.0'].map(function(v){ return [v,v]; }));
 (function findSetup(){
   var bar=document.getElementById('modebar'), form=document.getElementById('intake'); if(!bar||!form||document.getElementById('findbox')) return;
@@ -5448,7 +5449,8 @@ var FZ_ENG=[['','','любой','any','jebkura']].concat(['1.0','1.2','1.4','1.5
       fld('fz-gear','Коробка','Gearbox','Ātrumkārba',sel('fz-gear',[['','','любая','any','jebkura'],['automatic','','автомат','automatic','automāts'],['manual','','механика','manual','manuāla']]))+
       fld('fz-drive','Привод','Drive','Piedziņa',sel('fz-drive',[['','','любой','any','jebkura'],['awd','','полный','all-wheel','pilnpiedziņa'],['fwd','','передний','front','priekšpiedziņa'],['rwd','','задний','rear','aizmugurējā']]))+
       fld('fz-body','Кузов','Body','Virsbūve',sel('fz-body',FZ_BODY.map(function(b,i){ var t=[['любой','any','jebkura'],['универсал','estate','universālis'],['седан','saloon','sedans'],['хэтчбек','hatchback','hečbeks'],['внедорожник','SUV','apvidus'],['минивэн','MPV','minivens'],['купе / кабриолет','coupé / cabrio','kupeja / kabriolets']][i]; return [b[0],'',t[0],t[1],t[2]]; })))+'</div>'+
-    '<div class="row2">'+fld('fz-engf','Объём двигателя от, л','Engine size from, l','Motora tilpums no, l',sel('fz-engf',FZ_ENG))+fld('fz-engt','Объём двигателя до, л','Engine size up to, l','Motora tilpums līdz, l',sel('fz-engt',FZ_ENG))+'</div>'+
+    '<div class="row4">'+fld('fz-engf','Объём двигателя от, л','Engine size from, l','Motora tilpums no, l',sel('fz-engf',FZ_ENG))+fld('fz-engt','Объём двигателя до, л','Engine size up to, l','Motora tilpums līdz, l',sel('fz-engt',FZ_ENG))+
+      fld('fz-hpf','Мощность от, л.с.','Power from, hp','Jauda no, ZS',sel('fz-hpf',FZ_HP))+fld('fz-hpt','Мощность до, л.с.','Power up to, hp','Jauda līdz, ZS',sel('fz-hpt',FZ_HP))+'</div>'+
     '<div class="fz-mk"><span class="rn" data-ru="Где искать:" data-en="Where to look:" data-lv="Kur meklēt:"></span>'+['LV','LT','EE','DE'].map(function(r){ return '<label class="chip"><input type="checkbox" data-fzmk="'+r+'"'+(r!=='DE'?' checked':'')+'><span class="fz-rn" data-r="'+r+'"></span></label>'; }).join('')+'</div>'+
     '<div class="fz-opts"><label class="chk"><input type="checkbox" id="fz-cheap"><span data-ru="Только дешевле рынка" data-en="Only below the market" data-lv="Tikai lētāk par tirgu"></span></label><label class="chk"><input type="checkbox" id="fz-nobad" checked><span data-ru="Без битых и «на запчасти»" data-en="No damaged or “for parts” cars" data-lv="Bez bojātiem un «uz daļām»"></span></label></div>';
   var btns=form.querySelector('.btns'); form.insertBefore(box,btns);
@@ -5458,23 +5460,31 @@ function fzParams(){
   var mk={}; document.querySelectorAll('[data-fzmk]').forEach(function(x){ mk[x.getAttribute('data-fzmk')]=x.checked?1:0; });
   /* engine size range: swapped if given the wrong way round, ignored for electric cars */
   var ef=parseFloat(g('fz-engf'))||null, et=parseFloat(g('fz-engt'))||null; if(ef&&et&&ef>et){ var sw=ef; ef=et; et=sw; } if(g('fz-fuel')==='electric'){ ef=null; et=null; }
+  /* engine power range in horse power, swapped if given the wrong way round */
+  var hf=gi('fz-hpf'), ht=gi('fz-hpt'); if(hf&&ht&&hf>ht){ var sh=hf; hf=ht; ht=sh; }
   /* models as picked (lines like "E-Class" and exact ones like "E 300"); fam = the lines to fetch, vs = per line the exact models to keep (no entry = the whole line) */
   var names=g('fz-model').split(/[,;\/]+/).map(function(s){return s.trim()}).filter(Boolean).slice(0,8), mkKey=pickMakeKey(g('fz-make')), fam=[], vs={}, whole={};
   var hasF=function(n){ return fam.some(function(x){ return pickNorm(x)===pickNorm(n); }); };
   names.forEach(function(nm){ var f=mkKey?varFamily(mkKey,nm):null; if(f){ (vs[f]=vs[f]||[]).push(nm); if(!hasF(f)) fam.push(f); } else { whole[pickNorm(nm)]=1; if(!hasF(nm)) fam.push(nm); } });
   fam=fam.slice(0,4); Object.keys(vs).forEach(function(f){ if(whole[pickNorm(f)]||fam.indexOf(f)<0) delete vs[f]; });
   names=names.filter(function(nm){ var f=mkKey?varFamily(mkKey,nm):null; return hasF(f||nm); });   /* at most 4 lines are searched; the name shows only what is searched */
-  return {make:g('fz-make'),models:names,fam:fam,vs:vs,yf:gi('fz-yf'),yt:gi('fz-yt'),kmax:gi('fz-kmax'),pmax:gi('fz-pmax'),fuel:g('fz-fuel'),gear:g('fz-gear'),drive:g('fz-drive'),body:g('fz-body'),engf:ef,engt:et,mk:mk,cheap:!!(document.getElementById('fz-cheap')||{}).checked,nobad:!!(document.getElementById('fz-nobad')||{}).checked};
+  return {make:g('fz-make'),models:names,fam:fam,vs:vs,yf:gi('fz-yf'),yt:gi('fz-yt'),kmax:gi('fz-kmax'),pmax:gi('fz-pmax'),fuel:g('fz-fuel'),gear:g('fz-gear'),drive:g('fz-drive'),body:g('fz-body'),engf:ef,engt:et,hpf:hf,hpt:ht,mk:mk,cheap:!!(document.getElementById('fz-cheap')||{}).checked,nobad:!!(document.getElementById('fz-nobad')||{}).checked};
 }
 function fzName(p){
   var y=p.yf&&p.yt?' '+p.yf+'–'+p.yt:p.yf?' '+L('с ','from ','no ')+p.yf:p.yt?' '+L('до ','up to ','līdz ')+p.yt:'';
-  return [p.make,(p.models||[]).join(', ')].filter(Boolean).join(' ')+y+(p.engf||p.engt?' · '+(p.engf&&p.engt?p.engf.toFixed(1)+'–'+p.engt.toFixed(1):p.engf?'≥'+p.engf.toFixed(1):'≤'+p.engt.toFixed(1))+' '+L('л','l','l'):'')+(p.kmax?' · ≤'+fmt(p.kmax)+' km':'')+(p.pmax?' · ≤'+eur(p.pmax):'');
+  return [p.make,(p.models||[]).join(', ')].filter(Boolean).join(' ')+y+(p.engf||p.engt?' · '+(p.engf&&p.engt?p.engf.toFixed(1)+'–'+p.engt.toFixed(1):p.engf?'≥'+p.engf.toFixed(1):'≤'+p.engt.toFixed(1))+' '+L('л','l','l'):'')+(p.hpf||p.hpt?' · '+(p.hpf&&p.hpt?p.hpf+'–'+p.hpt:p.hpf?'≥'+p.hpf:'≤'+p.hpt)+' '+L('л.с.','hp','ZS'):'')+(p.kmax?' · ≤'+fmt(p.kmax)+' km':'')+(p.pmax?' · ≤'+eur(p.pmax):'');
 }
 /* engine size of a found ad: the listing field, else a "2.0 TDI"-style number in the title (same reading as the comparison uses) */
 function fzEngOf(x){ if(x.engine_l>0.5&&x.engine_l<10) return +x.engine_l; var m=String(x.title||'').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m?parseFloat(m[1].replace(',','.')):null; }
+/* engine power of a found ad in horse power: the listing field (kW: AutoScout24, autoportaal, autoplius), else what the title says
+   ("110 kW", "150 hp", "150 PS", "150 ZS", "150 л.с."); ss.lv lists have no power field, so there it is known only when the seller wrote it */
+function fzHpOf(x){ var k=x.power_kw>20&&x.power_kw<1000?+x.power_kw:null, t=String(x.title||''), m;
+  if(!k&&(m=t.match(/(?:^|[^\d.,])(\d{2,4})\s*kw\b/i))&&+m[1]>=25&&+m[1]<=900) k=+m[1];
+  if(!k&&(m=t.match(/(?:^|[^\d.,])(\d{2,4})\s*(?:hp|bhp|ps|zs|ks|cv|ch|pk|к\.?\s?с\.?|л\.?\s?с\.?)(?![a-zа-я])/i))&&+m[1]>=35&&+m[1]<=1200) return +m[1];
+  return k?Math.round(k*1.35962):null; }
 function fzFilter(rows,p,fn){
   /* fn (optional) gets how many cars each filter removed, so the result can say where cars were lost */
-  var cut={bad:0,drive:0,body:0,eng:0,cheap:0};
+  var cut={bad:0,drive:0,body:0,eng:0,hp:0,cheap:0};
   var out=rows.filter(function(x){
     var t=[x.title,x.model_raw].join(' ');
     if(p.nobad&&fzIsBad(t)){ cut.bad++; return false; }
@@ -5482,9 +5492,22 @@ function fzFilter(rows,p,fn){
     if(p.drive){ var dv=x.drive||driveOf(t); if(dv&&(p.drive==='awd'?dv!=='awd':dv==='awd')){ cut.drive++; return false; } }
     if(p.body){ var b=fzBodyOf(t); if(b&&b!==p.body){ cut.body++; return false; } }
     if(p.engf||p.engt){ var en=fzEngOf(x); if(en!=null&&((p.engf&&en<p.engf-0.05)||(p.engt&&en>p.engt+0.05))){ cut.eng++; return false; } }
+    /* power: an ad that does not say its power stays (on ss.lv most do not), like the engine size */
+    if(p.hpf||p.hpt){ var hp=fzHpOf(x); if(hp!=null&&((p.hpf&&hp<p.hpf-3)||(p.hpt&&hp>p.hpt+3))){ cut.hp++; return false; } }
     if(p.cheap&&!(x.d<-3)){ cut.cheap++; return false; }
     return true; });
   if(fn) fn(cut);
+  return out;
+}
+/* "no damaged cars": the list shows only the start of an ad and sellers often write about the accident further down, so the cars that
+   will be shown (the 40 cheapest against the market) are opened and their whole text is read, together with the site's own accident
+   fields (AutoScout24: "had an accident", "repaired damage"). An ad whose page cannot be read stays. */
+async function fzDescCheck(rows,cut){
+  var list=rows.slice().sort(function(a,b){ return a.d-b.d; }).slice(0,40), bad={}, k=0;
+  var w=async function(){ while(k<list.length){ var x=list[k++]; if(!x.url) continue; var j=await api('/api/listing',{url:x.url},20000), l=j&&j.ok&&j.listing;
+    if(l&&(l.accident===true||l.repaired_damage===true||fzIsBad([j.title,l.model_raw,l.description].join(' ')))) bad[x.url]=1; } };
+  await Promise.all([w(),w(),w(),w(),w()]);
+  var out=rows.filter(function(x){ return !bad[x.url]; }); if(cut) cut.bad+=rows.length-out.length;
   return out;
 }
 async function fzSearch(p){
@@ -5498,6 +5521,7 @@ async function fzSearch(p){
   }
   var seen={}; all=all.filter(function(x){ var id=rowId(x); if(seen[id]) return false; seen[id]=1; return true; });
   var cut=null, fr=fzFilter(all,p,function(c){ cut=c; });
+  if(p.nobad&&fr.length) fr=await fzDescCheck(fr,cut);
   return {rows:fr.sort(function(a,b){ return a.d-b.d; }),notes:notes,scanned:scanned,before:all.length,cut:cut,ys:ys,yw:yw};
 }
 /* ---- radar: the search at work; dots are the cars that match now (closer to the centre = cheaper against the market) ---- */
@@ -5536,7 +5560,7 @@ function fzRequests(){
 function fzFunnel(R){
   if(R.before==null||!R.cut) return '';
   var yl=R.ys===1?L('ss.lv: прочитаны только нужные годы','ss.lv: only the requested years were read','ss.lv: lasīti tikai vajadzīgie gadi'):R.ys===0?L('ss.lv: фильтр по годам не сработал, прочитаны последние объявления','ss.lv: the year filter did not work, the latest ads were read','ss.lv: gadu filtrs nedarbojās, lasīti jaunākie sludinājumi')+(R.yw?' ('+R.yw+')':''):'';
-  var c=R.cut, names={bad:L('битые / на запчасти','damaged / for parts','bojāti / uz daļām'),drive:L('привод','drive','piedziņa'),body:L('кузов','body','virsbūve'),eng:L('объём двигателя','engine size','motora tilpums'),cheap:L('«только дешевле рынка»','“only below the market”','«tikai lētāk par tirgu»')};
+  var c=R.cut, names={bad:L('битые / на запчасти','damaged / for parts','bojāti / uz daļām'),drive:L('привод','drive','piedziņa'),body:L('кузов','body','virsbūve'),eng:L('объём двигателя','engine size','motora tilpums'),hp:L('мощность','power','jauda'),cheap:L('«только дешевле рынка»','“only below the market”','«tikai lētāk par tirgu»')};
   var parts=Object.keys(c).filter(function(k){ return c[k]>0; }).map(function(k){ return names[k]+' −'+c[k]; });
   return '<small>'+esc(L('подошли по году, цене и пробегу: ','fit year, price and mileage: ','atbilst gadam, cenai un nobraukumam: ')+R.before+(parts.length?L(' · убрали фильтры: ',' · removed by filters: ',' · noņēmuši filtri: ')+parts.join(', '):''))+'</small>'+(yl?'<small>'+esc(yl)+'</small>':'');
 }
@@ -5597,7 +5621,7 @@ async function fzStart(){
   var hi=S.fzHi||{}; S.fzHi=null; R.rows.forEach(function(x){ if(hi[x.url]) x.fresh=true; }); R.rows.sort(function(a,b){ return (b.fresh?1:0)-(a.fresh?1:0)||a.d-b.d; });
   S.busy=false; $('#btn-go').disabled=false;
   /* save the request with what is on the market now, so later only new cars are reported */
-  var a=findsLoad(), key=JSON.stringify([p.make,p.models,p.yf,p.yt,p.kmax,p.pmax,p.fuel,p.gear,p.drive,p.body,p.mk,p.cheap,p.nobad].concat(p.engf||p.engt?[p.engf,p.engt]:[])).toLowerCase(), f=a.filter(function(x){return x.key===key})[0];
+  var a=findsLoad(), key=JSON.stringify([p.make,p.models,p.yf,p.yt,p.kmax,p.pmax,p.fuel,p.gear,p.drive,p.body,p.mk,p.cheap,p.nobad].concat(p.engf||p.engt?[p.engf,p.engt]:[]).concat(p.hpf||p.hpt?['hp',p.hpf,p.hpt]:[])).toLowerCase(), f=a.filter(function(x){return x.key===key})[0];
   if(!f){ if(a.length>=5) a.pop(); f={key:key,id:tgCode().slice(0,12),p:p,created:Date.now(),fresh:[]}; a.unshift(f); }
   f.seen=R.rows.map(rowId).slice(0,1500); f.now=R.rows.length; f.at=Date.now(); findsSave(a);
   S.fzLast={p:p,R:R}; render();
@@ -5612,7 +5636,7 @@ document.addEventListener('click',function(e){
   var b=e.target.closest&&e.target.closest('[data-act]'); if(!b) return; var a=b.getAttribute('data-act');
   if(a==='fz-rm'){ var fl=findsLoad(); fl.splice(+b.getAttribute('data-i'),1); findsSave(fl); render(); }
   else if(a==='fz-show'){ var f=findsLoad()[+b.getAttribute('data-i')]; if(!f) return; var P=f.p, set=function(id,v){ var el=document.getElementById(id); if(el) el.value=v==null?'':v; };
-    set('fz-make',P.make); set('fz-model',(P.models||[]).join(', ')); set('fz-yf',P.yf); set('fz-yt',P.yt); set('fz-kmax',P.kmax); set('fz-pmax',P.pmax); set('fz-fuel',P.fuel); set('fz-gear',P.gear); set('fz-drive',P.drive); set('fz-body',P.body); set('fz-engf',P.engf?Number(P.engf).toFixed(1):''); set('fz-engt',P.engt?Number(P.engt).toFixed(1):'');
+    set('fz-make',P.make); set('fz-model',(P.models||[]).join(', ')); set('fz-yf',P.yf); set('fz-yt',P.yt); set('fz-kmax',P.kmax); set('fz-pmax',P.pmax); set('fz-fuel',P.fuel); set('fz-gear',P.gear); set('fz-drive',P.drive); set('fz-body',P.body); set('fz-engf',P.engf?Number(P.engf).toFixed(1):''); set('fz-engt',P.engt?Number(P.engt).toFixed(1):''); set('fz-hpf',P.hpf||''); set('fz-hpt',P.hpt||'');
     document.querySelectorAll('[data-fzmk]').forEach(function(x){ x.checked=!!(P.mk||{})[x.getAttribute('data-fzmk')]; }); var c1=document.getElementById('fz-cheap'), c2=document.getElementById('fz-nobad'); if(c1) c1.checked=!!P.cheap; if(c2) c2.checked=P.nobad!==false;
     S.fzHi={}; (f.fresh||[]).forEach(function(x){ if(!x.seen&&x.url) S.fzHi[x.url]=1; x.seen=true; }); findsSave(findsLoad().map(function(x){ return x.key===f.key?f:x; })); window.scrollTo({top:0,behavior:'smooth'}); fzStart(); }
   else if(a==='fz-push') findPushOn();

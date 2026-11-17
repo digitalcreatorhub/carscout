@@ -571,6 +571,12 @@ function parseSsList(html, base) {
 }
 
 /* autoplius.lt list: each ad is an <a class="announcement-item"> block */
+/* engine power in kW written in a text: "110 kW", "110 kW (150 hp)", or horse power alone ("150 hp", "150 PS", "150 ZS", "150 л.с.") */
+function powerKwIn(t) {
+  t = String(t || ''); let m = t.match(/(?:^|[^\d.,])(\d{2,4})\s*kw\b/i); if (m) { const k = +m[1]; return k >= 25 && k <= 900 ? k : null; }
+  m = t.match(/(?:^|[^\d.,])(\d{2,4})\s*(?:hp|bhp|ps|zs|ks|cv|ch|pk|к\.?\s?с\.?|л\.?\s?с\.?)(?![a-zа-я])/i); if (m) { const h = +m[1]; return h >= 35 && h <= 1200 ? Math.round(h / 1.35962) : null; }
+  return null;
+}
 function parseAutopliusList(html, base) {
   const items = [];
   const re = /<a\s+href="(https?:\/\/[a-z.]*autoplius\.lt\/ads\/[^"]+?\.html)"\s+class="announcement-item[^"]*"/gi;
@@ -596,7 +602,7 @@ function parseAutopliusList(html, base) {
     });
     const im = block.match(/(?:data-src|src)="(https:\/\/autoplius-img\.dgn\.lt\/[^"]+?\.(?:jpe?g|png|webp))"/i);
     const title = [t ? strip(t[1]) : '', headSpans.filter(function (x) { return !/^\d{4}(-\d{2})?$/.test(x); }).join(' '), eng || ''].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-    items.push({ price: Math.round(price), km: km, year: year, url: s.url, title: title.slice(0, 160), fuel: fuel, gear: gear, img: im ? im[1] : null });
+    items.push({ price: Math.round(price), km: km, year: year, url: s.url, title: title.slice(0, 160), fuel: fuel, gear: gear, img: im ? im[1] : null, power_kw: powerKwIn(ps.join(' ')) });
   });
   return items;
 }
@@ -620,7 +626,8 @@ function parseAs24List(html, base) {
     const mmTitle = [g('make'), g('model')].filter(Boolean).join(' ');
     const title0 = (full && full.length > mmTitle.length ? full : (mmTitle + (full ? ' ' + full : ''))).slice(0, 200);
     items.push({ price: Math.round(price), km: g('mileage') != null ? parseKm(g('mileage')) : null, year: parseYear(g('first-registration')), url: g('guid') ? base.replace(/\/lst.*$/, '') + '/offers/' + g('guid') : null,
-      title: title0, img: img, fuel: ({ b: 'petrol', d: 'diesel', e: 'electric', l: 'lpg' })[String(g('fuel-type') || '').toLowerCase()] || normFuel(g('fuel-type')) });
+      title: title0, img: img, fuel: ({ b: 'petrol', d: 'diesel', e: 'electric', l: 'lpg' })[String(g('fuel-type') || '').toLowerCase()] || normFuel(g('fuel-type')),
+      power_kw: powerKwIn((strip(body).match(/\d{2,4}\s*kW\b[^)]{0,20}\)?/i) || [''])[0]) });
   }
   if (items.length) return items;
   const nd = nextData(html);
@@ -1964,10 +1971,21 @@ const PUSH_SUB = 'https://digitalcreatorhub.github.io/carscout/';
 const PUSH_HOSTS = [/(^|\.)fcm\.googleapis\.com$/, /(^|\.)googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
 const PZ_EVERY = 15 * 60000, PZ_FRESH_DAYS = 7;
 const PZ_SRC = { LV: ['ss', null, 'ss.lv'], LT: ['autoplius', null, 'autoplius.lt'], EE: ['autoportaal', null, 'autoportaal.ee'], DE: ['as24', 'D', 'AutoScout24 DE'] };
-const PZ_BAD = /bojāt|avārij|rezerves daļ|uz daļām|на запчаст|битая|битый|после дтп|после аварии|damaged|for parts|unfall|salvage|не на ходу|nav uz ceļa/i;
+const PZ_BAD = /bojāt|bojāj|avārij|avarēj|avarēt|avarij|avarii|sasist|pēc trieciena|rezerves daļ|uz daļām|на запчаст|бит(?:ая|ый|ое|ой|ую)(?![а-яё])|после (?:дтп|аварии|удара)|был[аио]? в (?:дтп|аварии)|аварийн|поврежд|damaged|damage\b|crashed|accident|for parts|unfall|beschädigt|hagelschaden|salvage|daužt|kahjustat|не на ходу|nav uz ceļa/i;
 /* phrases that say the car is NOT damaged ("bez avārijām", "без аварий", "unfallfrei"): cut out before looking for damage words */
-const PZ_OKPH = /bez\s+(?:avārij|bojājum|bojā[jļ])\w*|nav\s+(?:bojāt|avārij|bijis\s+avārij)\w*|nebija?\s+avārij\w*|без\s+(?:дтп|аварий|аварии|повреждений|ударов)\w*|не\s+(?:битая|битый|бит)\b|unfallfrei|ohne\s+unfall\w*|(?:no|without)\s+(?:damage|accident)s?\w*|accident[\s-]?free|undamaged/gi;
+const PZ_OKPH = /bez\s+(?:avārij|bojājum|bojā[jļ])\w*|nav\s+(?:bojāt|bojāj|avārij|avarē|biju(?:si|sī|šas|sas)?\s+avārij|bijis\s+avārij)\w*|nebija?\s+avārij\w*|neavarē\w*|без\s+(?:дтп|аварий|аварии|повреждений|ударов)\w*|(?:повреждений|аварий|дтп)\s+нет|не\s+был[аио]?\s+в\s+(?:дтп|аварии|авариях)|в\s+(?:дтп|авариях?)\s+не\s+был\w*|не\s*(?:битая|битый|битое|бит)(?![а-яё])|unfallfrei|ohne\s+unfall\w*|unbeschädigt|(?:no|without)\s+(?:damage|accident)s?\w*|accident[\s-]?free|undamaged|be\s+avarij\w*|nedaužt\w*|avariivaba|avariideta/gi;
 const pzIsBad = function (t) { return PZ_BAD.test(String(t || '').replace(PZ_OKPH, ' ')); };
+/* the list shows only the start of an ad, and sellers often write about the accident further down: a new match is opened and its
+   whole text is read (and the site's own accident fields: AutoScout24 "had an accident" / "repaired damage"). true = damaged,
+   false = clean, null = could not read the page (the ad stays) */
+async function pzAdBad(url) {
+  try {
+    if (!url || !allowed(url) || bookmarkOnly(url)) return null;
+    const pg = await getPage(url, 600); if (blockedBy(pg) || pg.status !== 200) return null;
+    const rd = readAdHtml(pg.text, pg.url, new URL(url).hostname, url), L = rd.res && rd.res.listing; if (!L) return null;
+    return L.accident === true || L.repaired_damage === true || pzIsBad([rd.res.title, L.model_raw, L.description].join(' '));
+  } catch (e) { return null; }
+}
 const PZT = {
   ru: { one: 'Новая машина по вашей заявке', many: function (n) { return n + ' новых машины по вашей заявке'; }, from: 'от', cheaper: function (d) { return 'на ' + d + '% дешевле рынка'; }, km: 'км' },
   lv: { one: 'Jauns auto pēc jūsu pieprasījuma', many: function (n) { return n + ' jauni auto pēc jūsu pieprasījuma'; }, from: 'no', cheaper: function (d) { return 'par ' + d + '% lētāk nekā tirgū'; }, km: 'km' },
@@ -2018,11 +2036,14 @@ function pzClean(p) {
   /* engine size range in litres: swapped if the wrong way round, ignored for electric cars */
   const fuel = en(p.fuel, ['petrol', 'diesel', 'hybrid', 'electric']), ne = function (x) { x = parseFloat(x); return x >= 0.5 && x <= 10 ? Math.round(x * 10) / 10 : null; };
   let ef = ne(p.engf), et = ne(p.engt); if (ef && et && ef > et) { const sw = ef; ef = et; et = sw; } if (fuel === 'electric') { ef = null; et = null; }
+  /* engine power range in horse power, swapped if the wrong way round */
+  const nh = function (x) { x = parseInt(x, 10); return x >= 30 && x <= 1500 ? x : null; };
+  let hf = nh(p.hpf), ht = nh(p.hpt); if (hf && ht && hf > ht) { const sw = hf; hf = ht; ht = sw; }
   /* the app sends the model lines to fetch in fam (searches saved earlier only have models) and, per line, the exact models to keep in vs */
   const fam = Array.isArray(p.fam) && p.fam.length ? p.fam : p.models, vs = {};
   if (p.vs && typeof p.vs === 'object') Object.keys(p.vs).slice(0, 4).forEach(function (k) { const a = Array.isArray(p.vs[k]) ? p.vs[k].map(function (x) { return s(x, 24); }).filter(Boolean).slice(0, 12) : []; if (a.length) vs[s(k)] = a; });
   return { make: s(p.make), models: (Array.isArray(fam) ? fam : []).map(function (x) { return s(x); }).filter(Boolean).slice(0, 3), vs: vs, yf: n(p.yf), yt: n(p.yt), kmax: n(p.kmax), pmax: n(p.pmax),
-    fuel: fuel, engf: ef, engt: et, gear: en(p.gear, ['automatic', 'manual']), drive: en(p.drive, ['awd', 'fwd', 'rwd']), body: en(p.body, ['wagon', 'sedan', 'hatch', 'suv', 'van', 'coupe']), mk: mk, cheap: !!p.cheap, nobad: p.nobad !== false };
+    fuel: fuel, engf: ef, engt: et, hpf: hf, hpt: ht, gear: en(p.gear, ['automatic', 'manual']), drive: en(p.drive, ['awd', 'fwd', 'rwd']), body: en(p.body, ['wagon', 'sedan', 'hatch', 'suv', 'van', 'coupe']), mk: mk, cheap: !!p.cheap, nobad: p.nobad !== false };
 }
 function pzBody(t) {
   t = String(t || '').toLowerCase();
@@ -2036,6 +2057,8 @@ function pzBody(t) {
 }
 function pzDrive(i) { if (i.drive) return i.drive; const t = String((i.title || '') + ' ' + (i.model_raw || '')); return /quattro|xdrive|4motion|4matic|\bawd\b|4x4|4wd|all.?wheel|allrad|\bq4\b|e-four|pilnpiedz|полный привод/i.test(t) ? 'awd' : null; }
 /* engine size of an ad: the listing field, else a "2.0 TDI"-style number in the title (same reading as the app) */
+/* engine power of an ad in horse power: the listing field (kW), else what the title says */
+function pzHp(i) { const k = i.power_kw > 20 && i.power_kw < 1000 ? +i.power_kw : powerKwIn(i.title); return k ? Math.round(k * 1.35962) : null; }
 function pzEng(i) { if (i.engine_l > 0.5 && i.engine_l < 10) return +i.engine_l; const m = String(i.title || '').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m ? parseFloat(m[1].replace(',', '.')) : null; }
 /* "E 300" matches "E300", "E-300", "E 300 d 4MATIC" but not "GLE 300" or "E 3000" (same reading as the app) */
 function pzVarOk(text, vs) {
@@ -2057,6 +2080,7 @@ function pzMatches(items, p, model) {
     if (p.drive) { const dv = pzDrive(i); if (dv && (p.drive === 'awd' ? dv !== 'awd' : dv === 'awd')) return; }
     if (p.body) { const b = pzBody(t); if (b && b !== p.body) return; }
     if (p.engf || p.engt) { const e = pzEng(i); if (e != null && ((p.engf && e < p.engf - 0.05) || (p.engt && e > p.engt + 0.05))) return; }
+    if (p.hpf || p.hpt) { const h = pzHp(i); if (h != null && ((p.hpf && h < p.hpf - 3) || (p.hpt && h > p.hpt + 3))) return; }
     const near = all.filter(function (x) { return x.year && i.year && Math.abs(x.year - i.year) <= 1; }).map(function (x) { return x.price; });
     const est = near.length >= 4 ? med(near) : med(all.map(function (x) { return x.price; })), d = est ? Math.round((i.price / est - 1) * 100) : 0;
     if (p.cheap && !(d <= -5)) return;
@@ -2125,14 +2149,16 @@ async function pushTick(env, ctx) {
   if (!j.ok) return { ok: true, part: r.part, error: j.error || 'failed' };
   const match = pzMatches(j.items || [], p, model), idOf = function (i) { return adKey(i.url) || String(i.url).slice(0, 200); };
   let seen = []; try { seen = JSON.parse(r.seen || '[]'); } catch (e) { }
-  const was = new Set(seen), fresh = r.base ? match.filter(function (i) { return !was.has(idOf(i)); }) : [];
+  const was = new Set(seen); let fresh = r.base ? match.filter(function (i) { return !was.has(idOf(i)); }) : [], nBad = 0;
+  /* "no damaged cars": the new ones are checked on their own page before anyone is told about them (they stay in seen, so they are opened once) */
+  if (p.nobad && fresh.length) { const bad = await Promise.all(fresh.slice(0, 10).map(function (i) { return pzAdBad(i.url); })); fresh = fresh.filter(function (i, k) { if (bad[k] === true) { nBad++; return false; } return true; }); }
   const ids = match.map(idOf); seen = ids.concat(seen.filter(function (x) { return ids.indexOf(x) < 0; })).slice(0, 1500);
   let fr = []; try { fr = JSON.parse(r.fresh || '[]'); } catch (e) { }
   const lim = now - PZ_FRESH_DAYS * 86400000;
   fr = fresh.slice(0, 10).map(function (i) { return { id: idOf(i), url: String(i.url).slice(0, 400), title: String(i.title || '').slice(0, 80), price: Math.round(i.price), year: i.year || null, km: i.km != null ? Math.round(i.km) : null, img: i.img ? String(i.img).slice(0, 400) : null, src: src[2], d: i.d, t: now }; })
     .concat(fr.filter(function (i) { return i.t > lim; })).slice(0, 15);
-  await env.DB.prepare('UPDATE pfind SET seen = ?4, base = 1, nowc = ?5, fresh = ?6 WHERE code = ?1 AND fid = ?2 AND part = ?3').bind(r.code, r.fid, r.part, JSON.stringify(seen), match.length, JSON.stringify(fr)).run();
-  if (!fresh.length) return { ok: true, part: r.part, base: !r.base, n: match.length, fresh: 0 };
+  await env.DB.prepare('UPDATE pfind SET seen = ?4, base = 1, nowc = ?5, fresh = ?6 WHERE code = ?1 AND fid = ?2 AND part = ?3').bind(r.code, r.fid, r.part, JSON.stringify(seen), match.length - nBad, JSON.stringify(fr)).run();
+  if (!fresh.length) return { ok: true, part: r.part, base: !r.base, n: match.length, fresh: 0, bad: nBad };
   const T = PZT[r.lang] || PZT.en, best = fresh.slice().sort(function (a, b) { return a.d - b.d; })[0];
   const line = function (i) { return [Math.round(i.price).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €', i.year, i.km != null ? Math.round(i.km).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ' + T.km : null, src[2]].filter(Boolean).join(' · ') + (i.d <= -3 ? ' · ' + T.cheaper(-i.d) : ''); };
   const msg = fresh.length === 1 ? { title: T.one, body: String(best.title || p.make + ' ' + model).slice(0, 70) + '\n' + line(best), url: String(best.url).slice(0, 400), img: best.img || null, tag: 'cs-' + r.fid }
