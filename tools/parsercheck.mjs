@@ -643,4 +643,22 @@ const as24Page = (v = {}) => '<html><script id="__NEXT_DATA__" type="application
   check(JSON.stringify(bad) === '[true,false,null]', 'agent "no damaged cars": the whole ad text is read (accident mentioned further down -> damaged; "без ДТП" -> clean; a page that cannot be read -> unknown, the ad stays)', bad);
 }
 
+/* "Find me a car": a trim (R-Line) */
+{
+  const hit = (t, tr) => { ctx.__t = t; ctx.__tr = tr; return P('pzTrimHit(__t, __tr)'); };
+  const cases = [['VW Tiguan R-Line 2.0 TDI', ['R-Line'], true], ['Tiguan Rline DSG', ['R-Line'], true], ['Tiguan R line', ['R-Line'], true], ['Tiguan R-Līnija', ['R-Line'], true], ['Тигуан Р-лайн', ['R-Line'], true],
+    ['Tiguan Highline 2.0', ['R-Line'], false], ['Tiguan 2.0 TDI', ['R-Line'], false], ['Tiguan Highline', ['R-Line', 'Highline'], true], ['Tiguan Comfortline', ['Highline'], false], ['Passat GTE', [], true], ['Superb L&K', ['L&K'], true]];
+  const bad = cases.filter(([t, tr, w]) => hit(t, tr) !== w);
+  check(!bad.length, `agent trim words (pzTrimHit): ${cases.length} cases (R-Line, Rline, R line, R-Līnija, Р-лайн; Highline is not R-Line)`, bad);
+  ctx.__its = [{ url: 't1', price: 25000, year: 2020, title: 'Tiguan R-Line 2.0 TDI' }, { url: 't2', price: 24000, year: 2020, title: 'Tiguan 2.0 TDI 4Motion' }];
+  ctx.__p = W('JSON.stringify(pzClean({ make: "Volkswagen", models: ["Tiguan"], trims: ["R-Line"], mk: { LV: 1 } }))');
+  const m = P('pzMatches(__its, JSON.parse(__p), "Tiguan").map(function (i) { return i.url + ":" + i.trimOk; })');
+  check(JSON.stringify(m) === '["t1:true","t2:false"]', 'agent on the phone, trim R-Line: an ad that names it in the list is a match; one that does not is kept aside to be opened', m);
+  const U3 = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/rli333.html', U4 = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/tiguan/hil444.html';
+  pages[U3] = { status: 200, body: ssAd({ desc: 'Продаю Tiguan 2.0 TDI 4Motion. Комплектация R-Line, панорама, кожа. Без ДТП.' }) };
+  pages[U4] = { status: 200, body: ssAd({ desc: 'Продаю Tiguan 2.0 TDI 4Motion. Комплектация Highline. Без ДТП.' }) };
+  const rr = JSON.parse(await W(`Promise.all([pzAdRead(${JSON.stringify(U3)}, ['R-Line']), pzAdRead(${JSON.stringify(U4)}, ['R-Line'])]).then(JSON.stringify)`));
+  check(rr[0] && rr[0].trim === true && rr[0].bad === false && rr[1] && rr[1].trim === false, 'agent on the phone, trim R-Line: the whole ad text is read (R-Line further down -> yes; Highline -> no)', rr);
+}
+
 finish();

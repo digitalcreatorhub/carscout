@@ -1978,12 +1978,14 @@ const pzIsBad = function (t) { return PZ_BAD.test(String(t || '').replace(PZ_OKP
 /* the list shows only the start of an ad, and sellers often write about the accident further down: a new match is opened and its
    whole text is read (and the site's own accident fields: AutoScout24 "had an accident" / "repaired damage"). true = damaged,
    false = clean, null = could not read the page (the ad stays) */
-async function pzAdBad(url) {
+async function pzAdBad(url) { const r = await pzAdRead(url, []); return r ? r.bad : null; }
+async function pzAdRead(url, trims) {
   try {
     if (!url || !allowed(url) || bookmarkOnly(url)) return null;
     const pg = await getPage(url, 600); if (blockedBy(pg) || pg.status !== 200) return null;
     const rd = readAdHtml(pg.text, pg.url, new URL(url).hostname, url), L = rd.res && rd.res.listing; if (!L) return null;
-    return L.accident === true || L.repaired_damage === true || pzIsBad([rd.res.title, L.model_raw, L.description].join(' '));
+    const t = [rd.res.title, L.model_raw, L.description].join(' ');
+    return { bad: L.accident === true || L.repaired_damage === true || pzIsBad(t), trim: pzTrimHit(t, trims) };
   } catch (e) { return null; }
 }
 const PZT = {
@@ -2042,8 +2044,9 @@ function pzClean(p) {
   /* the app sends the model lines to fetch in fam (searches saved earlier only have models) and, per line, the exact models to keep in vs */
   const fam = Array.isArray(p.fam) && p.fam.length ? p.fam : p.models, vs = {};
   if (p.vs && typeof p.vs === 'object') Object.keys(p.vs).slice(0, 4).forEach(function (k) { const a = Array.isArray(p.vs[k]) ? p.vs[k].map(function (x) { return s(x, 24); }).filter(Boolean).slice(0, 12) : []; if (a.length) vs[s(k)] = a; });
+  const trims = (Array.isArray(p.trims) ? p.trims : []).map(function (x) { return s(x, 24); }).filter(Boolean).slice(0, 4);
   return { make: s(p.make), models: (Array.isArray(fam) ? fam : []).map(function (x) { return s(x); }).filter(Boolean).slice(0, 3), vs: vs, yf: n(p.yf), yt: n(p.yt), kmax: n(p.kmax), pmax: n(p.pmax),
-    fuel: fuel, engf: ef, engt: et, hpf: hf, hpt: ht, gear: en(p.gear, ['automatic', 'manual']), drive: en(p.drive, ['awd', 'fwd', 'rwd']), body: en(p.body, ['wagon', 'sedan', 'hatch', 'suv', 'van', 'coupe']), mk: mk, cheap: !!p.cheap, nobad: p.nobad !== false };
+    fuel: fuel, engf: ef, engt: et, hpf: hf, hpt: ht, trims: trims, gear: en(p.gear, ['automatic', 'manual']), drive: en(p.drive, ['awd', 'fwd', 'rwd']), body: en(p.body, ['wagon', 'sedan', 'hatch', 'suv', 'van', 'coupe']), mk: mk, cheap: !!p.cheap, nobad: p.nobad !== false };
 }
 function pzBody(t) {
   t = String(t || '').toLowerCase();
@@ -2057,6 +2060,13 @@ function pzBody(t) {
 }
 function pzDrive(i) { if (i.drive) return i.drive; const t = String((i.title || '') + ' ' + (i.model_raw || '')); return /quattro|xdrive|4motion|4matic|\bawd\b|4x4|4wd|all.?wheel|allrad|\bq4\b|e-four|pilnpiedz|полный привод/i.test(t) ? 'awd' : null; }
 /* engine size of an ad: the listing field, else a "2.0 TDI"-style number in the title (same reading as the app) */
+/* a trim asked for ("R-Line"): R-Line also as "R Line", "Rline", "R-Līnija", "Р-лайн"; any other as typed, spaces and dashes optional */
+function pzTrimRe(n) {
+  n = String(n || '').trim(); if (!n) return null;
+  if (/^r[\s\-]?line$/i.test(n)) return /(?:^|[^a-z0-9])r[\s\-]?l[iī]n(?:e|ija|ijas)?(?![a-z0-9])|(?:^|[^а-яё])р[\s\-]?(?:лайн|лин)(?![а-яё])/i;
+  return new RegExp('(?:^|[^a-z0-9а-яё])' + n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[\s\-]+/g, '[\\s\\-]?') + '(?![a-z0-9а-яё])', 'i');
+}
+function pzTrimHit(t, trims) { if (!trims || !trims.length) return true; return trims.some(function (n) { const re = pzTrimRe(n); return re && re.test(String(t || '')); }); }
 /* engine power of an ad in horse power: the listing field (kW), else what the title says */
 function pzHp(i) { const k = i.power_kw > 20 && i.power_kw < 1000 ? +i.power_kw : powerKwIn(i.title); return k ? Math.round(k * 1.35962) : null; }
 function pzEng(i) { if (i.engine_l > 0.5 && i.engine_l < 10) return +i.engine_l; const m = String(i.title || '').match(/(?:^|[^\d.,])([0-7][.,]\d)(?:\s*(?:l\b|л|tsi|tfsi|tdi|tdci|cdi|crdi|d-4d|dci|hdi|ecoboost|puretech|i\b|d\b)|\s|$)/i); return m ? parseFloat(m[1].replace(',', '.')) : null; }
@@ -2084,7 +2094,7 @@ function pzMatches(items, p, model) {
     const near = all.filter(function (x) { return x.year && i.year && Math.abs(x.year - i.year) <= 1; }).map(function (x) { return x.price; });
     const est = near.length >= 4 ? med(near) : med(all.map(function (x) { return x.price; })), d = est ? Math.round((i.price / est - 1) * 100) : 0;
     if (p.cheap && !(d <= -5)) return;
-    out.push(Object.assign({}, i, { d: d }));
+    out.push(Object.assign({}, i, { d: d, trimOk: pzTrimHit(t, p.trims) }));
   });
   return out;
 }
@@ -2151,14 +2161,18 @@ async function pushTick(env, ctx) {
   let seen = []; try { seen = JSON.parse(r.seen || '[]'); } catch (e) { }
   const was = new Set(seen); let fresh = r.base ? match.filter(function (i) { return !was.has(idOf(i)); }) : [], nBad = 0;
   /* "no damaged cars": the new ones are checked on their own page before anyone is told about them (they stay in seen, so they are opened once) */
-  if (p.nobad && fresh.length) { const bad = await Promise.all(fresh.slice(0, 10).map(function (i) { return pzAdBad(i.url); })); fresh = fresh.filter(function (i, k) { if (bad[k] === true) { nBad++; return false; } return true; }); }
+  /* a trim: a new match whose list text does not name it is opened, and kept only when its whole text does */
+  const need = fresh.filter(function (i) { return p.nobad || !i.trimOk; }).slice(0, 10), got = await Promise.all(need.map(function (i) { return pzAdRead(i.url, p.trims); })), rd = new Map();
+  need.forEach(function (i, k) { rd.set(i, got[k]); });
+  let nTrim = 0, nByPage = 0;
+  fresh = fresh.filter(function (i) { const x = rd.get(i); if (p.nobad && x && x.bad) { nBad++; return false; } if (!i.trimOk) { if (x && x.trim) { nByPage++; return true; } nTrim++; return false; } return true; });
   const ids = match.map(idOf); seen = ids.concat(seen.filter(function (x) { return ids.indexOf(x) < 0; })).slice(0, 1500);
   let fr = []; try { fr = JSON.parse(r.fresh || '[]'); } catch (e) { }
   const lim = now - PZ_FRESH_DAYS * 86400000;
   fr = fresh.slice(0, 10).map(function (i) { return { id: idOf(i), url: String(i.url).slice(0, 400), title: String(i.title || '').slice(0, 80), price: Math.round(i.price), year: i.year || null, km: i.km != null ? Math.round(i.km) : null, img: i.img ? String(i.img).slice(0, 400) : null, src: src[2], d: i.d, t: now }; })
     .concat(fr.filter(function (i) { return i.t > lim; })).slice(0, 15);
-  await env.DB.prepare('UPDATE pfind SET seen = ?4, base = 1, nowc = ?5, fresh = ?6 WHERE code = ?1 AND fid = ?2 AND part = ?3').bind(r.code, r.fid, r.part, JSON.stringify(seen), match.length - nBad, JSON.stringify(fr)).run();
-  if (!fresh.length) return { ok: true, part: r.part, base: !r.base, n: match.length, fresh: 0, bad: nBad };
+  await env.DB.prepare('UPDATE pfind SET seen = ?4, base = 1, nowc = ?5, fresh = ?6 WHERE code = ?1 AND fid = ?2 AND part = ?3').bind(r.code, r.fid, r.part, JSON.stringify(seen), Math.max(0, match.filter(function (i) { return i.trimOk; }).length + nByPage - nBad), JSON.stringify(fr)).run();
+  if (!fresh.length) return { ok: true, part: r.part, base: !r.base, n: match.length, fresh: 0, bad: nBad, trim: nTrim };
   const T = PZT[r.lang] || PZT.en, best = fresh.slice().sort(function (a, b) { return a.d - b.d; })[0];
   const line = function (i) { return [Math.round(i.price).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €', i.year, i.km != null ? Math.round(i.km).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ' + T.km : null, src[2]].filter(Boolean).join(' · ') + (i.d <= -3 ? ' · ' + T.cheaper(-i.d) : ''); };
   const msg = fresh.length === 1 ? { title: T.one, body: String(best.title || p.make + ' ' + model).slice(0, 70) + '\n' + line(best), url: String(best.url).slice(0, 400), img: best.img || null, tag: 'cs-' + r.fid }
