@@ -1053,6 +1053,8 @@ function filterOthers(items, make, model) {
   return items.filter(function (i) { return (md && has(i.title, md)) || has(i.title, mk) || (mk === 'gwm' && (has(i.title, 'great wall') || has(i.title, 'ora'))); });
 }
 const SS_ALIAS = {"audi": {"a6-allroad": "allroad"}, "bmw": {"i": "i-series", "x": "x-series"}, "chevrolet": {"suburban": "saburban"}, "chrysler": {"lebaron": "le-baron"}, "citroen": {"c4-picasso": "c4picasso", "xsara-picasso": "xsarapicasso"}, "fiat": {"grande-punto": "grandepunto"}, "ford": {"c-max": "focusc-max"}, "lexus": {"ls": "lls"}, "mercedes-benz": {"cl": "cl-class", "cla": "cla-class", "clk": "clk-class", "cls": "cls-class", "gl": "gl-clase", "gla": "gla-class", "glb": "glb-class", "glc": "glc-class", "gle": "gle-class", "glk": "glk-clase", "gls": "gls-class", "ml": "ml-class", "sl": "sl-class", "slk": "slk-class"}, "mini": {"cooper-s": "coopers"}, "mitsubishi": {"l200": "l-200", "lancer-evolution": "evolution", "pajero-pinin": "pajeropinin"}, "nissan": {"almera-tino": "almeratino", "king-cab": "kingcab", "terrano": "terrano-ii"}, "opel": {"kadett": "kadet"}, "renault": {"grand-scenic": "grandscenic"}, "skoda": {"enyaq": "enyaq-iv"}, "subaru": {"tribeca": "b9tridelle"}, "toyota": {"rav4": "rav-4"}, "volkswagen": {"beetle": "new-beetle"}, "volvo": {"xc40": "xc-40"}};
+/* models that have no category of their own on ss.com: [the category they are listed in, what the ad text says] */
+const SS_WITHIN = { volkswagen: { 'tiguan-allspace': ['tiguan', /all[\s\-]?space|ол+[\s\-]?спейс/i], 'tiguan-all-space': ['tiguan', /all[\s\-]?space|ол+[\s\-]?спейс/i] } };
 const SS_GEN = {
   golf: { 'golf-4': [1997, 2004], 'golf-5': [2003, 2009], 'golf-6': [2008, 2013], 'golf-7': [2012, 2020], 'golf-8': [2019, 2030], 'golf-variant': [1993, 2030] },
   passat: { 'passat-b5': [1996, 2005], 'passat-b6': [2005, 2011], 'passat-b7': [2010, 2015], 'passat-b8': [2014, 2030], 'passat-variant': [1988, 2030] }
@@ -1123,11 +1125,14 @@ async function hComps(env, q, ctx) {
   if (source === 'ss') {
     let path = q.get('ssPath');
     let others = !!path && /^\/[a-z]{2}\/transport\/cars\/others\/$/i.test(path);
+    let within = null;
     if (!others && (!path || !/^\/[a-z]{2}\/transport\/cars\/[a-z0-9\-]+\/[a-z0-9\-]+\/$/i.test(path))) {
       const mk0 = slugify(make); let mk = mk0; if (mk === 'mercedes-benz') mk = 'mercedes'; if (mk === 'vw') mk = 'volkswagen';
       let md = slugify(model);
       /* names from the app's make/model picker that ss.com spells differently */
       const al = SS_ALIAS[mk0 === 'vw' ? 'volkswagen' : mk0]; if (al && al[md]) md = al[md];
+      /* a model ss.com keeps inside another category (no Tiguan Allspace of its own): read that category, keep the ads that name the model */
+      const wi = (SS_WITHIN[mk] || {})[md]; if (wi) { md = wi[0]; within = wi[1]; }
       if (mk === 'bmw' && /^i(\d|x)/.test(md)) md = 'i-series';
       if (mk === 'mazda' && /^\d$/.test(md)) md = 'mazda' + md;
       if (/^bmw$/.test(mk) && /^\d{3}[a-z]*$/.test(md)) md = md.slice(0, 3);
@@ -1142,7 +1147,7 @@ async function hComps(env, q, ctx) {
     /* the finder asks for the years it wants (yfilter=1): then only those years are read; otherwise, or if that fails, the first pages of the category */
     let yearsOnly = null; const yInfo = {};
     if (!others && q.get('yfilter') === '1' && yf && yt && yf <= yt && yf >= 1950 && yt <= 2035) yearsOnly = await fetchSsYears(base, yf, yt, 8, yInfo);
-    let pages = yearsOnly || await fetchSs(base, others ? 8 : 5);
+    let pages = yearsOnly || await fetchSs(base, others || within ? 8 : 5);
     /* ss.lv splits some models into generations (golf-7, passat-b8 ...): pick the ones for this year */
     if (!others && (pages[0].status === 404 || !/id="tr_\d/.test(pages[0].text))) {
       const mkPath = path.replace(/[^/]+\/$/, ''), mdSlug = path.split('/').filter(Boolean).pop();
@@ -1170,6 +1175,7 @@ async function hComps(env, q, ctx) {
     pages.forEach(function (p) { if (p.status === 200) items = items.concat(parseSsList(p.text, p.url)); });
     items = dedupe(items);
     if (others) items = filterOthers(items, make, model);
+    if (within) { items = items.filter(function (i) { return within.test(String(i.title || '')); }); if (!items.length) return json(env, { ok: false, source: 'ss', error: 'not_found', message: 'No ads naming this model in the ss.com category.', searchUrl: base }); }
     later(ctx, memSave(env, memRowsFromItems(items, make, model, 'ss')));
     return json(env, { ok: items.length > 0, source: 'ss', region: 'LV', label: 'ss.com', searchUrl: base, items: items, yearsOnly: !!yearsOnly, yearsWhy: yearsOnly ? undefined : (yInfo.why || undefined), pages: pages.filter(function (p) { return p.status === 200; }).length, error: items.length ? null : 'parse_failed', message: items.length ? null : 'Page loaded but no ads were recognised.' });
   }
