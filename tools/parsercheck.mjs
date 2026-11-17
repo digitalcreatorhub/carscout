@@ -208,6 +208,21 @@ const SSA = 'https://www.ss.com/msg/ru/transport/cars/volkswagen/golf-7/aaaaaa.h
   const bad = [];
   for (const [qs, want] of cases) { fill(want); const x = await ask('source=ss&year=2016&' + qs); if (x.urls[0] !== want) bad.push({ qs, want, got: x.urls[0] }); }
   check(!bad.length, `similar cars (ss.com): model names the way ss.com spells them (${cases.length} cases: rav-4, 520, e220, mazda6, xc-40 ...)`, bad);
+  /* Tiguan Allspace has no category of its own on ss.com: the Tiguan category is read (8 pages) and only the ads that name Allspace are kept */
+  {
+    const tg = 'https://www.ss.com/ru/transport/cars/volkswagen/tiguan/';
+    const T = ['Tiguan Allspace 2.0 TDI 4Motion, 7 мест', 'VW Tiguan 2.0 TDI Highline', 'Tiguan ALL SPACE R-Line DSG', 'Tiguan 1.4 TSI', 'Tiguan AllSpace Comfortline', 'Тигуан Оллспейс 7 vietas', 'Tiguan R-Line, all season tyres'];
+    pages[tg] = { status: 200, body: `<html><table>${T.map((t, i) => ssRow(57000001 + i, { slug: 'tg' + i, title: t, model: 'Tiguan', year: 2019, eng: '2.0D', km: '120 тыс.', price: (24000 + i * 300) + '  €' })).join('\n')}</table></html>` };
+    for (let k = 2; k <= 8; k++) pages[tg + 'page' + k + '.html'] = { status: 404, body: '' };
+    r = await ask('source=ss&make=Volkswagen&model=Tiguan%20Allspace&year=2019');
+    const ts = (r.j.items || []).map(i => i.title);
+    check(r.j.ok === true && r.urls[0] === tg && r.urls.includes(tg + 'page8.html') && ts.length === 4 && ts.every(t => /all\s?space|оллспейс/i.test(t)), 'similar cars (ss.com): Tiguan Allspace -> the Tiguan category (8 pages), only the ads that name Allspace (Allspace, ALL SPACE, AllSpace, Оллспейс; not "all season")', { first: r.urls[0], n: r.urls.length, ts });
+    r = await ask('source=ss&make=Volkswagen&model=Tiguan&year=2019');
+    check(r.j.ok === true && (r.j.items || []).length === 7, 'similar cars (ss.com): plain Tiguan keeps every ad of the category, Allspace included', (r.j.items || []).length);
+    pages[tg] = { status: 200, body: `<html><table>${ssRow(57000100, { slug: 'tgx', title: 'Tiguan 1.4 TSI', model: 'Tiguan', year: 2019, eng: '1.4', km: '90 тыс.', price: '19000  €' })}</table></html>` };
+    r = await ask('source=ss&make=Volkswagen&model=Tiguan%20Allspace&year=2019');
+    check(r.j.ok === false && r.j.error === 'not_found', 'similar cars (ss.com): no Allspace ad in the Tiguan category -> not_found, not the plain Tiguans', r.j);
+  }
   r = await ask('source=ss&model=Golf');
   check(r.j.ok === false && r.j.error === 'need_model' && !r.urls.length, 'similar cars: no make is refused and nothing is fetched', r.j);
   r = await ask('source=nosuch&make=Audi&model=A6');
